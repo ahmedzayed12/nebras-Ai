@@ -1,0 +1,80 @@
+# Nebras Ai detector
+
+واجهة Streamlit عربية لفحص احتمال أن يكون نصٌّ ما مكتوبًا بالذكاء الاصطناعي، مع خريطة فقرات وتقرير PDF.
+A Streamlit (Arabic/RTL) front-end for the AI Text Inspector v2.1 engine, with paragraph map and PDF report.
+
+> المؤشر تقدير احتمالي مبني على قرائن أسلوبية، وليس إثباتًا لمن كتب النص. لا تعتمد عليه وحده في اتهام أحد أو في قرار عالي الأثر.
+
+## المزايا
+
+- إدخال نص مباشر، أو ملف واحد (`DOCX / TXT / MD`)، أو دفعة ملفات / ZIP مع تصدير CSV.
+- لوحة نتيجة ومؤشر دائري وخريطة فقرات.
+- تقرير PDF بتظليل الجمل على شكل ملف Word الأصلي (يحتاج LibreOffice، وهو مُعدّ تلقائيًا على Streamlit Cloud عبر `packages.txt`).
+
+## هيكل المشروع
+
+| الملف | الوظيفة |
+|---|---|
+| `streamlit_app.py` | الواجهة (نقطة التشغيل) |
+| `backend_adapter.py` | وسيط نقل فقط؛ لا يحسب أي درجة، ويتحقق من بصمة SHA-256 للمحرك |
+| `AI_Text_Inspector.pyw` | محرك التحليل الأصلي v2.1 **دون أي تعديل** |
+| `nebras_report.py` | بناء تقرير PDF (تظليل DOCX + غلاف + ترويسة) |
+| `ui.css` + `static/fonts/` | التصميم والخطوط (تراخيص الخطوط داخل المجلد) |
+| `requirements.txt` | حزم Python |
+| `packages.txt` | حزم النظام لـ Streamlit Cloud (LibreOffice + خطوط تدعم العربية) |
+| `.streamlit/config.toml` | الثيم وإعدادات الخادم |
+| `tests/` | 52 اختبارًا (تطابق النتائج مع قيم مرجعية، قراءة الترميزات، إنتاج PDF) |
+
+> **مهم:** لا تعدّل `AI_Text_Inspector.pyw`. أي تغيير في بايت واحد يغيّر البصمة، فيتوقف التطبيق عمدًا لحماية تطابق النتائج
+> (البصمة: `3692e8f4f4485460e1eb3f448a9f09f58c50685ceeb8ce49bb8921fad24a57f8`).
+
+## التشغيل محليًا
+
+```bash
+python -m venv .venv
+# Windows:  .venv\Scripts\activate      Linux/macOS:  source .venv/bin/activate
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
+
+لإنتاج PDF محليًا ثبّت LibreOffice (أو Microsoft Word على Windows). الاختبارات:
+
+```bash
+pip install pytest
+python -m pytest tests -q
+```
+
+## الرفع على GitHub
+
+```bash
+git init
+git add .
+git commit -m "Nebras Ai detector"
+git branch -M main
+git remote add origin https://github.com/<USERNAME>/<REPO>.git
+git push -u origin main
+```
+
+## النشر على Streamlit Community Cloud
+
+1. ادخل إلى [share.streamlit.io](https://share.streamlit.io) بحساب GitHub، واضغط **Create app**.
+2. اختر المستودع والفرع `main`، وفي **Main file path** اكتب `streamlit_app.py`.
+3. من **Advanced settings** اختر **Python 3.12**.
+4. اضغط **Deploy**. أول نشر يستغرق عدة دقائق لأن `packages.txt` يثبّت LibreOffice.
+
+### ملاحظات
+
+- **الخصوصية:** المستندات المرفوعة تُعالج على خوادم Streamlit. لا ترفع ملفات حساسة. إن لزم، اجعل المستودع والتطبيق خاصين.
+- **الموارد:** الخطة المجانية ذات ذاكرة محدودة؛ الملفات الكبيرة والدفعات الضخمة مع تحويل PDF قد تبطئ التطبيق أو تُعيد تشغيله.
+- **السكون:** التطبيق ينام عند عدم الاستخدام لفترة، ويستيقظ بزر واحد.
+- **PDF للنص الملصق وملفات TXT:** يُبنى مستند Word بسيط داخليًا ثم يُحوَّل، فيكون شكل الصفحات موحدًا وليس نسخة من ملف أصلي.
+- عند تغيّر خطوط الخادم عن جهازك قد تختلف ترقيم صفحات PDF قليلًا عن عرض Word.
+
+## التوثيق الإضافي
+
+- `docs/CHANGELOG.txt` — سجل التعديلات على المؤشر وتقرير PDF.
+- `docs/ENGINE_README_AR.txt` — شرح المحرك الأصلي وحدوده.
+
+## ترخيص الخطوط
+
+IBM Plex Sans Arabic وReem Kufi تحت ترخيص SIL OFL، ونصوص الترخيص داخل `static/fonts/`. أضف ملف `LICENSE` لمشروعك بحسب اختيارك قبل النشر العام.
