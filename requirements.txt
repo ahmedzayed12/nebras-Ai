@@ -1,4 +1,0 @@
-streamlit>=1.39,<2
-pymupdf>=1.24,<2
-lxml>=5.0
-docx2pdf>=0.1.8; sys_platform == "win32"
