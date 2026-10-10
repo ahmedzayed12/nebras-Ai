@@ -1,4 +1,0 @@
-libreoffice
-libreoffice-writer
-fonts-dejavu-core
-fonts-liberation
