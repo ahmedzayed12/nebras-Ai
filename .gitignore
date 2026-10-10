@@ -1,9 +1,0 @@
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.venv/
-venv/
-.streamlit/secrets.toml
-error.log
-.DS_Store
-Thumbs.db
