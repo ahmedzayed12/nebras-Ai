@@ -204,3 +204,36 @@ table.t td.wrap{min-width:220px}
 }
 
 .dial-panel{max-width:560px}
+
+/* ================= readability fix (forced, theme-independent) =================
+   Some browsers / Streamlit's own Light theme / "force dark" modes recolour inputs and labels.
+   These rules pin high-contrast colours so the controls stay readable in every case. */
+:root,html,body,.stApp{color-scheme:dark}
+
+/* input-mode tabs: unselected options must be clearly visible */
+[data-testid="stRadioGroup"]{background:rgba(255,255,255,.09) !important;border-color:rgba(255,255,255,.28) !important}
+[data-testid="stRadioOption"] p,[data-testid="stRadioOption"] label,[data-testid="stRadioOption"] span{
+  color:#E3E9F8 !important;font-weight:600 !important}
+[data-testid="stRadioOption"]:hover p{color:#FFFFFF !important}
+[data-testid="stRadioOption"]:has(input:checked) p,
+[data-testid="stRadioOption"]:has(input:checked) span{color:#1A1303 !important;font-weight:700 !important}
+
+/* widget titles (النص / ملف Word أو نص / اختر ملفًا ...) */
+[data-testid="stWidgetLabel"],[data-testid="stWidgetLabel"] p,[data-testid="stWidgetLabel"] label,
+.stTextArea label p,.stFileUploader label p,.stSelectbox label p{color:#E3E9F8 !important;opacity:1 !important}
+
+/* text area: solid dark field, bright text, readable placeholder (wrapper + inner element) */
+[data-baseweb="textarea"],[data-baseweb="base-input"],.stTextArea [data-baseweb="textarea"] > div{
+  background:#0B1330 !important;border-color:rgba(255,255,255,.32) !important}
+.stTextArea textarea{background:#0B1330 !important;color:#F4EFE2 !important;
+  -webkit-text-fill-color:#F4EFE2 !important;caret-color:#FFC247}
+.stTextArea textarea::placeholder{color:#AEB9D8 !important;-webkit-text-fill-color:#AEB9D8 !important;opacity:1 !important}
+
+/* file uploader, selectbox, helper text, expander titles */
+[data-testid="stFileUploaderDropzone"]{background:#0B1330 !important;border-color:rgba(255,255,255,.4) !important}
+[data-testid="stFileUploaderDropzone"],[data-testid="stFileUploaderDropzone"] *{color:#E3E9F8 !important}
+[data-testid="stFileUploaderDropzone"] button{color:#F4EFE2 !important;border-color:rgba(255,255,255,.4) !important}
+[data-baseweb="select"] > div{background:#0B1330 !important;border-color:rgba(255,255,255,.32) !important}
+[data-baseweb="select"] *{color:#F4EFE2 !important}
+[data-testid="stExpander"] summary,[data-testid="stExpander"] summary *{color:#E3E9F8 !important}
+.note{color:#C3CCE6 !important}
