@@ -35,6 +35,49 @@ import backend_adapter as ba
 
 ROOT = Path(__file__).resolve().parent
 FONT_DIR = ROOT / "static" / "fonts" / "pdf"
+_FONT_FILES = ("NebrasPlex-Regular.ttf", "NebrasPlex-Bold.ttf")
+_SYSTEM_FALLBACK = (
+    ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+    ("/usr/share/fonts/dejavu/DejaVuSans.ttf", "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf"),
+    ("C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/arialbd.ttf"),
+)
+_font_dir_cache = None
+
+
+def _font_dir() -> Path:
+    """Folder holding NebrasPlex-Regular.ttf / NebrasPlex-Bold.ttf, resolved lazily.
+
+    1) the intended static/fonts/pdf;
+    2) anywhere else inside the repository (e.g. fonts uploaded to the wrong folder);
+    3) a system font (DejaVu Sans, covers Arabic + Latin) copied under the same file names,
+       so a missing/misplaced font folder never blocks report generation.
+    This only chooses the typeface of the PDF cover/details pages; no score is involved.
+    """
+    global _font_dir_cache
+    if _font_dir_cache is not None:
+        return _font_dir_cache
+    if all((FONT_DIR / n).is_file() for n in _FONT_FILES):
+        _font_dir_cache = FONT_DIR
+        return _font_dir_cache
+    try:
+        for hit in sorted(ROOT.rglob(_FONT_FILES[0])):
+            if all((hit.parent / n).is_file() for n in _FONT_FILES):
+                _font_dir_cache = hit.parent
+                return _font_dir_cache
+    except OSError:
+        pass
+    for reg, bold in _SYSTEM_FALLBACK:
+        if Path(reg).is_file() and Path(bold).is_file():
+            tmp = Path(tempfile.gettempdir()) / "nebras_fallback_fonts"
+            tmp.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(reg, tmp / _FONT_FILES[0])
+            shutil.copyfile(bold, tmp / _FONT_FILES[1])
+            _font_dir_cache = tmp
+            return _font_dir_cache
+    raise RuntimeError(
+        "ملفات خط التقرير غير موجودة: ارفع NebrasPlex-Regular.ttf و NebrasPlex-Bold.ttf "
+        "إلى المجلد static/fonts/pdf في المستودع، أو ثبّت الخط fonts-dejavu-core."
+    )
 PROGRAM_NAME = "Nebras Ai detector"
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -661,7 +704,7 @@ b{font-weight:bold;}
 
 def _box(page, rect, html_body, css=""):
     import pymupdf
-    arch = pymupdf.Archive(str(FONT_DIR))
+    arch = pymupdf.Archive(str(_font_dir()))
     return page.insert_htmlbox(rect, html_body, css=BASE_CSS + css, archive=arch)
 
 
@@ -865,8 +908,8 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
         pg.show_pdf_page(pymupdf.Rect(0, TOP_BAND, w, TOP_BAND + h), body_pdf, i)
     total = len(out)
 
-    reg = str(FONT_DIR / "NebrasPlex-Regular.ttf")
-    bold = str(FONT_DIR / "NebrasPlex-Bold.ttf")
+    reg = str(_font_dir() / "NebrasPlex-Regular.ttf")
+    bold = str(_font_dir() / "NebrasPlex-Bold.ttf")
     fR = pymupdf.Font(fontfile=reg)
     logo = _logo_pdf()
     for n in range(total):
