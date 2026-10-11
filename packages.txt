@@ -1,4 +1,0 @@
-libreoffice-writer
-fonts-liberation
-fonts-noto-core
-fonts-hosny-amiri
