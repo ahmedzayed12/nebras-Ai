@@ -1,4 +1,5 @@
 libreoffice-writer
+libreoffice-math
 fonts-liberation
 fonts-noto-core
 fonts-hosny-amiri
