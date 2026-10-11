@@ -186,8 +186,13 @@ def _paras_for(rep, filename, data, text):
 
 
 def _plan_to_original(plan: "Plan", mm) -> "Plan":
-    """Plan ranges were computed on equation-free text; move them onto the original paragraphs."""
-    if mm is None or not mm.active:
+    """Move plan ranges computed on the analysed paragraphs onto the SOURCE paragraphs.
+
+    `mm` (a math_guard.MathMap) links analysed paragraphs to the source document; its `orig_index`
+    also reflects the non-prose paragraphs docx_clean removed (front matter, table cells, code), so
+    the mapping is valid whenever any paragraph was removed - not only when equations were present.
+    """
+    if mm is None:
         return plan
     def conv(d):
         out = {}
@@ -201,6 +206,24 @@ def _plan_to_original(plan: "Plan", mm) -> "Plan":
     p2.flags, p2.soft_flags = conv(plan.flags), conv(plan.soft_flags)
     p2.per_para = {mm.orig_index[i]: v for i, v in plan.per_para.items() if i < len(mm.orig_index)}
     return p2
+
+
+def _source_shading(rep, paras, plan: "Plan", mm):
+    """Return (source_texts, shade) expressed on the paragraphs the report is actually rendered from.
+
+    The analysed paragraphs (`paras`) can be shorter than the source: math_guard drops equation
+    paragraphs and docx_clean drops the title/author block, table cells and code blocks *before* the
+    engine runs. `mm` maps analysed -> source; it must be applied whenever ANY paragraph was removed,
+    not only when equations were present. Keying this on `mm.active` (equations only) made a Word file
+    with front matter or table cells but no equations raise
+    "تعذّر مطابقة فقرات Word مع نتيجة التحليل" because the plan stayed indexed on the shortened list
+    while the report builder walked the full original Word XML.
+    """
+    removed = mm is not None and (len(mm.orig_index) != len(mm.orig_texts)
+                                  or any(pm is not None for pm in mm.pos_maps))
+    if removed:
+        return list(mm.orig_texts), _plan_to_original(plan, mm)
+    return list(rep.texts), plan
 
 
 # ---------------------------------------------------------------- what to shade
@@ -1064,8 +1087,7 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
         raise ValueError("يلزم الملف الأصلي أو النص الأصلي لإنشاء التقرير.")
     paras, kind, mm = _paras_for(rep, filename, data, text)
     plan = balance_to_engine_index(rep, paras, plan_highlights(rep, paras))
-    orig_texts = list(mm.orig_texts) if mm.active else list(rep.texts)
-    shade = _plan_to_original(plan, mm)            # ranges expressed on the ORIGINAL paragraphs
+    orig_texts, shade = _source_shading(rep, paras, plan, mm)   # ranges expressed on the SOURCE paragraphs
 
     if text is not None:
         raw = text.encode("utf-8")
