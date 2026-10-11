@@ -22,7 +22,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parent
 ENGINE_PATH = ROOT / "AI_Text_Inspector.pyw"
 ENGINE_SHA256 = "3692e8f4f4485460e1eb3f448a9f09f58c50685ceeb8ce49bb8921fad24a57f8"
-SUPPORTED = {".docx", ".txt", ".md", ".text"}
+SUPPORTED = {".docx", ".txt", ".md", ".text", ".pdf"}
 MAX_FILE_BYTES = 25 * 1024 * 1024
 MAX_BATCH_FILES = 250
 MAX_BATCH_BYTES = 120 * 1024 * 1024
@@ -68,14 +68,19 @@ def analyze_pasted(text: str):
 
 
 def analyze_uploaded_bytes(filename: str, content: bytes):
-    """Preserve bytes and file name; use original analyze_file()/DOCX parser."""
+    """Use the original engine for text and DOCX; import PDF through local text/OCR extraction."""
     name = filename_only(filename)
     if Path(name).suffix.lower() not in SUPPORTED:
-        raise ValueError("الامتدادات المدعومة هي DOCX / TXT / MD / TEXT. ملف DOC القديم غير مدعوم.")
+        raise ValueError("الامتدادات المدعومة هي PDF / DOCX / TXT / MD / TEXT. ملف DOC القديم غير مدعوم.")
     if not content:
         raise ValueError("الملف فارغ.")
     if len(content) > MAX_FILE_BYTES:
         raise ValueError("حجم الملف يتجاوز حد الرفع في الواجهة (25 MB).")
+    if Path(name).suffix.lower() == ".pdf":
+        from pdf_input import extract_pdf_text
+        # The original engine always sees plain extracted text; no new AI
+        # scoring algorithm or PDF-specific thresholds are introduced.
+        return get_engine().analyze_text(extract_pdf_text(content), source=name)
     with tempfile.TemporaryDirectory(prefix="ai_inspector_") as tmp:
         path = Path(tmp) / name
         path.write_bytes(content)
