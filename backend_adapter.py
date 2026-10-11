@@ -69,6 +69,41 @@ def filename_only(name: str) -> str:
 
 def _attach(report, mm):
     report.math = mm
+    return _enhance(report)
+
+
+def _enhance(report):
+    """Technical-paper layer (tech_signals). It can only RAISE the engine score, and only when several
+    independent stylistic habits of LLM-drafted scientific prose converge. Score, verdict, paragraph scores
+    (which drive the PDF shading) are updated together so every report shows the same percentage."""
+    try:
+        import tech_signals as ts
+    except Exception:
+        return report
+    report.score_engine = float(report.score)
+    report.tech = None
+    texts = [t for t in report.texts if t and t.strip() and not ts._REFLINE.match(t)]
+    layer = ts.analyze(texts)
+    report.tech = layer
+    fused = ts.fuse(report.score_engine, layer)
+    if fused <= report.score_engine + 0.5:
+        return report
+    eng = get_engine()
+    report.score = float(fused)
+    report.verdict, report.color = eng.make_verdict(report.score, report.words)
+    w = 0.9 * layer.confidence
+    new_ps = []
+    for i, sc, n in report.para_scores:
+        tp = ts.para_score(report.texts[i]) if 0 <= i < len(report.texts) else None
+        if tp is not None and tp > sc:
+            sc = round(sc + w * (tp - sc), 0)
+        new_ps.append((i, sc, n))
+    report.para_scores = new_ps
+    fired = [x for x in layer.signals if x.z >= 0.35 and x.key != "friction"]
+    lines = ["▲ طبقة الأوراق التقنية (مستقلة عن المحرك) رفعت المؤشر من %.0f إلى %.0f لاجتماع بصمات أسلوبية:" % (report.score_engine, report.score)]
+    for x in fired:
+        lines.append("   +%.1f  %s (%.3g %s)" % (x.weight * x.z, x.label, x.value, x.unit))
+    report.reasons = list(report.reasons) + lines
     return report
 
 
