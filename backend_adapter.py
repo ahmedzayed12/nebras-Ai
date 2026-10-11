@@ -117,15 +117,29 @@ def analyze_text_guarded(text: str, source: str = "نص ملصق"):
 
 
 def analyze_docx_guarded(path: str, content: bytes):
-    """DOCX route: engine's own parser (keeps font/format/metadata evidence), maths removed afterwards."""
+    """DOCX route: engine's own parser (keeps font/format/metadata evidence).
+
+    Before the engine sees the paragraphs, the non-prose parts of a manuscript are removed, exactly like pdf_input does
+    for PDF: equations (math_guard), then code blocks, display-equation paragraphs, the title/author/affiliation block
+    and table cells (docx_clean). Without this, Word typography of those elements was read as "human manual formatting"
+    (measured 10 % for Word vs 51 % for the PDF of the same paper). No score / weight / threshold is touched.
+    """
     import math_guard
+    import docx_clean
     eng = get_engine()
     paras, meta = eng.parse_docx(path)
     flags = math_guard.omml_flags(content, len(paras))
     clean, mm = math_guard.sanitize_docx_paras(paras, flags)
-    if not mm.active:
+    clean, st = docx_clean.clean_docx_paras(clean, mm)
+    gen = docx_clean.generator_from_description(content)
+    if gen:     # engine only inspects creator / lastModifiedBy; the generator is often declared in the description
+        meta = dict(meta)
+        meta["creator"] = "%s [%s]" % ((meta.get("creator") or "").strip(), gen)
+    if not mm.active and not st.removed and not gen:
         return _attach(eng.analyze_docx(path), mm)
-    return _attach(eng.core_analyze(clean, meta, os.path.basename(path)), mm)
+    report = _attach(eng.core_analyze(clean, meta, os.path.basename(path)), mm)
+    report.docx_clean = st
+    return report
 
 
 def analyze_pasted(text: str):
