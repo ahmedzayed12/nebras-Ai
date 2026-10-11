@@ -495,7 +495,13 @@ def apply_highlights(docx_bytes: bytes, plan: Plan, expected_texts,
                 if name == "word/document.xml":
                     paras = _iter_paragraph_elements(root)
                     texts = [_paragraph_text(p) for p in paras]
-                    if texts != list(expected_texts):
+                    exp = list(expected_texts)
+                    # build_plain_docx replaces XML-illegal control characters (e.g. form
+                    # feeds coming from PDF/OCR extraction) with a single space, one-for-one,
+                    # so character offsets stay valid. Compare with that same normalization
+                    # instead of failing on a control character that cannot live in XML.
+                    if len(texts) != len(exp) or \
+                            [_BAD_XML.sub(" ", t) for t in texts] != [_BAD_XML.sub(" ", t) for t in exp]:
                         raise ValueError("تعذّر مطابقة فقرات Word مع نتيجة التحليل؛ لم يُنشأ التقرير حفاظًا على الدقة.")
                     for i in sorted(set(plan.flags) | set(plan.soft_flags)):
                         runs = _paragraph_runs(paras[i])
