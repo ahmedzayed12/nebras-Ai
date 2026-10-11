@@ -901,6 +901,54 @@ def _details(doc, rep, plan):
     return page
 
 
+def _shade_pdf_source_page(src, dest, page_num: int, rep, plan: Plan, para_pages: tuple[int, ...]) -> None:
+    """Best-effort, non-destructive PDF highlight; keeps original pages intact.
+
+    Coordinates originate from source selectable PDF text. Raster-only pages
+    cannot support reliable text geometry, so they remain visibly unchanged.
+    """
+    import pymupdf
+    # Match the source page of each paragraph before searching for rectangles.
+    # Rather than guess page locations from text, locate matching phrases in
+    # this actual PDF page. Avoid broad matches shorter than four words.
+    hits = set()
+    drawn = 0
+    if not src.get_text("text").strip():
+        return
+    for ranges, color, opacity in (
+        (plan.soft_flags, (0.72, 0.91, 0.96), 0.40),
+        (plan.flags, (0.23, 0.79, 0.96), 0.38),
+    ):
+        for i, positions in ranges.items():
+            if i >= len(para_pages) or para_pages[i] != page_num:
+                continue
+            paragraph = rep.texts[i]
+            for a, b in positions:
+                if drawn >= 1500:
+                    return
+                words = re.findall(r"\S+", paragraph[a:b])
+                if len(words) < 4:
+                    continue
+                # Search in segments to survive the line wraps native to PDF.
+                chunks = [" ".join(words[n:n + 10]) for n in range(0, len(words), 10)]
+                for phrase in chunks:
+                    if len(phrase) < 15:
+                        continue
+                    try:
+                        rects = src.search_for(phrase)
+                    except Exception:
+                        rects = []
+                    # Avoid highlighting identical text repeatedly.
+                    for rect in rects[:10]:
+                        key = (round(rect.x0, 1), round(rect.y0, 1), round(rect.x1, 1), round(rect.y1, 1), color)
+                        if key in hits:
+                            continue
+                        hits.add(key)
+                        r = pymupdf.Rect(rect.x0, rect.y0 + TOP_BAND, rect.x1, rect.y1 + TOP_BAND)
+                        dest.draw_rect(r, color=None, fill=color, fill_opacity=opacity, overlay=True)
+                        drawn += 1
+
+
 def compute_plan(rep, *, filename=None, data=None, text=None) -> Plan:
     """Same plan the PDF uses, without any conversion; lets the UI show the identical percentage."""
     paras, _kind = _paras_for(rep, filename, data, text)
@@ -923,12 +971,23 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
         name = ba.filename_only(filename)
     sha = hashlib.sha256(raw).hexdigest()
 
-    if text is None and Path(filename).suffix.lower() == ".docx":
-        base_docx = data
+    if kind == "pdf":
+        # Keep the ORIGINAL PDF pages intact (layout, tables, shapes, images) and
+        # overlay highlights by locating the flagged phrases on the real pages,
+        # instead of regenerating a plain-text document.
+        from pdf_input import extract_pdf
+        pdf_extraction = extract_pdf(data)
+        para_pages = pdf_extraction.para_pages
+        ocr_pages = pdf_extraction.ocr_pages
+        body_pdf = pymupdf.open(stream=data, filetype="pdf")
+        removed = 0
     else:
-        base_docx = build_plain_docx([p.text for p in paras])
-    shaded_docx, removed = apply_highlights(base_docx, plan, rep.texts, color)
-    body_pdf = pymupdf.open("pdf", docx_to_pdf(shaded_docx))
+        if kind == "docx":
+            base_docx = data
+        else:
+            base_docx = build_plain_docx([p.text for p in paras])
+        shaded_docx, removed = apply_highlights(base_docx, plan, rep.texts, color)
+        body_pdf = pymupdf.open("pdf", docx_to_pdf(shaded_docx))
 
     eng = ba.get_engine()
     meta = {"name": name, "sha": sha, "src_pages": len(body_pdf),
@@ -942,6 +1001,8 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
         w, h = src.rect.width, src.rect.height
         pg = out.new_page(width=w, height=h + TOP_BAND + BOTTOM_BAND)
         pg.show_pdf_page(pymupdf.Rect(0, TOP_BAND, w, TOP_BAND + h), body_pdf, i)
+        if kind == "pdf" and i + 1 not in ocr_pages:
+            _shade_pdf_source_page(src, pg, i, rep, plan, para_pages)
     total = len(out)
 
     reg = str(_font_dir() / "NebrasPlex-Regular.ttf")
