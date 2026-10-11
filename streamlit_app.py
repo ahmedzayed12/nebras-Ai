@@ -19,7 +19,7 @@ import math
 import streamlit as st
 
 from backend_adapter import (
-    analyze_batch_inputs, analyze_pasted, analyze_uploaded_bytes, batch_csv_bytes,
+    analyze_batch_inputs, analyze_pasted, analyze_uploaded_bytes, batch_csv_bytes, normalize_upload_name,
     expand_uploaded_inputs, filename_only, get_engine,
 )
 
@@ -200,16 +200,18 @@ def shaded_plan(rep, source):
     if not source:
         return None
     cache = st.session_state.setdefault("plan_cache", {})
-    k = id(rep)
-    if k not in cache:
+    hit = cache.get("entry")
+    if hit is None or hit[0] is not rep:          # identity, not id(): ids are reused after garbage collection
         try:
             import nebras_report as nr
-            cache.clear()
-            cache[k] = nr.compute_plan(rep, filename=source.get("filename"), data=source.get("data"),
-                                       text=source.get("text"))
+            plan = nr.compute_plan(rep, filename=source.get("filename"), data=source.get("data"),
+                                   text=source.get("text"))
         except Exception:
-            cache[k] = None
-    return cache[k]
+            plan = None
+        cache.clear()
+        cache["entry"] = (rep, plan)
+        return plan
+    return hit[1]
 
 
 def dial_panel(rep=None, plan=None):
@@ -449,8 +451,9 @@ def input_desk():
                 except Exception as ex:
                     st.error(str(ex))
     elif selection == MODE_FILE:
-        uploaded = st.file_uploader("ملف PDF أو Word أو نص", type=["pdf", "docx", "txt", "md", "text"],
-                                    key=f"one_file_{n}")
+        # No `type=` filter: Android/iOS pickers grey out files when given a list of extensions (and drop files
+        # that arrive without one). Unsupported types are rejected with a clear message below instead.
+        uploaded = st.file_uploader("ملف PDF أو Word أو نص", key=f"one_file_{n}")
         md('<p class="note">ملفات PDF النصية تُقرأ مباشرة، والمصوّرة عبر OCR محلي (يحتاج Tesseract مثبتًا). ملفات Word تحتفظ بقرائن تنسيقها.</p>')
         if st.button("حلّل الملف", type="primary", key=f"analyze_file_{n}"):
             if uploaded is None:
@@ -458,11 +461,12 @@ def input_desk():
             else:
                 try:
                     data = uploaded.getvalue()
-                    report = analyze_uploaded_bytes(uploaded.name, data)
+                    uname = normalize_upload_name(uploaded.name, getattr(uploaded, "type", ""))
+                    report = analyze_uploaded_bytes(uname, data)
                     st.session_state["current_report"] = report
                     st.session_state["batch_reports"] = None
-                    st.session_state["editor_origin"] = (uploaded.name, data, report.is_docx)
-                    st.session_state["report_source"] = {"filename": uploaded.name, "data": data}
+                    st.session_state["editor_origin"] = (uname, data, report.is_docx)
+                    st.session_state["report_source"] = {"filename": uname, "data": data}
                     st.session_state["editable_text"] = "\n".join(report.texts)
                     st.session_state["original_file_text"] = "\n".join(report.texts)
                 except Exception as ex:
@@ -493,14 +497,14 @@ def input_desk():
                             st.error(str(ex))
     else:
         multiple = st.file_uploader("ملفات متعددة أو أرشيف ZIP", accept_multiple_files=True,
-                                    type=["pdf", "docx", "txt", "md", "text", "zip"], key=f"multi_files_{n}")
+                                    key=f"multi_files_{n}")
         md('<p class="note">ارفع أرشيف ZIP لمجلد كامل. يُحلَّل كل ملف بنفس طريقة الملف المنفرد.</p>')
         if st.button("حلّل الدفعة", type="primary", key=f"analyze_batch_{n}"):
             if not multiple:
                 st.warning("ارفع ملفًا واحدًا على الأقل.")
             else:
                 try:
-                    files = [(x.name, x.getvalue()) for x in multiple]
+                    files = [(normalize_upload_name(x.name, getattr(x, 'type', '')), x.getvalue()) for x in multiple]
                     results = analyze_batch_inputs(files)
                     if results:
                         st.session_state["batch_sources"] = {lbl: d for lbl, d in expand_uploaded_inputs(files)}

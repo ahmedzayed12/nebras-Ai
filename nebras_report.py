@@ -166,9 +166,7 @@ def _paras_for(rep, filename, data, text):
             path = Path(tmp) / ba.filename_only(filename)
             path.write_bytes(data)
             if ext == ".docx":
-                paras, _meta = eng.parse_docx(str(path))
-                flags = math_guard.omml_flags(data, len(paras))
-                paras, mm = math_guard.sanitize_docx_paras(paras, flags)
+                paras, _meta, mm, _st, _gen = ba.prepare_docx(str(path), data)   # same preparation as the analysis
                 kind = "docx"
             elif ext == ".pdf":
                 from pdf_input import extract_pdf_text

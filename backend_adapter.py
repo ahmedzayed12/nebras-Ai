@@ -116,14 +116,10 @@ def analyze_text_guarded(text: str, source: str = "نص ملصق"):
     return _attach(get_engine().analyze_text(clean, source=source), mm)
 
 
-def analyze_docx_guarded(path: str, content: bytes):
-    """DOCX route: engine's own parser (keeps font/format/metadata evidence).
-
-    Before the engine sees the paragraphs, the non-prose parts of a manuscript are removed, exactly like pdf_input does
-    for PDF: equations (math_guard), then code blocks, display-equation paragraphs, the title/author/affiliation block
-    and table cells (docx_clean). Without this, Word typography of those elements was read as "human manual formatting"
-    (measured 10 % for Word vs 51 % for the PDF of the same paper). No score / weight / threshold is touched.
-    """
+def prepare_docx(path: str, content: bytes):
+    """ONE place that turns a .docx into the paragraphs the engine analyses. Both the analysis and the report builder
+    (nebras_report._paras_for) call it, so the report can always rebuild exactly what was analysed.
+    Returns (clean_paras, meta, math_map, clean_stats, generator_note)."""
     import math_guard
     import docx_clean
     eng = get_engine()
@@ -135,11 +131,39 @@ def analyze_docx_guarded(path: str, content: bytes):
     if gen:     # engine only inspects creator / lastModifiedBy; the generator is often declared in the description
         meta = dict(meta)
         meta["creator"] = "%s [%s]" % ((meta.get("creator") or "").strip(), gen)
+    return clean, meta, mm, st, gen
+
+
+def analyze_docx_guarded(path: str, content: bytes):
+    """DOCX route: engine's own parser (keeps font/format/metadata evidence).
+
+    Non-prose parts of a manuscript are removed first, exactly like pdf_input does for PDF: equations (math_guard), then
+    code blocks, display-equation paragraphs, the title/author block and table cells (docx_clean). No score / weight /
+    threshold is touched."""
+    eng = get_engine()
+    clean, meta, mm, st, gen = prepare_docx(path, content)
     if not mm.active and not st.removed and not gen:
         return _attach(eng.analyze_docx(path), mm)
     report = _attach(eng.core_analyze(clean, meta, os.path.basename(path)), mm)
     report.docx_clean = st
     return report
+
+
+_MIME_EXT = {"application/pdf": ".pdf",
+             "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+             "text/plain": ".txt", "text/markdown": ".md", "application/zip": ".zip",
+             "application/x-zip-compressed": ".zip"}
+
+
+def normalize_upload_name(name: str, mime: str = "") -> str:
+    """Phone browsers often hand over files without an extension (content:// URIs, WhatsApp, Drive) or with an upper-case
+    one. Restore the extension from the MIME type so the file is not rejected as unsupported."""
+    name = filename_only(name or "upload")
+    suffix = Path(name).suffix
+    if suffix.lower() in SUPPORTED | {".zip"}:
+        return name[: len(name) - len(suffix)] + suffix.lower()
+    ext = _MIME_EXT.get((mime or "").split(";")[0].strip().lower())
+    return name + ext if ext else name
 
 
 def analyze_pasted(text: str):
