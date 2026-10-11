@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import copy
 import datetime as _dt
+import difflib
+import unicodedata
 import hashlib
 import html as _html
 import io
@@ -746,8 +748,8 @@ def docx_to_pdf(docx_bytes: bytes) -> bytes:
 
 
 # ---------------------------------------------------------------- PDF composition
-TOP_BAND = 46.0
-BOTTOM_BAND = 34.0
+TOP_BAND = 34.0       # header / footer live INSIDE the original page margins, so every page keeps the
+BOTTOM_BAND = 26.0    # exact A4 size and layout of the uploaded file
 INK = (0.106, 0.165, 0.255)
 MUTED = (0.42, 0.46, 0.52)
 LINE = (0.82, 0.85, 0.89)
@@ -931,52 +933,124 @@ def _details(doc, rep, plan):
     return page
 
 
-def _shade_pdf_source_page(src, dest, page_num: int, texts, plan: Plan, para_pages: tuple[int, ...]) -> None:
-    """Best-effort, non-destructive PDF highlight; keeps original pages intact.
+_TOKEN_RE = re.compile(r"[^\W_]+", re.U)
 
-    Coordinates originate from source selectable PDF text. Raster-only pages
-    cannot support reliable text geometry, so they remain visibly unchanged.
+
+def _tok(s: str) -> str:
+    return unicodedata.normalize("NFKC", s).casefold()
+
+
+def _pdf_word_stream(body_pdf, skip_pages=()):
+    """Every selectable word of the source PDF in reading order, plus per-line geometry.
+
+    Returns (words, line_box, tokens) where
+      words    = [(page, x0, y0, x1, y1, line_key)]
+      line_box = {line_key: (y0, y1)}   one uniform height per text line (no jagged rectangles)
+      tokens   = [(normalised token, word index)]
     """
+    words, tokens, acc = [], [], {}
+    for pno in range(len(body_pdf)):
+        if pno + 1 in skip_pages:
+            continue
+        for x0, y0, x1, y1, txt, blk, ln, _wn in body_pdf[pno].get_text("words"):
+            key = (pno, blk, ln)
+            words.append((pno, x0, y0, x1, y1, key))
+            acc.setdefault(key, []).append((y0, y1))
+            for m in _TOKEN_RE.finditer(_tok(txt)):
+                tokens.append((m.group(), len(words) - 1))
+    line_box = {}
+    for key, ys in acc.items():
+        tallest = max(b - a for a, b in ys)
+        solid = [(a, b) for a, b in ys if (b - a) >= 0.6 * tallest]
+        line_box[key] = (min(a for a, _ in solid), max(b for _, b in solid))
+    return words, line_box, tokens
+
+
+def _align_paragraphs(texts, pdf_tokens):
+    """Map every paragraph token to the PDF word it came from, by global sequence alignment.
+
+    The analysed text and the PDF's own text differ slightly (hyphenation, removed headers, equation
+    glyphs), so searching phrases page by page misses many lines. Aligning the two token streams once
+    is tolerant to all of that and lets us shade whole sentences contiguously.
+    Returns {paragraph: [(char_start, word_index_or_None), ...]}.
+    """
+    doc_tokens = []                                   # (token, para, char_start)
+    for i, t in enumerate(texts):
+        for m in _TOKEN_RE.finditer(t):
+            doc_tokens.append((_tok(m.group()), i, m.start()))
+    sm = difflib.SequenceMatcher(None, [t for t, _, _ in doc_tokens], [t for t, _ in pdf_tokens], autojunk=False)
+    mapped = {}
+    for a, b, size in sm.get_matching_blocks():
+        for k in range(size):
+            mapped[a + k] = pdf_tokens[b + k][1]
+    out = defaultdict(list)
+    for k, (_t, i, start) in enumerate(doc_tokens):
+        out[i].append((start, mapped.get(k)))
+    return out
+
+
+def _shade_pdf_pages(body_pdf, dest_page, offsets, texts, plan: Plan, ocr_pages=()):
+    """Draw contiguous, line-by-line highlights on copies of the ORIGINAL pages (nothing is re-typeset)."""
     import pymupdf
-    # Match the source page of each paragraph before searching for rectangles.
-    # Rather than guess page locations from text, locate matching phrases in
-    # this actual PDF page. Avoid broad matches shorter than four words.
-    hits = set()
-    drawn = 0
-    if not src.get_text("text").strip():
-        return
-    for ranges, color, opacity in (
-        (plan.soft_flags, (0.72, 0.91, 0.96), 0.40),
-        (plan.flags, (0.23, 0.79, 0.96), 0.38),
-    ):
-        for i, positions in ranges.items():
-            if i >= len(para_pages) or para_pages[i] != page_num:
-                continue
-            paragraph = texts[i]
-            for a, b in positions:
-                if drawn >= 1500:
-                    return
-                words = re.findall(r"\S+", paragraph[a:b])
-                if len(words) < 4:
+    words, line_box, pdf_tokens = _pdf_word_stream(body_pdf, ocr_pages)
+    if not words:
+        return 0, 0
+    aligned = _align_paragraphs(texts, pdf_tokens)
+    tint = {}                                         # word index -> "strong" | "soft"
+    total = matched = 0
+    for ranges, level in ((plan.soft_flags, "soft"), (plan.flags, "strong")):   # strong wins
+        for i, spans in ranges.items():
+            for a, b in spans:
+                ids = []
+                for start, wid in aligned.get(i, ()):
+                    if a <= start < b:
+                        total += 1
+                        if wid is not None:
+                            matched += 1
+                            ids.append(wid)
+                ids = sorted(set(ids))
+                if not ids:
                     continue
-                # Search in segments to survive the line wraps native to PDF.
-                chunks = [" ".join(words[n:n + 10]) for n in range(0, len(words), 10)]
-                for phrase in chunks:
-                    if len(phrase) < 15:
-                        continue
-                    try:
-                        rects = src.search_for(phrase)
-                    except Exception:
-                        rects = []
-                    # Avoid highlighting identical text repeatedly.
-                    for rect in rects[:10]:
-                        key = (round(rect.x0, 1), round(rect.y0, 1), round(rect.x1, 1), round(rect.y1, 1), color)
-                        if key in hits:
-                            continue
-                        hits.add(key)
-                        r = pymupdf.Rect(rect.x0, rect.y0 + TOP_BAND, rect.x1, rect.y1 + TOP_BAND)
-                        dest.draw_rect(r, color=None, fill=color, fill_opacity=opacity, overlay=True)
-                        drawn += 1
+                filled = set(ids)
+                for p, q in zip(ids, ids[1:]):       # bridge inline maths / stray glyphs inside a sentence
+                    if 1 < q - p <= 14 and words[p][0] == words[q][0]:
+                        filled.update(range(p + 1, q))
+                for wid in filled:
+                    tint[wid] = level
+    colours = {"strong": ((0.23, 0.79, 0.96), 0.38), "soft": ((0.50, 0.84, 0.94), 0.30)}
+    runs = []                                         # merge neighbouring words of one line & one tint
+    for wid in sorted(tint):
+        pno, x0, _y0, x1, _y1, key = words[wid]
+        if runs and runs[-1]["key"] == key and runs[-1]["level"] == tint[wid] and runs[-1]["last"] == wid - 1:
+            runs[-1]["x1"] = x1
+            runs[-1]["last"] = wid
+        else:
+            runs.append({"page": pno, "key": key, "level": tint[wid], "x0": x0, "x1": x1, "last": wid})
+    for r in runs:
+        y0, y1 = line_box[r["key"]]
+        colour, opacity = colours[r["level"]]
+        sc, dx, dy = offsets[r["page"]]
+        dest_page(r["page"]).draw_rect(
+            pymupdf.Rect((r["x0"] - 1.0) * sc + dx, (y0 - 0.6) * sc + dy, (r["x1"] + 1.0) * sc + dx, (y1 + 0.6) * sc + dy),
+            color=None, fill=colour, fill_opacity=opacity, overlay=True)
+    return matched, total
+
+
+def _content_box(page):
+    """Bounding box of everything printed on a source page (text, drawings, pictures)."""
+    import pymupdf
+    box = pymupdf.Rect()
+    for b in page.get_text("blocks"):
+        if str(b[4]).strip() or b[6] == 1:
+            box |= pymupdf.Rect(b[:4])
+    try:
+        for d in page.get_drawings():
+            r = d.get("rect")
+            if r is not None and r.width < page.rect.width * 0.98 and r.height < page.rect.height * 0.98:
+                box |= r
+    except Exception:
+        pass
+    return box
 
 
 def compute_plan(rep, *, filename=None, data=None, text=None) -> Plan:
@@ -1028,13 +1102,22 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
 
     out = pymupdf.open()
     _cover(out, rep, plan, meta, None)
+    offsets = {}
     for i in range(len(body_pdf)):
         src = body_pdf[i]
         w, h = src.rect.width, src.rect.height
-        pg = out.new_page(width=w, height=h + TOP_BAND + BOTTOM_BAND)
-        pg.show_pdf_page(pymupdf.Rect(0, TOP_BAND, w, TOP_BAND + h), body_pdf, i)
-        if kind == "pdf" and i + 1 not in ocr_pages:
-            _shade_pdf_source_page(src, pg, i, orig_texts, shade, para_pages)
+        pg = out.new_page(width=w, height=h)            # identical page size: a true copy of the source page
+        box = _content_box(src)
+        crowded = (not box.is_empty) and (box.y0 < TOP_BAND + 2 or box.y1 > h - BOTTOM_BAND - 2)
+        if crowded:                                     # only when a page prints right up to its edge
+            sc = (h - TOP_BAND - BOTTOM_BAND) / h
+            dx, dy = (w - w * sc) / 2, TOP_BAND
+        else:
+            sc, dx, dy = 1.0, 0.0, 0.0
+        pg.show_pdf_page(pymupdf.Rect(dx, dy, dx + w * sc, dy + h * sc), body_pdf, i)
+        offsets[i] = (sc, dx, dy)
+    if kind == "pdf":
+        _shade_pdf_pages(body_pdf, lambda n: out[n + 1], offsets, orig_texts, shade, ocr_pages)
     total = len(out)
 
     reg = str(_font_dir() / "NebrasPlex-Regular.ttf")
@@ -1050,21 +1133,21 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
         if n >= 1:     # cover page carries its own header; every other page gets the header band
             pg.draw_rect(pymupdf.Rect(0, 0, w, TOP_BAND), color=None, fill=(0.965, 0.972, 0.985))
             pg.draw_line((0, TOP_BAND), (w, TOP_BAND), color=LINE, width=0.7)
-            pg.show_pdf_page(pymupdf.Rect(14, 9, 14 + 24, 9 + 24), logo, 0)
-            pg.insert_text((44, 21), PROGRAM_NAME, fontname="NPB", fontsize=10.5, color=INK)
-            pg.insert_text((44, 36), "SHA-256  " + sha, fontname="helv", fontsize=6.4, color=MUTED)
+            pg.show_pdf_page(pymupdf.Rect(14, 5, 14 + 24, 5 + 24), logo, 0)
+            pg.insert_text((44, 15), PROGRAM_NAME, fontname="NPB", fontsize=9.5, color=INK)
+            pg.insert_text((44, 26), "SHA-256  " + sha, fontname="helv", fontsize=5.8, color=MUTED)
             lab = "AI Writing Detection Report"
             tw = fR.text_length(lab, fontsize=8)
-            pg.insert_text((w - 14 - tw, 21), lab, fontname="NPR", fontsize=8, color=MUTED)
+            pg.insert_text((w - 14 - tw, 20), lab, fontname="NPR", fontsize=8, color=MUTED)
             pg.draw_line((0, footer_y), (w, footer_y), color=LINE, width=0.7)
         else:
             pg.draw_line((42, h - 36), (w - 42, h - 36), color=LINE, width=0.7)
         label = "Page %d of %d" % (n + 1, total)
         tw = fR.text_length(label, fontsize=9)
-        pg.insert_text(((w - tw) / 2, h - 14 if n == 0 else footer_y + 21), label, fontname="NPR", fontsize=9, color=INK)
+        pg.insert_text(((w - tw) / 2, h - 14 if n == 0 else footer_y + 16), label, fontname="NPR", fontsize=9, color=INK)
         if n >= 1:
-            pg.insert_text((14, footer_y + 21), "ID " + sha[:12].upper(), fontname="helv", fontsize=6.5, color=MUTED)
-            pg.insert_text((w - 14 - fR.text_length(PROGRAM_NAME, fontsize=7.5), footer_y + 21), PROGRAM_NAME, fontname="NPR", fontsize=7.5, color=MUTED)
+            pg.insert_text((14, footer_y + 16), "ID " + sha[:12].upper(), fontname="helv", fontsize=6.5, color=MUTED)
+            pg.insert_text((w - 14 - fR.text_length(PROGRAM_NAME, fontsize=7.5), footer_y + 16), PROGRAM_NAME, fontname="NPR", fontsize=7.5, color=MUTED)
     out.set_metadata({"title": "%s — %s" % (PROGRAM_NAME, name), "author": PROGRAM_NAME,
                       "subject": "AI Writing Detection Report", "keywords": "SHA-256 " + sha})
     buf = out.tobytes(deflate=True, garbage=3)
