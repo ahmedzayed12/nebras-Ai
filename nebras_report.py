@@ -160,6 +160,10 @@ def _paras_for(rep, filename, data, text):
             if ext == ".docx":
                 paras, _meta = eng.parse_docx(str(path))
                 kind = "docx"
+            elif ext == ".pdf":
+                from pdf_input import extract_pdf_text
+                paras = [eng.Para(text=l) for l in _text_lines(extract_pdf_text(data))]
+                kind = "pdf"
             else:
                 paras = [eng.Para(text=l) for l in _text_lines(eng._read_txt(str(path)))]
                 kind = "text"
