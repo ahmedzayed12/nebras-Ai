@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Transport-only adapter. Never calculates or changes an AI Text Inspector score.
+"""Transport adapter. Never calculates or changes an AI Text Inspector score.
 
 Every analysis is delegated to the unmodified AI_Text_Inspector.pyw v2.1.
 The SHA-256 guard catches accidental edits to the analysis engine.
+
+The ONE thing done before the engine sees a text is math_guard: equations (LaTeX, Word OMML,
+formula-only paragraphs) are removed, because the prose-only engine reads them as human typos
+and fake sentence-length variance and under-reports AI text (measured 44 -> 5 on one manuscript).
+The removal is recorded on `report.math` (a math_guard.MathMap) and shown to the user.
 """
 from __future__ import annotations
 
@@ -62,9 +67,35 @@ def filename_only(name: str) -> str:
     return name
 
 
+def _attach(report, mm):
+    report.math = mm
+    return report
+
+
+def analyze_text_guarded(text: str, source: str = "نص ملصق"):
+    """Text route (paste / TXT / MD / PDF text): equations out, then the unchanged engine."""
+    import math_guard
+    clean, mm = math_guard.sanitize_text(text)
+    if not mm.active:                       # no maths: byte-for-byte the original route
+        return _attach(get_engine().analyze_text(text, source=source), mm)
+    return _attach(get_engine().analyze_text(clean, source=source), mm)
+
+
+def analyze_docx_guarded(path: str, content: bytes):
+    """DOCX route: engine's own parser (keeps font/format/metadata evidence), maths removed afterwards."""
+    import math_guard
+    eng = get_engine()
+    paras, meta = eng.parse_docx(path)
+    flags = math_guard.omml_flags(content, len(paras))
+    clean, mm = math_guard.sanitize_docx_paras(paras, flags)
+    if not mm.active:
+        return _attach(eng.analyze_docx(path), mm)
+    return _attach(eng.core_analyze(clean, meta, os.path.basename(path)), mm)
+
+
 def analyze_pasted(text: str):
-    """EXACTLY the original pasted-text route, no strip(), split(), or normalization."""
-    return get_engine().analyze_text(text)
+    """The pasted-text route. Identical to the original engine route unless the text contains maths."""
+    return analyze_text_guarded(text)
 
 
 def analyze_uploaded_bytes(filename: str, content: bytes):
@@ -80,10 +111,14 @@ def analyze_uploaded_bytes(filename: str, content: bytes):
         from pdf_input import extract_pdf_text
         # The original engine always sees plain extracted text; no new AI
         # scoring algorithm or PDF-specific thresholds are introduced.
-        return get_engine().analyze_text(extract_pdf_text(content), source=name)
+        return analyze_text_guarded(extract_pdf_text(content), source=name)
     with tempfile.TemporaryDirectory(prefix="ai_inspector_") as tmp:
         path = Path(tmp) / name
         path.write_bytes(content)
+        if path.suffix.lower() == ".docx":
+            return analyze_docx_guarded(str(path), content)
+        if path.suffix.lower() in (".txt", ".md", ".text"):
+            return analyze_text_guarded(get_engine()._read_txt(str(path)), source=name)
         report = get_engine().analyze_file(str(path))
         if report is None:
             raise ValueError("تعذّر تحليل هذا النوع من الملفات.")
@@ -155,14 +190,17 @@ def batch_csv_bytes(results) -> bytes:
     """Original Tkinter GUI CSV columns, ordering, and values (UTF-8 BOM)."""
     out = io.StringIO(newline="")
     writer = csv.writer(out)
-    writer.writerow(["file", "words", "ai_score", "verdict", "errors_per_1000", "format_inconsistency", "human_edit_traces"])
+    writer.writerow(["file", "words", "ai_score", "verdict", "errors_per_1000", "format_inconsistency", "human_edit_traces",
+                     "math_items_excluded"])
     for name, report in results:
         if isinstance(report, Exception):
-            row = (name, "-", "-", "خطأ: %s" % report, "-", "-", "-")
+            row = (name, "-", "-", "خطأ: %s" % report, "-", "-", "-", "-")
         else:
             row = (name, report.words, "%.0f" % report.score, report.verdict,
                    report.stats["أخطاء مرجّحة لكل 1000 كلمة"],
-                   "%.2f" % report.fvals["fmt_incons"], "%.2f" % report.fvals["meta_human"])
+                   "%.2f" % report.fvals["fmt_incons"], "%.2f" % report.fvals["meta_human"],
+                   getattr(getattr(report, "math", None), "stats", None).found
+                   if getattr(report, "math", None) else 0)
         writer.writerow(row)
     return out.getvalue().encode("utf-8-sig")
 

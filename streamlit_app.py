@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Streamlit interface "Nebras Ai detector" over the original v2.1 engine.
 
+Equations (LaTeX / Word OMML) are removed by math_guard before the engine runs; see backend_adapter.
 PRESENTATION ONLY: every score, verdict, finding, statistic, CSV and HTML report
 comes from the unchanged engine through backend_adapter.py. Nothing in this file
 computes, rescales, re-thresholds or re-orders an analysis result. Before handing text
@@ -245,6 +246,22 @@ def dial_panel(rep=None, plan=None):
       </dl></section>""")
 
 
+def math_notice(rep):
+    """Tell the reader that equations were excluded, and when the text is too maths-heavy to judge."""
+    mm = getattr(rep, "math", None)
+    if mm is None or not mm.active:
+        return
+    stt = mm.stats
+    items = stt.found
+    share = stt.share * 100
+    msg = (f"استُبعدت <b class=\"num\">{items}</b> معادلة/صيغة رياضية "
+           f"(نحو <b class=\"num\">{share:.0f}%</b> من حروف الملف) قبل التحليل، لأن الرموز "
+           "لا تعكس أسلوب الكاتب وتُضلّل المحرك. النتيجة تخص النص الشرحي فقط.")
+    if share >= 45 or rep.words < 250:
+        msg += " النص الشرحي المتبقي قليل، فالنتيجة أقل ثقة من المعتاد."
+    md(f'<p class="note" style="margin:8px 0 0;border-inline-start:3px solid {C["warn"]};padding-inline-start:10px">{msg}</p>')
+
+
 def _band(score):
     return "hi" if score >= BAND_HIGH else "mid" if score >= BAND_MID else "lo"
 
@@ -382,6 +399,7 @@ def batch_dashboard(results):
         data = (st.session_state.get("batch_sources") or {}).get(label)
         src = {"filename": filename_only(label), "data": data} if data else None
         dial_panel(good[idx][1], shaded_plan(good[idx][1], src))
+        math_notice(good[idx][1])
         report_download_panel(good[idx][1], src, f"b{idx}")
         report_dashboard(good[idx][1])
 
@@ -522,6 +540,7 @@ def main():
         else:
             dial_panel(rep, shaded_plan(rep, st.session_state.get("report_source")) if rep is not None else None)
             if rep is not None:
+                math_notice(rep)
                 report_download_panel(rep, st.session_state.get("report_source"), "single")
     if batch is not None:
         batch_dashboard(batch)

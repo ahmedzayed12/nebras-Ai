@@ -148,9 +148,15 @@ def _text_lines(text: str):
 
 
 def _paras_for(rep, filename, data, text):
+    """Rebuilds the paragraphs exactly as they were analysed (equations removed by math_guard) and
+    returns them with the MathMap that links them back to the ORIGINAL document paragraphs."""
+    import math_guard
     eng = ba.get_engine()
+    flags = None
     if text is not None:
-        paras = [eng.Para(text=l) for l in _text_lines(text)]
+        orig = _text_lines(text)
+        clean, mm = math_guard.sanitize_lines(orig)
+        paras = [eng.Para(text=l) for l in clean]
         kind = "text"
     else:
         ext = Path(filename).suffix.lower()
@@ -159,18 +165,42 @@ def _paras_for(rep, filename, data, text):
             path.write_bytes(data)
             if ext == ".docx":
                 paras, _meta = eng.parse_docx(str(path))
+                flags = math_guard.omml_flags(data, len(paras))
+                paras, mm = math_guard.sanitize_docx_paras(paras, flags)
                 kind = "docx"
             elif ext == ".pdf":
                 from pdf_input import extract_pdf_text
-                paras = [eng.Para(text=l) for l in _text_lines(extract_pdf_text(data))]
+                orig = _text_lines(extract_pdf_text(data))
+                clean, mm = math_guard.sanitize_lines(orig)
+                paras = [eng.Para(text=l) for l in clean]
                 kind = "pdf"
             else:
-                paras = [eng.Para(text=l) for l in _text_lines(eng._read_txt(str(path)))]
+                orig = _text_lines(eng._read_txt(str(path)))
+                clean, mm = math_guard.sanitize_lines(orig)
+                paras = [eng.Para(text=l) for l in clean]
                 kind = "text"
     eng.assign_roles(paras, rep.is_docx)
     if [p.text for p in paras] != list(rep.texts):
         raise ValueError("المصدر المرفق لا يطابق نتيجة الفحص. أعد تحليل الملف ثم أنشئ التقرير.")
-    return paras, kind
+    return paras, kind, mm
+
+
+def _plan_to_original(plan: "Plan", mm) -> "Plan":
+    """Plan ranges were computed on equation-free text; move them onto the original paragraphs."""
+    if mm is None or not mm.active:
+        return plan
+    def conv(d):
+        out = {}
+        for i, ranges in d.items():
+            for (a, b) in ranges:
+                j, a2, b2 = mm.to_original(i, a, b)
+                out.setdefault(j, []).append((a2, b2))
+        return out
+    import copy
+    p2 = copy.copy(plan)
+    p2.flags, p2.soft_flags = conv(plan.flags), conv(plan.soft_flags)
+    p2.per_para = {mm.orig_index[i]: v for i, v in plan.per_para.items() if i < len(mm.orig_index)}
+    return p2
 
 
 # ---------------------------------------------------------------- what to shade
@@ -901,7 +931,7 @@ def _details(doc, rep, plan):
     return page
 
 
-def _shade_pdf_source_page(src, dest, page_num: int, rep, plan: Plan, para_pages: tuple[int, ...]) -> None:
+def _shade_pdf_source_page(src, dest, page_num: int, texts, plan: Plan, para_pages: tuple[int, ...]) -> None:
     """Best-effort, non-destructive PDF highlight; keeps original pages intact.
 
     Coordinates originate from source selectable PDF text. Raster-only pages
@@ -922,7 +952,7 @@ def _shade_pdf_source_page(src, dest, page_num: int, rep, plan: Plan, para_pages
         for i, positions in ranges.items():
             if i >= len(para_pages) or para_pages[i] != page_num:
                 continue
-            paragraph = rep.texts[i]
+            paragraph = texts[i]
             for a, b in positions:
                 if drawn >= 1500:
                     return
@@ -951,7 +981,7 @@ def _shade_pdf_source_page(src, dest, page_num: int, rep, plan: Plan, para_pages
 
 def compute_plan(rep, *, filename=None, data=None, text=None) -> Plan:
     """Same plan the PDF uses, without any conversion; lets the UI show the identical percentage."""
-    paras, _kind = _paras_for(rep, filename, data, text)
+    paras, _kind, _mm = _paras_for(rep, filename, data, text)
     return balance_to_engine_index(rep, paras, plan_highlights(rep, paras))
 
 
@@ -960,8 +990,10 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
     import pymupdf
     if text is None and (filename is None or data is None):
         raise ValueError("يلزم الملف الأصلي أو النص الأصلي لإنشاء التقرير.")
-    paras, kind = _paras_for(rep, filename, data, text)
+    paras, kind, mm = _paras_for(rep, filename, data, text)
     plan = balance_to_engine_index(rep, paras, plan_highlights(rep, paras))
+    orig_texts = list(mm.orig_texts) if mm.active else list(rep.texts)
+    shade = _plan_to_original(plan, mm)            # ranges expressed on the ORIGINAL paragraphs
 
     if text is not None:
         raw = text.encode("utf-8")
@@ -985,8 +1017,8 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
         if kind == "docx":
             base_docx = data
         else:
-            base_docx = build_plain_docx([p.text for p in paras])
-        shaded_docx, removed = apply_highlights(base_docx, plan, rep.texts, color)
+            base_docx = build_plain_docx(orig_texts)
+        shaded_docx, removed = apply_highlights(base_docx, shade, orig_texts, color)
         body_pdf = pymupdf.open("pdf", docx_to_pdf(shaded_docx))
 
     eng = ba.get_engine()
@@ -1002,7 +1034,7 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
         pg = out.new_page(width=w, height=h + TOP_BAND + BOTTOM_BAND)
         pg.show_pdf_page(pymupdf.Rect(0, TOP_BAND, w, TOP_BAND + h), body_pdf, i)
         if kind == "pdf" and i + 1 not in ocr_pages:
-            _shade_pdf_source_page(src, pg, i, rep, plan, para_pages)
+            _shade_pdf_source_page(src, pg, i, orig_texts, shade, para_pages)
     total = len(out)
 
     reg = str(_font_dir() / "NebrasPlex-Regular.ttf")
