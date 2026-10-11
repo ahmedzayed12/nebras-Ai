@@ -606,10 +606,60 @@ def converter_status() -> dict:
 
 
 def _convert_with_word(src: Path, dst: Path):
-    code = ("import sys, pythoncom\n"
-            "from docx2pdf import convert\n"
-            "pythoncom.CoInitialize()\n"
-            "convert(sys.argv[1], sys.argv[2])\n")
+    # A dedicated, invisible Word instance (DispatchEx) is used instead of docx2pdf's
+    # Dispatch(): Dispatch attaches to whichever Word process is already running (stale
+    # COM instances accumulate on this machine), which locks the input .docx and raises
+    # WinError 32. DispatchEx always spawns a fresh instance, the document is opened
+    # read-only, and the instance is always quit afterwards. Word 2010 automation can
+    # ignore Quit, so the exact instance we created is force-closed to avoid new zombies.
+    code = (
+        "import sys, time, subprocess as sp, pythoncom, win32com.client\n"
+        "def _word_pids():\n"
+        "    try:\n"
+        "        out = sp.run(['tasklist', '/FI', 'IMAGENAME eq WINWORD.EXE', '/FO', 'CSV', '/NH'],\n"
+        "                     capture_output=True, text=True, creationflags=0x08000000).stdout\n"
+        "    except Exception:\n"
+        "        return set()\n"
+        "    ids = set()\n"
+        "    for line in out.splitlines():\n"
+        "        cells = [c.strip().strip(chr(34)) for c in line.split(',')]\n"
+        "        if cells and cells[0].upper() == 'WINWORD.EXE':\n"
+        "            try:\n"
+        "                ids.add(int(cells[1]))\n"
+        "            except Exception:\n"
+        "                pass\n"
+        "    return ids\n"
+        "src, dst = sys.argv[1], sys.argv[2]\n"
+        "before = _word_pids()\n"
+        "pythoncom.CoInitialize()\n"
+        "word = win32com.client.DispatchEx('Word.Application')\n"
+        "try:\n"
+        "    word.Visible = False\n"
+        "except Exception:\n"
+        "    pass\n"
+        "try:\n"
+        "    word.DisplayAlerts = 0\n"
+        "except Exception:\n"
+        "    pass\n"
+        "try:\n"
+        "    doc = word.Documents.Open(src, ReadOnly=True, AddToRecentFiles=False)\n"
+        "    try:\n"
+        "        doc.SaveAs(dst, FileFormat=17)\n"
+        "    finally:\n"
+        "        doc.Close(False)\n"
+        "finally:\n"
+        "    try:\n"
+        "        word.Quit()\n"
+        "    except Exception:\n"
+        "        pass\n"
+        "try:\n"
+        "    pythoncom.CoUninitialize()\n"
+        "except Exception:\n"
+        "    pass\n"
+        "time.sleep(1.0)\n"
+        "for pid in (_word_pids() - before):\n"
+        "    sp.run(['taskkill', '/F', '/PID', str(pid)], capture_output=True)\n"
+    )
     r = subprocess.run([sys.executable, "-c", code, str(src), str(dst)],
                        capture_output=True, text=True, timeout=240)
     if r.returncode != 0 or not dst.exists():
@@ -750,9 +800,9 @@ def _cover(doc, rep, plan, meta, page_total):
          '<div class="lbl">Overall AI style index (engine)</div>'
          % (int(col[0] * 255), int(col[1] * 255), int(col[2] * 255), _esc(percent_label(plan))))
     if plan.sufficient:
-        ar = "النتيجة النهائية من مؤشر المحرك العام؛ التظليل الإضافي فاتح اللون توضيحي وليس كشفًا مستقلًا."
-        stat = ("<b>%d</b> strong + <b>%d</b> light = <b>%d</b> of <b>%d</b> eligible words"
-                % (plan.flagged_words, plan.soft_words, plan.total_words, plan.qualifying_words))
+        ar = "النتيجة النهائية من مؤشر المحرك العام."
+        stat = ("<b>%d</b> of <b>%d</b> eligible words carry strong evidence"
+                % (plan.flagged_words, plan.qualifying_words))
     else:
         ar = "النص المؤهَّل أقصر من 40 كلمة؛ لا يحكم المحرك على نص بهذا القِصَر"
         stat = "Fewer than 40 qualifying words: no score is reported."
@@ -772,11 +822,7 @@ def _cover(doc, rep, plan, meta, page_total):
                        color=None, fill=CYAN, radius=0.5)
     page.draw_rect(pymupdf.Rect(bx0, by + 21, bx0 + 9, by + 30), color=None, fill=CYAN)
     _box(page, pymupdf.Rect(bx0 + 14, by + 16, bx0 + 250, by + 37),
-         '<div dir="rtl" class="sm">تظليل أساسي: <b dir="ltr">%.1f%%</b></div>' % strong_pct)
-    page.draw_rect(pymupdf.Rect(bx0 + 262, by + 21, bx0 + 271, by + 30),
-                   color=None, fill=(0.83, 0.95, 0.975))
-    _box(page, pymupdf.Rect(bx0 + 276, by + 16, bx1, by + 37),
-         '<div dir="rtl" class="sm">تكميلي فاتح: <b dir="ltr">+%.1f%%</b></div>' % soft_pct)
+         '<div dir="rtl" class="sm">تظليل أساسي: <b dir="ltr">%.0f%%</b></div>' % strong_pct)
 
     # document facts
     y = top + 176
@@ -794,27 +840,13 @@ def _cover(doc, rep, plan, meta, page_total):
     _box(page, pymupdf.Rect(m, y, Wd - m, y + 150), '<table style="width:100%%">%s</table>' % html_rows)
     page.draw_line((m, y - 6), (Wd - m, y - 6), color=LINE, width=0.8)
 
-    # Score confirmation and explanation of what the light tint does / does not mean.
+    # Score confirmation from the untouched engine (no verdict sentence, no caution block).
     y2 = y + 160
     page.draw_line((m, y2 - 6), (Wd - m, y2 - 6), color=LINE, width=0.8)
-    verdict = _clean_ui_text(rep.verdict)
     _box(page, pymupdf.Rect(m, y2, Wd - m, y2 + 92),
          '<div class="lbl">Original engine result / نتيجة المحرك الأصلية</div>'
          '<div style="font-size:15pt;font-weight:bold">%.0f / 100 &nbsp;<span style="font-size:9pt;font-weight:normal" class="mut">confidence %.0f%%</span></div>'
-         '<div dir="rtl" style="font-size:10pt;margin-top:3px">%s</div>'
-         '<div class="sm mut" style="margin-top:4px">Light blue shading only visualizes the remaining '
-         'score on a word-scale; it does not imply independent sentence-level AI detection.</div>'
-         % (rep.score, rep.confidence * 100, _esc(verdict)))
-
-    # caution
-    y3 = y2 + 104
-    _box(page, pymupdf.Rect(m, y3, Wd - m, H - 56),
-         '<div style="border:1px solid #D0D6DE;padding:6px"><div class="sm"><b>Please note.</b> This is a probabilistic indicator based on '
-         'stylistic evidence, not proof of authorship. False positives and false negatives are possible. Do not use it alone for '
-         'academic or disciplinary decisions; review the highlighted passages with the author.</div>'
-         '<div dir="rtl" class="sm" style="margin-top:4px"><b>تنبيه:</b> هذه النتيجة مؤشر احتمالي مبني على قرائن أسلوبية '
-         'وليست إثباتًا لمن كتب النص، وقد تقع فيها أخطاء إيجابية وسلبية. لا يُعتمد عليها وحدها في أي قرار أكاديمي أو تأديبي؛ '
-         'راجع المقاطع المظلَّلة مع كاتب النص.</div></div>')
+         % (rep.score, rep.confidence * 100))
     return page
 
 
@@ -825,19 +857,14 @@ def _details(doc, rep, plan):
     y = _flow(page, m, TOP_BAND + 16, Wd - m, ymax,
               '<div style="font-size:16pt;font-weight:bold">Detection details</div>'
               '<div dir="rtl" style="font-size:10pt" class="mut">تفاصيل الفحص</div>', gap=8)
-    how = ("<b>Reading the highlights.</b> Strong cyan marks sentences selected by existing "
-           "engine evidence and paragraph heuristics. Pale cyan is an additional illustration "
-           "allocated by paragraph score/evidence priority to make the total tinted-word share "
-           "approximate the engine's original document-wide index. If the strong share exceeds "
-           "that index, lower-priority strong passages are omitted from the visual selection. "
-           "This index is not a measured percentage of AI-authored words; supplementary shading "
-           "does not prove that any particular sentence is AI-generated. Headers, references, "
+    how = ("<b>Reading the highlights.</b> Cyan marks passages selected by existing engine evidence "
+           "and paragraph heuristics. This index is not a measured percentage of AI-authored words; "
+           "shading does not prove that any particular sentence is AI-generated. Headers, references, "
            "captions and tables are excluded from the visual allocation.")
-    how_ar = ("<b>قراءة التظليل:</b> اللون السماوي الأقوى للجمل المختارة بقرائن المحرك وقواعد الفقرات، "
-              "والأفتح امتداد بصري تقريبي يُوزَّع حسب قرائن الجمل ودرجات الفقرات حتى يصبح مجموع "
-              "الكلمات الملونة قريبًا من مؤشر المحرك العام. وإذا زاد التظليل الأساسي عن المؤشر تُعطى "
-              "الأولوية للمقاطع الأقوى. المؤشر ليس قياسًا حقيقيًا لنسبة الكلمات المكتوبة آليًا، "
-              "واللون الفاتح ليس إثباتًا مستقلًا لمصدر جملة بعينها. تُستثنى المراجع والعناوين والجداول.")
+    how_ar = ("<b>قراءة التظليل:</b> يُظلَّل النص المختار بقرائن المحرك وقواعد الفقرات، "
+              "وقد تُعطى الأولوية للمقاطع الأقوى. المؤشر ليس قياسًا حقيقيًا لنسبة الكلمات "
+              "المكتوبة آليًا، والتظليل ليس إثباتًا لمصدر جملة بعينها. "
+              "تُستثنى المراجع والعناوين والجداول.")
     y = _flow(page, m, y, Wd - m, ymax,
               '<div class="sm">%s</div><div dir="rtl" class="sm" style="margin-top:5px">%s</div>' % (how, how_ar), gap=16)
     reasons = [_clean_ui_text(x) for x in rep.reasons if _clean_ui_text(x)][:7]
@@ -904,7 +931,6 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
 
     out = pymupdf.open()
     _cover(out, rep, plan, meta, None)
-    _details(out, rep, plan)
     for i in range(len(body_pdf)):
         src = body_pdf[i]
         w, h = src.rect.width, src.rect.height
