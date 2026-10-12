@@ -1,0 +1,14 @@
+{
+  "name": "nebras-turnstile-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "streamlit-component-lib": "2.0.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
