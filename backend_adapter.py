@@ -124,11 +124,15 @@ def prepare_docx(path: str, content: bytes):
     import docx_clean
     eng = get_engine()
     paras, meta = eng.parse_docx(path)
-    flags = math_guard.omml_flags(content, len(paras))
+    flags = math_guard.omml_layout(content, [p.text for p in paras])   # equation counts AND their exact offsets
+    if flags is None:
+        flags = math_guard.omml_flags(content, len(paras))
     clean, mm = math_guard.sanitize_docx_paras(paras, flags)
     with open(path, "rb") as fh:
         theme = docx_clean.theme_font_table(fh.read())
     clean, st = docx_clean.clean_docx_paras(clean, mm, theme_fonts=theme)
+    # Word-numbered bibliography: give the engine the numbers Word displays, so "[12]" in the text can match entry 12
+    st.notes.append("refs_numbered=%d" % docx_clean.restore_reference_numbers(clean, mm, content, len(mm.orig_texts)))
     gen = docx_clean.generator_from_description(content)
     if gen:     # engine only inspects creator / lastModifiedBy; the generator is often declared in the description
         meta = dict(meta)
@@ -144,7 +148,8 @@ def analyze_docx_guarded(path: str, content: bytes):
     threshold is touched."""
     eng = get_engine()
     clean, meta, mm, st, gen = prepare_docx(path, content)
-    if not mm.active and not st.removed and not st.trimmed and not st.fonts_unified and not gen:
+    refs_fixed = any(n.startswith("refs_numbered=") and not n.endswith("=0") for n in st.notes)
+    if not mm.active and not st.removed and not st.trimmed and not st.fonts_unified and not gen and not refs_fixed:
         return _attach(eng.analyze_docx(path), mm)
     report = _attach(eng.core_analyze(clean, meta, os.path.basename(path)), mm)
     report.docx_clean = st
