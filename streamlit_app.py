@@ -19,6 +19,7 @@ import math
 import streamlit as st
 import streamlit.components.v1 as components
 
+import turnstile_guard
 from backend_adapter import (
     analyze_batch_inputs, analyze_pasted, analyze_uploaded_bytes, batch_csv_bytes, normalize_upload_name,
     expand_uploaded_inputs, filename_only, get_engine,
@@ -34,6 +35,8 @@ C = {"ai": "#FF4D8D", "human": "#35E0B4", "warn": "#FFC247"}
 BAND_HIGH, BAND_MID = 55, 30
 MIN_WORDS = 300
 MODE_TEXT, MODE_FILE, MODE_BATCH = "نص مباشر", "ملف واحد", "دفعة ملفات أو ZIP"
+TURNSTILE_SITEKEY = "0x4AAAAAAFUeD40X5Nr1Y-ox"
+TURNSTILE_HOSTNAME = "nebras-ai-inspector.streamlit.app"
 
 
 # ----------------------------------------------------------------- helpers
@@ -454,6 +457,8 @@ def input_desk():
     selection = st.radio("طريقة الإدخال", [MODE_TEXT, MODE_FILE, MODE_BATCH],
                          horizontal=True, key=f"input_mode_{n}")
     md('<div style="height:10px"></div>')
+    st.caption("أكمل التحقق الأمني قبل بدء الفحص.")
+    turnstile_guard.render_turnstile(TURNSTILE_SITEKEY)
     if selection == MODE_TEXT:
         text_key = f"pasted_input_{n}"
         st.text_area("النص", height=130 if has_results else 290, key=text_key,
@@ -469,6 +474,8 @@ def input_desk():
             elif words < MIN_WORDS:
                 st.warning(f"النص يحتوي {words} كلمة فقط. لا يُقبل التحليل أقل من {MIN_WORDS} كلمة — أطِل النص ثم أعد المحاولة.")
             else:
+                if not turnstile_guard.allow_analysis(TURNSTILE_HOSTNAME):
+                    return
                 try:
                     st.session_state["current_report"] = analyze_pasted(src)
                     st.session_state["batch_reports"] = None
@@ -485,6 +492,8 @@ def input_desk():
             if uploaded is None:
                 st.warning("اختر ملفًا أولًا.")
             else:
+                if not turnstile_guard.allow_analysis(TURNSTILE_HOSTNAME):
+                    return
                 try:
                     data = uploaded.getvalue()
                     uname = normalize_upload_name(uploaded.name, getattr(uploaded, "type", ""))
@@ -509,6 +518,8 @@ def input_desk():
                     if not text.strip():
                         st.warning("النص فارغ.")
                     else:
+                        if not turnstile_guard.allow_analysis(TURNSTILE_HOSTNAME):
+                            return
                         try:
                             if text == st.session_state.get("original_file_text", ""):
                                 r = analyze_uploaded_bytes(origin[0], origin[1])
@@ -529,6 +540,8 @@ def input_desk():
             if not multiple:
                 st.warning("ارفع ملفًا واحدًا على الأقل.")
             else:
+                if not turnstile_guard.allow_analysis(TURNSTILE_HOSTNAME):
+                    return
                 try:
                     files = [(normalize_upload_name(x.name, getattr(x, 'type', '')), x.getvalue()) for x in multiple]
                     results = analyze_batch_inputs(files)

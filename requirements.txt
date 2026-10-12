@@ -5,4 +5,3 @@ docx2pdf>=0.1.8; sys_platform == "win32"
 pytesseract>=0.3.13,<1
 Pillow>=10,<13
 requests>=2.31
-streamlit-hotkeys>=0.6
