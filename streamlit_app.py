@@ -523,16 +523,16 @@ def input_desk():
 
 
 # ----------------------------------------------------------------- admin (hidden)
-def _admin_gate() -> bool:
-    """Gate shown in the (collapsed-by-default) sidebar. No URL parameter needed,
-    because Streamlit Cloud passes query params unreliably inside its iframe."""
+def _admin_gate(open_by_default: bool = False) -> bool:
+    """Password gate at the very bottom of the page. The sidebar cannot be used here
+    because ui.css hides it entirely. `?admin=1` just pre-opens the gate."""
     if st.session_state.get("admin_ok"):
         return True
-    with st.sidebar:
+    with st.expander("•", expanded=open_by_default):
         pw = st.text_input("كلمة السر", type="password",
-                           key="admin_pw_side", label_visibility="collapsed",
+                           key="admin_pw", label_visibility="collapsed",
                            placeholder="دخول المشرف")
-        if st.button("دخول", key="admin_login_side"):
+        if st.button("دخول", key="admin_login"):
             if analytics.check_password(pw):
                 st.session_state["admin_ok"] = True
                 st.rerun()
@@ -542,8 +542,11 @@ def _admin_gate() -> bool:
 
 
 def admin_panel():
-    if not st.session_state.get("admin_ok"):
-        _admin_gate()
+    try:
+        via_url = str(st.query_params.get("admin", "")).lower() in ("1", "true", "yes")
+    except Exception:
+        via_url = False
+    if not _admin_gate(via_url):
         return
     md("---")
     section("لوحة المشرف — إحصاءات الزوّار")
