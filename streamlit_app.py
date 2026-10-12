@@ -18,6 +18,7 @@ import colorsys
 import math
 import streamlit as st
 
+import analytics
 from backend_adapter import (
     analyze_batch_inputs, analyze_pasted, analyze_uploaded_bytes, batch_csv_bytes, normalize_upload_name,
     expand_uploaded_inputs, filename_only, get_engine,
@@ -448,6 +449,7 @@ def input_desk():
                     st.session_state["batch_reports"] = None
                     st.session_state["editor_origin"] = None
                     st.session_state["report_source"] = {"text": src}
+                    analytics.log_usage("text")
                 except Exception as ex:
                     st.error(str(ex))
     elif selection == MODE_FILE:
@@ -469,6 +471,7 @@ def input_desk():
                     st.session_state["report_source"] = {"filename": uname, "data": data}
                     st.session_state["editable_text"] = "\n".join(report.texts)
                     st.session_state["original_file_text"] = "\n".join(report.texts)
+                    analytics.log_usage("file")
                 except Exception as ex:
                     st.error(str(ex))
         origin = st.session_state.get("editor_origin")
@@ -493,6 +496,7 @@ def input_desk():
                                 st.session_state["report_source"] = {"text": src}
                             st.session_state["current_report"] = r
                             st.session_state["batch_reports"] = None
+                            analytics.log_usage("rescan")
                         except Exception as ex:
                             st.error(str(ex))
     else:
@@ -511,10 +515,59 @@ def input_desk():
                         st.session_state["batch_reports"] = results
                         st.session_state["current_report"] = None
                         st.session_state["editor_origin"] = None
+                        analytics.log_usage("batch")
                     else:
                         st.warning("لم يتضمن الرفع ملفات مدعومة.")
                 except Exception as ex:
                     st.error(str(ex))
+
+
+# ----------------------------------------------------------------- admin (hidden)
+def _admin_gate() -> bool:
+    if st.session_state.get("admin_ok"):
+        return True
+    st.info("هذه اللوحة محميّة. أدخل كلمة السر للمتابعة.")
+    pw = st.text_input("كلمة سر المشرف", type="password", key="admin_pw")
+    if st.button("دخول", key="admin_login"):
+        if analytics.check_password(pw):
+            st.session_state["admin_ok"] = True
+            st.rerun()
+        else:
+            st.error("كلمة السر غير صحيحة.")
+    return False
+
+
+def admin_panel():
+    flag = str(st.query_params.get("admin", "")).lower()
+    if flag not in ("1", "true", "yes"):
+        return
+    md("---")
+    section("لوحة المشرف — إحصاءات الزوّار")
+    if not analytics.enabled():
+        st.warning("لم تُضبط أسرار Supabase بعد. أضِف [supabase] url/key و ADMIN_PASSWORD في أسرار التطبيق.")
+        return
+    if not _admin_gate():
+        return
+    stats = analytics.fetch_stats()
+    if stats is None:
+        st.error("تعذّر قراءة البيانات من Supabase. تحقّق من العنوان/المفتاح ووجود جدول events.")
+        return
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("عدد الزيارات", stats["visits"])
+    c2.metric("مرات الاستخدام", stats["uses"])
+    c3.metric("جلسات فريدة", stats["unique_sessions"])
+    c4.metric("إجمالي الأحداث", stats["events"])
+    md(f'<p class="note">آخر حدث: <bdi>{esc(stats["last_event"] or "—")}</bdi></p>')
+    section("حسب البلد")
+    table(["البلد", "عدد الزيارات"], list(stats["by_country"]),
+          num_cols={1}, wrap_cols={0}, max_h=420)
+    section("حسب نوع الاستخدام")
+    table(["النوع", "العدد"], sorted(stats["by_kind"].items(), key=lambda kv: -kv[1]),
+          num_cols={1}, wrap_cols={0})
+    st.button("تحديث", key="admin_refresh")
+    if st.button("خروج", key="admin_logout"):
+        st.session_state["admin_ok"] = False
+        st.rerun()
 
 
 def main():
@@ -524,6 +577,7 @@ def main():
     except Exception as e:
         st.error(f"توقف التشغيل لحماية سلامة محرك التحليل: {e}")
         st.stop()
+    analytics.init_session()
     masthead()
     batch = st.session_state.get("batch_reports")
     rep = st.session_state.get("current_report")
@@ -551,6 +605,7 @@ def main():
     elif rep is not None:
         report_dashboard(rep)
     footer()
+    admin_panel()
 
 
 if __name__ == "__main__":
