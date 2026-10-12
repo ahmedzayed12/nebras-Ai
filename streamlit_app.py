@@ -523,21 +523,37 @@ def input_desk():
 
 
 # ----------------------------------------------------------------- admin (hidden)
+def init_admin_hotkey():
+    """Ctrl+Shift+R reveals the otherwise completely hidden admin gate.
+    Uses the invisible streamlit-hotkeys manager; silently no-ops if unavailable."""
+    try:
+        import streamlit_hotkeys as hotkeys
+    except Exception:
+        return
+    try:
+        hotkeys.activate([hotkeys.hk("admin_gate", "r", ctrl=True, shift=True, prevent_default=True)])
+        if hotkeys.pressed("admin_gate"):
+            st.session_state["admin_gate_open"] = True
+    except Exception:
+        pass
+
+
 def _admin_gate(open_by_default: bool = False) -> bool:
-    """Password gate at the very bottom of the page. The sidebar cannot be used here
-    because ui.css hides it entirely. `?admin=1` just pre-opens the gate."""
+    """Nothing is drawn until the gate is opened (Ctrl+Shift+A or ?admin=1)."""
     if st.session_state.get("admin_ok"):
         return True
-    with st.expander("•", expanded=open_by_default):
-        pw = st.text_input("كلمة السر", type="password",
-                           key="admin_pw", label_visibility="collapsed",
-                           placeholder="دخول المشرف")
-        if st.button("دخول", key="admin_login"):
-            if analytics.check_password(pw):
-                st.session_state["admin_ok"] = True
-                st.rerun()
-            else:
-                st.error("كلمة السر غير صحيحة.")
+    if not (st.session_state.get("admin_gate_open") or open_by_default):
+        return False
+    with st.form("admin_login_form"):
+        pw = st.text_input("كلمة السر", type="password", placeholder="دخول المشرف")
+        submitted = st.form_submit_button("دخول")
+    if submitted:
+        if analytics.check_password(pw):
+            st.session_state["admin_ok"] = True
+            st.session_state["admin_gate_open"] = False
+            st.rerun()
+        else:
+            st.error("كلمة السر غير صحيحة.")
     return False
 
 
@@ -583,6 +599,7 @@ def main():
         st.error(f"توقف التشغيل لحماية سلامة محرك التحليل: {e}")
         st.stop()
     analytics.init_session()
+    init_admin_hotkey()
     masthead()
     batch = st.session_state.get("batch_reports")
     rep = st.session_state.get("current_report")
