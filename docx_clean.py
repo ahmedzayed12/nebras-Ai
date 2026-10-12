@@ -37,6 +37,10 @@ _STRUCTURAL = re.compile(r"(?i)^\s*(?:listing|algorithm|theorem|lemma|propositio
                          r"author\s+contributions?|acknowledg(?:e)?ments?|code\s+availability|availability\s+of)\b")
 _SENT_END = re.compile(r"[.!?؟…][\"'”’»)\]]*\s*$")
 _ABSTRACT = re.compile(r"(?i)^\s*(?:abstract|summary|ملخص|المستخلص|الملخص)\s*:?\s*$")
+# Many journal templates (MDPI, Springer, Elsevier pre-prints) run the heading into the paragraph: "Abstract. We ..." /
+# "Abstract: ..." / "Abstract— ...". Only the standalone form was recognised, so the title / author / affiliation block
+# of such papers stayed in the analysis and its small centred lines were read as "manual formatting inconsistency".
+_ABSTRACT_RUNIN = re.compile(r"(?i)^\s*(?:abstract|summary|ملخص|المستخلص|الملخص)\s*[.:\-–—]\s*\S")
 _GENERATORS = ("python-docx", "un-named", "unnamed", "openpyxl", "pandoc", "docx4j", "aspose", "apache poi",
                "chatgpt", "openai", "claude", "gemini", "copilot", "anthropic", "docxtemplater", "pypandoc")
 
@@ -88,6 +92,8 @@ def _is_equation(p) -> bool:
 def _front_matter_ids(paras) -> set:
     """Title / authors / affiliations / e-mails: everything before the Abstract heading that is not real prose."""
     ab = next((i for i, p in enumerate(paras) if _ABSTRACT.match(p.text.strip())), None)
+    if ab is None:
+        ab = next((i for i, p in enumerate(paras[:40]) if _ABSTRACT_RUNIN.match(p.text)), None)
     if ab is None:
         return set()
     out = set()
@@ -244,12 +250,15 @@ def clean_docx_paras(paras, mm=None, theme_fonts=None):
     cells = {i for i in cells if i not in drop}
     drop |= cells; stats.table_cells = len(cells)
     stats.normalised = _normalise_structural(paras)
+    eq_idx = {i for i, p in enumerate(paras) if _is_equation(p)}
     if drop:
         keep = [i for i in range(len(paras)) if i not in drop]
+        before_eq = {keep.index(i - 1) for i in eq_idx if (i - 1) in keep}
         paras = [paras[i] for i in keep]
         if mm is not None:
             mm.orig_index = [mm.orig_index[i] for i in keep]
             mm.pos_maps = [mm.pos_maps[i] for i in keep]
+        close_sentences_before_dropped_equations(paras, before_eq, mm)
     stats.fonts_unified = unify_theme_fonts(paras, theme_fonts or {})
     stats.trimmed = _trim_layout_padding(paras, mm)
     return paras, stats
@@ -268,3 +277,134 @@ def generator_from_description(content: bytes) -> str | None:
     if desc and any(g in low for g in _GENERATORS):
         return desc
     return None
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Reference lists numbered by Word itself
+# ---------------------------------------------------------------------------------------------------------------
+# WHY: when the bibliography is a Word numbered list, the numbers "1. 2. 3." are drawn by Word and are NOT characters
+# of the paragraph. The engine matches numbered references ("[12] ...", "12. ...") against in-text citations "[12]";
+# with the numbers invisible it falls back to author-year matching, finds nothing, and reports EVERY reference as
+# "never cited in the text" (cite_gap = 1.0, weight +2.0 towards AI) although the text cites them as [1]...[24].
+# The fix writes back the number Word displays. Only decimal lists, only inside the References section, only when the
+# entry does not already start with its own number.
+_W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+_REFHEAD = re.compile(r"(?i)^\s*(?:\d+[.)]?\s*)?(?:references?|bibliography|works\s+cited|literature\s+cited|sources|"
+                      r"المراجع|المصادر|قائمة\s+المراجع|المراجع\s+والمصادر|مراجع|المصادر\s+والمراجع)\s*:?\s*$")
+_HAS_OWN_NUMBER = re.compile(r"^\s*[\[(]?\d{1,3}[\]).:]?\s")
+
+
+def _numbering_rows(content: bytes):
+    """Per paragraph in the engine's order: (numId, ilvl) or None; plus {(numId, ilvl): (numFmt, start)}."""
+    try:
+        from lxml import etree
+        with zipfile.ZipFile(io.BytesIO(content)) as z:
+            names = set(z.namelist())
+            doc = etree.fromstring(z.read("word/document.xml"), etree.XMLParser(huge_tree=True, resolve_entities=False))
+            num = etree.fromstring(z.read("word/numbering.xml")) if "word/numbering.xml" in names else None
+            sty = etree.fromstring(z.read("word/styles.xml")) if "word/styles.xml" in names else None
+    except Exception:
+        return None, {}
+    style_num = {}
+    if sty is not None:
+        for st in sty.iter(_W + "style"):
+            np_ = st.find(_W + "pPr/" + _W + "numPr")
+            if np_ is not None and np_.find(_W + "numId") is not None:
+                il = np_.find(_W + "ilvl")
+                style_num[st.get(_W + "styleId")] = (np_.find(_W + "numId").get(_W + "val"),
+                                                     int(il.get(_W + "val")) if il is not None else 0)
+    fmts = {}
+    if num is not None:
+        absn = {}
+        for a in num.iter(_W + "abstractNum"):
+            lv = {}
+            for l in a.iter(_W + "lvl"):
+                f = l.find(_W + "numFmt"); st_ = l.find(_W + "start")
+                lv[int(l.get(_W + "ilvl"))] = (f.get(_W + "val") if f is not None else "decimal",
+                                               int(st_.get(_W + "val")) if st_ is not None else 1)
+            absn[a.get(_W + "abstractNumId")] = lv
+        for n in num.iter(_W + "num"):
+            aid = n.find(_W + "abstractNumId")
+            lv = dict(absn.get(aid.get(_W + "val") if aid is not None else None, {}))
+            for o in n.iter(_W + "lvlOverride"):
+                so = o.find(_W + "startOverride")
+                il = int(o.get(_W + "ilvl"))
+                if so is not None and il in lv:
+                    lv[il] = (lv[il][0], int(so.get(_W + "val")))
+            for il, v in lv.items():
+                fmts[(n.get(_W + "numId"), il)] = v
+    rows = []
+
+    def one(par):
+        ppr = par.find(_W + "pPr")
+        key = None
+        if ppr is not None:
+            np_ = ppr.find(_W + "numPr")
+            if np_ is not None and np_.find(_W + "numId") is not None:
+                il = np_.find(_W + "ilvl")
+                key = (np_.find(_W + "numId").get(_W + "val"), int(il.get(_W + "val")) if il is not None else 0)
+            else:
+                ps = ppr.find(_W + "pStyle")
+                if ps is not None:
+                    key = style_num.get(ps.get(_W + "val"))
+        rows.append(None if key is None or key[0] == "0" else key)
+
+    body = doc.find(_W + "body")
+    if body is not None:
+        for child in body:
+            if child.tag == _W + "p":
+                one(child)
+            elif child.tag in (_W + "tbl", _W + "sdt"):
+                for par in child.iter(_W + "p"):
+                    one(par)
+    return rows, fmts
+
+
+def restore_reference_numbers(paras, mm, content: bytes, n_orig: int) -> int:
+    rows, fmts = _numbering_rows(content)
+    if rows is None or len(rows) != n_orig or mm is None:
+        return 0
+    head = None
+    for k, p in enumerate(paras):
+        if _REFHEAD.match(p.text or "") and len((p.text or "").strip()) < 40:
+            head = k
+    if head is None:
+        return 0
+    plan, counters = [], {}
+    for k in range(head + 1, len(paras)):
+        key = rows[mm.orig_index[k]]
+        if key is None:
+            continue
+        fmt, start = fmts.get(key, ("decimal", 1))
+        if fmt != "decimal":
+            continue
+        counters[key] = counters.get(key, start - 1) + 1
+        if paras[k].text.strip() and not _HAS_OWN_NUMBER.match(paras[k].text):
+            plan.append((k, counters[key]))
+    if len(plan) < 3:
+        return 0
+    for k, n in plan:
+        p = paras[k]
+        pre = "[%d] " % n
+        old = mm.pos_maps[k]
+        base = old if old is not None else list(range(len(p.text))) + [len(p.text)]
+        mm.pos_maps[k] = [base[0] if base else 0] * len(pre) + list(base)
+        p.runs = [(a + len(pre), b + len(pre), *rest) for (a, b, *rest) in p.runs]
+        p.text = pre + p.text
+    return len(plan)
+
+
+def close_sentences_before_dropped_equations(paras, dropped_after: set, mm=None) -> int:
+    """docx_clean drops paragraphs typed in a math font (Cambria Math ...). As in math_guard, a sentence that runs on
+    into such a displayed formula ("... we obtain") gets the formula placeholder instead of being reported as a
+    paragraph without final punctuation."""
+    import math_guard
+    n = 0
+    for k in sorted(dropped_after):
+        if 0 <= k < len(paras) and math_guard.ends_open(paras[k].text):
+            old = mm.pos_maps[k] if mm is not None and k < len(mm.pos_maps) else None
+            paras[k].text, new_map = math_guard.close_before_display(paras[k].text, old)
+            if mm is not None and k < len(mm.pos_maps):
+                mm.pos_maps[k] = new_map
+            n += 1
+    return n
