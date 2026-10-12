@@ -17,6 +17,7 @@ from pathlib import Path
 import colorsys
 import math
 import streamlit as st
+import streamlit.components.v1 as components
 
 from backend_adapter import (
     analyze_batch_inputs, analyze_pasted, analyze_uploaded_bytes, batch_csv_bytes, normalize_upload_name,
@@ -38,6 +39,31 @@ MODE_TEXT, MODE_FILE, MODE_BATCH = "نص مباشر", "ملف واحد", "دفع
 # ----------------------------------------------------------------- helpers
 def _css() -> str:
     return (Path(__file__).resolve().parent / "ui.css").read_text(encoding="utf-8")
+
+
+def cloudflare_web_analytics():
+    """Load Cloudflare's beacon in the Streamlit document, not this component iframe."""
+    components.html(
+        """
+        <script>
+        (() => {
+          try {
+            const doc = window.parent.document;
+            if (doc.querySelector('script[data-nebras-cf-beacon="1"]')) return;
+
+            const beacon = doc.createElement("script");
+            beacon.type = "module";
+            beacon.src = "https://static.cloudflareinsights.com/beacon.min.js";
+            beacon.setAttribute("data-nebras-cf-beacon", "1");
+            beacon.setAttribute("data-cf-beacon", '{"token":"116cab5f5c274f2c8076456785d000db"}');
+            doc.head.appendChild(beacon);
+          } catch (_) {}
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
 
 
 def esc(s) -> str:
@@ -519,6 +545,7 @@ def input_desk():
 
 def main():
     md(f"<style>{_css()}</style>")
+    cloudflare_web_analytics()
     try:
         get_engine()
     except Exception as e:
