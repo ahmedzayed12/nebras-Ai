@@ -524,29 +524,31 @@ def input_desk():
 
 # ----------------------------------------------------------------- admin (hidden)
 def _admin_gate() -> bool:
+    """Gate shown in the (collapsed-by-default) sidebar. No URL parameter needed,
+    because Streamlit Cloud passes query params unreliably inside its iframe."""
     if st.session_state.get("admin_ok"):
         return True
-    st.info("هذه اللوحة محميّة. أدخل كلمة السر للمتابعة.")
-    pw = st.text_input("كلمة سر المشرف", type="password", key="admin_pw")
-    if st.button("دخول", key="admin_login"):
-        if analytics.check_password(pw):
-            st.session_state["admin_ok"] = True
-            st.rerun()
-        else:
-            st.error("كلمة السر غير صحيحة.")
+    with st.sidebar:
+        pw = st.text_input("كلمة السر", type="password",
+                           key="admin_pw_side", label_visibility="collapsed",
+                           placeholder="دخول المشرف")
+        if st.button("دخول", key="admin_login_side"):
+            if analytics.check_password(pw):
+                st.session_state["admin_ok"] = True
+                st.rerun()
+            else:
+                st.error("كلمة السر غير صحيحة.")
     return False
 
 
 def admin_panel():
-    flag = str(st.query_params.get("admin", "")).lower()
-    if flag not in ("1", "true", "yes"):
+    if not st.session_state.get("admin_ok"):
+        _admin_gate()
         return
     md("---")
     section("لوحة المشرف — إحصاءات الزوّار")
     if not analytics.enabled():
         st.warning("لم تُضبط أسرار Supabase بعد. أضِف [supabase] url/key و ADMIN_PASSWORD في أسرار التطبيق.")
-        return
-    if not _admin_gate():
         return
     stats = analytics.fetch_stats()
     if stats is None:
