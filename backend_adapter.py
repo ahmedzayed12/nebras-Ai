@@ -126,7 +126,9 @@ def prepare_docx(path: str, content: bytes):
     paras, meta = eng.parse_docx(path)
     flags = math_guard.omml_flags(content, len(paras))
     clean, mm = math_guard.sanitize_docx_paras(paras, flags)
-    clean, st = docx_clean.clean_docx_paras(clean, mm)
+    with open(path, "rb") as fh:
+        theme = docx_clean.theme_font_table(fh.read())
+    clean, st = docx_clean.clean_docx_paras(clean, mm, theme_fonts=theme)
     gen = docx_clean.generator_from_description(content)
     if gen:     # engine only inspects creator / lastModifiedBy; the generator is often declared in the description
         meta = dict(meta)
@@ -142,7 +144,7 @@ def analyze_docx_guarded(path: str, content: bytes):
     threshold is touched."""
     eng = get_engine()
     clean, meta, mm, st, gen = prepare_docx(path, content)
-    if not mm.active and not st.removed and not gen:
+    if not mm.active and not st.removed and not st.trimmed and not st.fonts_unified and not gen:
         return _attach(eng.analyze_docx(path), mm)
     report = _attach(eng.core_analyze(clean, meta, os.path.basename(path)), mm)
     report.docx_clean = st

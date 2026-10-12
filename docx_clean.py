@@ -49,6 +49,8 @@ class CleanStats:
     table_cells: int = 0
     kept_tables: int = 0
     normalised: int = 0        # structural paragraphs whose template-driven formatting was neutralised
+    trimmed: int = 0           # paragraphs whose layout padding (leading/trailing spaces, tabs) was trimmed
+    fonts_unified: int = 0     # runs whose theme-font alias was resolved to the real family name
     notes: list = field(default_factory=list)
 
     @property
@@ -144,7 +146,89 @@ def _normalise_structural(paras) -> int:
     return n
 
 
-def clean_docx_paras(paras, mm=None):
+_PAD = " \t\u00a0\u3000\u2002\u2003\u2009\u200b\ufeff"
+
+
+def _trim_layout_padding(paras, mm=None) -> int:
+    """Remove spaces / tabs / NBSP typed at the START or END of a paragraph.
+
+    WHY: the engine counts them as human typing slips ("leading_space" 0.8, "trailing_space" 0.5 per hit) and they
+    feed `err_density`, the strongest human-side feature.  In real manuscripts they are *layout padding* (a first-line
+    indent made with the space bar, a trailing space left by copy/paste or by pressing Space before Enter) and say
+    nothing about who wrote the sentences.  On the Chapter-Two test file 281 + 74 such hits produced 11.9 "errors" per
+    1000 words and pushed a text whose paragraph map was 88 % AI down to 7 %.  Only the padding is removed; the words,
+    their order and every other check (double spaces INSIDE a sentence, missing spaces after commas, typos...) are
+    untouched.  `mm.pos_maps` is composed so the PDF report still shades the ORIGINAL characters.
+    """
+    n = 0
+    for k, p in enumerate(paras):
+        t = p.text
+        if not t or getattr(p, "is_list", False) or not t.strip():
+            continue
+        lead = len(t) - len(t.lstrip(_PAD))
+        end = len(t.rstrip(_PAD))
+        if lead == 0 and end == len(t):
+            continue
+        new = t[lead:end]
+        if mm is not None and k < len(mm.pos_maps):
+            old = mm.pos_maps[k]
+            mm.pos_maps[k] = list(range(lead, end)) if old is None else old[lead:end]
+        p.runs = [(max(a, lead) - lead, min(b, end) - lead, *rest) for (a, b, *rest) in p.runs
+                  if min(b, end) > max(a, lead)]
+        p.text = new
+        n += 1
+    return n
+
+
+_THEME_FONT = re.compile(r"theme:(major|minor)(Bidi|HAnsi|Ascii|EastAsia)", re.I)
+
+
+def theme_font_table(content: bytes) -> dict:
+    """{'theme:majorBidi': 'Times New Roman', ...} read from word/theme/theme1.xml (empty when unavailable)."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as z:
+            name = next((n for n in z.namelist() if re.match(r"word/theme/theme\d*\.xml$", n)), None)
+            xml = z.read(name).decode("utf-8", "ignore") if name else ""
+    except Exception:
+        return {}
+    out = {}
+    for grp in ("major", "minor"):
+        m = re.search(r"<a:%sFont>(.*?)</a:%sFont>" % (grp, grp), xml, re.S)
+        if not m:
+            continue
+        body = m.group(1)
+        def face(tag):
+            mm_ = re.search(r'<a:%s typeface="([^"]*)"' % tag, body)
+            return (mm_.group(1) if mm_ else "").strip()
+        arab = re.search(r'<a:font script="Arab" typeface="([^"]*)"', body)
+        latin, ea, cs = face("latin"), face("ea"), face("cs") or (arab.group(1) if arab else "")
+        for key, val in (("Bidi", cs or latin), ("HAnsi", latin), ("Ascii", latin), ("EastAsia", ea or latin)):
+            if val:
+                out["theme:%s%s" % (grp, key)] = val
+    return {k.lower(): v for k, v in out.items()}
+
+
+def unify_theme_fonts(paras, table: dict) -> int:
+    """A font written as theme:majorBidi in one run and as «Times New Roman» in the next is ONE font to the reader.
+    The engine compares the raw strings, so it reported 385 'different font' findings (fmt_font = 1.0) on a document
+    that is set entirely in Times New Roman.  Resolve the alias through the document's own theme."""
+    if not table:
+        return 0
+    n = 0
+    for p in paras:
+        new_runs = []
+        for r in p.runs:
+            a, b, font, *rest = r
+            f = table.get(str(font).lower()) if _THEME_FONT.fullmatch(str(font)) else None
+            if f:
+                n += 1
+                r = (a, b, f, *rest)
+            new_runs.append(r)
+        p.runs = new_runs
+    return n
+
+
+def clean_docx_paras(paras, mm=None, theme_fonts=None):
     """Return (clean_paras, stats).  When `mm` (math_guard.MathMap) is given, its index maps are filtered in step so the
     report can still highlight the ORIGINAL paragraphs."""
     stats = CleanStats()
@@ -160,14 +244,15 @@ def clean_docx_paras(paras, mm=None):
     cells = {i for i in cells if i not in drop}
     drop |= cells; stats.table_cells = len(cells)
     stats.normalised = _normalise_structural(paras)
-    if not drop:
-        return paras, stats
-    keep = [i for i in range(len(paras)) if i not in drop]
-    out = [paras[i] for i in keep]
-    if mm is not None:
-        mm.orig_index = [mm.orig_index[i] for i in keep]
-        mm.pos_maps = [mm.pos_maps[i] for i in keep]
-    return out, stats
+    if drop:
+        keep = [i for i in range(len(paras)) if i not in drop]
+        paras = [paras[i] for i in keep]
+        if mm is not None:
+            mm.orig_index = [mm.orig_index[i] for i in keep]
+            mm.pos_maps = [mm.pos_maps[i] for i in keep]
+    stats.fonts_unified = unify_theme_fonts(paras, theme_fonts or {})
+    stats.trimmed = _trim_layout_padding(paras, mm)
+    return paras, stats
 
 
 def generator_from_description(content: bytes) -> str | None:
