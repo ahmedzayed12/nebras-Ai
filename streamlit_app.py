@@ -215,6 +215,12 @@ def shaded_plan(rep, source):
     return hit[1]
 
 
+def _suspect_share(rep) -> str:
+    ps = list(getattr(rep, "para_scores", []) or [])
+    tot = sum(n for _, _, n in ps)
+    return "%.0f%%" % (100.0 * sum(n for _, sc, n in ps if sc >= 55) / tot) if tot >= 150 else "—"
+
+
 def dial_panel(rep=None, plan=None):
     if rep is None:
         md(f"""<section class="panel dial-panel" aria-label="لوحة النتيجة">{dial_svg(None)}
@@ -243,6 +249,7 @@ def dial_panel(rep=None, plan=None):
       {legend}
       <div class="verdict-pill" style="--vc:{vc}"><i></i><span>{esc(rep.verdict)}</span></div>
       <dl class="facts">
+        <div><dt title="مثل نسبة Turnitin/GPTZero: حصة كلمات المتن الواقعة في فقرات درجتها ≥ 55">نسبة النص المشتبه به</dt><dd class="num">{_suspect_share(rep)}</dd></div>
         <div><dt>الثقة بالحكم</dt><dd class="num">{rep.confidence*100:.0f}%</dd></div>
         <div><dt>الكلمات</dt><dd class="num">{rep.words:,}</dd></div>
         <div><dt>الجمل</dt><dd class="num">{rep.sentences:,}</dd></div>

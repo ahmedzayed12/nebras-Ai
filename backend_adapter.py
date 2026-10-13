@@ -16,6 +16,7 @@ import hashlib
 import importlib.machinery
 import importlib.util
 import io
+import math
 import os
 from pathlib import Path
 import sys
@@ -67,43 +68,129 @@ def filename_only(name: str) -> str:
     return name
 
 
-def _attach(report, mm):
+def _attach(report, mm, forensics=None, paste=None):
     report.math = mm
+    report.format_forensics = forensics
+    report.paste = paste
     return _enhance(report)
 
 
-def _enhance(report):
-    """Technical-paper layer (tech_signals). It can only RAISE the engine score, and only when several
-    independent stylistic habits of LLM-drafted scientific prose converge. Score, verdict, paragraph scores
-    (which drive the PDF shading) are updated together so every report shows the same percentage."""
-    try:
-        import tech_signals as ts
-    except Exception:
-        return report
-    report.score_engine = float(report.score)
-    report.tech = None
-    texts = [t for t in report.texts if t and t.strip() and not ts._REFLINE.match(t)]
-    layer = ts.analyze(texts)
-    report.tech = layer
-    fused = ts.fuse(report.score_engine, layer)
-    if fused <= report.score_engine + 0.5:
-        return report
-    eng = get_engine()
-    report.score = float(fused)
-    report.verdict, report.color = eng.make_verdict(report.score, report.words)
-    w = 0.9 * layer.confidence
+# "Container" features: they describe the Word FILE (edit time, tracked changes, template formatting, quote styles),
+# not the prose. A text drafted by an LLM, pasted into a university template and then reviewed with a supervisor
+# carries all of them. In v2.1 they can add up to -5.2 logits and silently veto any amount of stylistic evidence.
+# When (and only when) the independent academic-prose layer fires, their combined weight is capped at CONTAINER_CAP.
+CONTAINER_KEYS = ("meta_human", "fmt_incons", "mixed_conv")
+CONTAINER_CAP = -1.0
+# Paste artefacts (format_forensics.paste_artifacts): logit added per unit of evidence, its ceiling, and the minimum
+# evidence needed (one strong chat-UI trace on >= 30% of paragraphs, or several weaker ones together).
+PASTE_LOGIT = 1.2
+PASTE_MAX_LOGIT = 3.0
+PASTE_MIN = 0.8
+
+
+def _recalibrate_container(report):
+    feats = getattr(report, "features", None) or {}
+    raw = sum(feats[k][2] for k in CONTAINER_KEYS if k in feats and feats[k][2] < 0)
+    report.container_raw = raw
+    if raw >= CONTAINER_CAP - 1e-9:
+        return False
+    z = float(report.z) - raw + CONTAINER_CAP
+    conf = float(getattr(report, "confidence", 1.0) or 0.0)
+    report.z = z
+    report.score = 100.0 / (1.0 + math.exp(-z * conf)) if conf else report.score
+    return True
+
+
+def _lift_paras(report, mod, conf):
+    w = 0.9 * conf
     new_ps = []
     for i, sc, n in report.para_scores:
-        tp = ts.para_score(report.texts[i]) if 0 <= i < len(report.texts) else None
+        tp = mod.para_score(report.texts[i]) if 0 <= i < len(report.texts) else None
         if tp is not None and tp > sc:
             sc = round(sc + w * (tp - sc), 0)
         new_ps.append((i, sc, n))
     report.para_scores = new_ps
-    fired = [x for x in layer.signals if x.z >= 0.35 and x.key != "friction"]
-    lines = ["▲ طبقة الأوراق التقنية (مستقلة عن المحرك) رفعت المؤشر من %.0f إلى %.0f لاجتماع بصمات أسلوبية:" % (report.score_engine, report.score)]
-    for x in fired:
-        lines.append("   +%.1f  %s (%.3g %s)" % (x.weight * x.z, x.label, x.value, x.unit))
-    report.reasons = list(report.reasons) + lines
+
+
+def _enhance(report):
+    """Layers that run AFTER the unchanged engine (the engine file itself is never touched):
+      1. container recalibration (file-handling traces may not veto the prose evidence),
+      2. technical-paper layer (tech_signals), 3. academic-prose layer (academic_signals).
+    2 and 3 can only RAISE the score, and only when >= 3 independent habits converge. Score, verdict and paragraph
+    scores (which drive the PDF shading) are updated together so every report shows the same percentage."""
+    eng = get_engine()
+    report.score_engine = float(report.score)
+    report.tech = None
+    report.academic = None
+    lines = []
+
+    try:
+        import academic_signals as acad
+        acad_layer = acad.analyze([t for t in report.texts if t and t.strip()])
+    except Exception:
+        acad, acad_layer = None, None
+    report.academic = acad_layer
+
+    # The container veto is relaxed ONLY when the prose itself independently converges on LLM habits.
+    # Without that, a human-edited Word file keeps the full v2.1 human evidence (no new false positives).
+    prose_fired = acad_layer is not None and acad_layer.confidence > 0
+    pa = getattr(report, "paste", None)
+    paste_fired = pa is not None and pa.total >= PASTE_MIN
+    if paste_fired:
+        before = float(report.score)
+        report.z = float(report.z) + min(PASTE_MAX_LOGIT, PASTE_LOGIT * pa.total)
+        conf = float(getattr(report, "confidence", 1.0) or 0.0)
+        report.score = 100.0 / (1.0 + math.exp(-report.z * conf)) if conf else report.score
+        lines.append("▲ آثار نسخ/لصق في تنسيق ملف Word (طبقة مستقلة) رفعت المؤشر من %.0f إلى %.0f:" % (before, report.score))
+        lines += list(pa.evidence)
+    if (prose_fired or paste_fired) and _recalibrate_container(report):
+        lines.append("◆ معايرة آثار الملف: آثار التحرير/التنسيق/الاقتباس في ملف Word تدل على أن إنسانًا تعامل مع الملف، "
+                     "لا على أنه كتب النص؛ فحُدَّ أثرها المجتمع من %.1f إلى %.1f (المؤشر %.0f ← %.0f)."
+                     % (report.container_raw, CONTAINER_CAP, report.score_engine, report.score))
+
+    try:
+        import tech_signals as ts
+        texts = [t for t in report.texts if t and t.strip() and not ts._REFLINE.match(t)]
+        layer = ts.analyze(texts)
+        report.tech = layer
+        before = float(report.score)
+        fused = ts.fuse(before, layer)
+        if fused > before + 0.5:
+            report.score = float(fused)
+            _lift_paras(report, ts, layer.confidence)
+            lines.append("▲ طبقة الأوراق التقنية رفعت المؤشر من %.0f إلى %.0f لاجتماع بصمات أسلوبية:" % (before, report.score))
+            for x in layer.signals:
+                if x.z >= 0.35 and x.key != "friction":
+                    lines.append("   +%.1f  %s (%.3g %s)" % (x.weight * x.z, x.label, x.value, x.unit))
+    except Exception:
+        pass
+
+    try:
+        layer = acad_layer
+        if acad is None or layer is None:
+            raise RuntimeError
+        before = float(report.score)
+        fused = acad.fuse(before, layer)
+        if fused > before + 0.5:
+            report.score = float(fused)
+            _lift_paras(report, acad, layer.confidence)
+            lines.append("▲ طبقة النثر الأكاديمي رفعت المؤشر من %.0f إلى %.0f لاجتماع %d بصمات أسلوبية:" % (before, report.score, layer.fired))
+            for x in layer.signals:
+                if x.weight * x.z >= 0.05:
+                    lines.append("   +%.1f  %s (%.3g %s)" % (x.weight * x.z, x.label, x.value, x.unit))
+    except Exception:
+        pass
+
+    if abs(report.score - report.score_engine) > 0.5:
+        report.verdict, report.color = eng.make_verdict(report.score, report.words)
+        tot = sum(n for _, _, n in report.para_scores)
+        hi = sum(n for _, sc, n in report.para_scores if sc >= 55)
+        if tot >= 150 and tot and hi / tot >= 0.30 and report.score < 65:
+            report.verdict += " — مع فقرات مشتبه بها (%.0f%% من النص)" % (100 * hi / tot)
+        report.reasons = list(report.reasons) + lines
+    ff = getattr(report, "format_forensics", None)
+    if ff is not None:
+        report.reasons = list(report.reasons) + ff.lines()
     return report
 
 
@@ -149,11 +236,21 @@ def analyze_docx_guarded(path: str, content: bytes):
     eng = get_engine()
     clean, meta, mm, st, gen = prepare_docx(path, content)
     refs_fixed = any(n.startswith("refs_numbered=") and not n.endswith("=0") for n in st.notes)
-    if not mm.active and not st.removed and not st.trimmed and not st.fonts_unified and not gen and not refs_fixed:
-        return _attach(eng.analyze_docx(path), mm)
-    report = _attach(eng.core_analyze(clean, meta, os.path.basename(path)), mm)
-    report.docx_clean = st
-    return report
+    fast = not mm.active and not st.removed and not st.trimmed and not st.fonts_unified and not gen and not refs_fixed
+    if fast:
+        report = eng.analyze_docx(path)
+        eng.assign_roles(clean, True)
+    else:
+        report = eng.core_analyze(clean, meta, os.path.basename(path))
+        report.docx_clean = st
+    ff, pa = None, None
+    try:
+        import format_forensics
+        ff = format_forensics.analyze(clean)
+        pa = format_forensics.paste_artifacts(content, ff)
+    except Exception:
+        pass
+    return _attach(report, mm, ff, pa)
 
 
 _MIME_EXT = {"application/pdf": ".pdf",
