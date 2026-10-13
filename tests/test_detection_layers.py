@@ -101,3 +101,10 @@ def test_friction_never_applies_to_pasted_text_or_reports():
     assert getattr(r, "friction", None) is None
     d = b.analyze_uploaded_bytes("c.docx", _docx([CLEAN_LONG] * 40))
     assert not any("الإنسان يخطئ" in x for x in d.reasons)                         # score only, never shown
+
+
+def test_friction_floor_is_continuous_no_fixed_steps():
+    import friction
+    vals = [friction.floor_for(r / 100.0) for r in range(0, 200)]
+    assert all(a > b for a, b in zip(vals, vals[1:]))          # every change in slip rate changes the result
+    assert friction.floor_for(2.5) == 0.0
