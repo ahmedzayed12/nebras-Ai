@@ -447,8 +447,6 @@ def input_desk():
         # No `type=` filter: Android/iOS pickers grey out files when given a list of extensions (and drop files
         # that arrive without one). Unsupported types are rejected with a clear message below instead.
         uploaded = st.file_uploader("ملف PDF أو Word أو نص", key=f"one_file_{n}")
-        md('<p class="note">على الهاتف: اختر الملف وانتظر ظهور اسمه تحت الزر قبل الضغط على «حلّل الملف». إن ظهر «فشل الرفع» فاختر الملف مرة أخرى (من «الملفات» أو «التنزيلات» لا من معاينة التطبيق)، ولا تُبدّل التطبيق أثناء الرفع.</p>')
-        md('<p class="note">ملفات PDF النصية تُقرأ مباشرة، والمصوّرة عبر OCR محلي (يحتاج Tesseract مثبتًا). ملفات Word تحتفظ بقرائن تنسيقها.</p>')
         if st.button("حلّل الملف", type="primary", key=f"analyze_file_{n}"):
             if uploaded is None:
                 st.warning("اختر ملفًا أولًا.")
