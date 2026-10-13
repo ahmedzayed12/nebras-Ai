@@ -184,7 +184,7 @@ def _pdf_verdict(report, eng):
     base, color = eng.make_verdict(report.score, report.words)
     if report.score >= 65:
         base = "قرائن أسلوبية مرتفعة نحو الذكاء الاصطناعي"
-    return base + " — تقدير من النص وحده (PDF)؛ ارفع ملف Word لحكم أدق", color
+    return base + " (PDF: من النص وحده)", color
 
 
 def _deck_layout_fix(report):
@@ -282,6 +282,40 @@ def _file_evidence_to_paragraphs(report) -> bool:
         out.append((i, round(100.0 / (1.0 + math.exp(-(math.log(p / (1 - p)) + shift))), 0), n))
     report.para_scores = out
     report.file_shift = shift
+    return True
+
+
+def _anchor_map_to_index(report) -> bool:
+    """The paragraph map says WHERE in the text the suspicion is; the document index says HOW MUCH. Their levels must
+    agree: the word-weighted mean of the paragraph scores is the expected share of suspicious text, so it cannot
+    sit far above the document index (a "leans human" verdict beside "70% suspected paragraphs" contradicts itself).
+    When it does, every paragraph moves down by the same log-odds amount (found by bisection) until the mean equals the
+    index. The ORDER of paragraphs is untouched, strongly flagged paragraphs stay flagged, and the map is never raised."""
+    ps = list(getattr(report, "para_scores", None) or [])
+    tot = float(sum(n for _, _, n in ps))
+    if not ps or tot <= 0:
+        return False
+
+    def lg(sc):
+        p = min(0.995, max(0.005, sc / 100.0))
+        return math.log(p / (1.0 - p))
+
+    def mean(d):
+        return sum(n * 100.0 / (1.0 + math.exp(-(lg(sc) + d))) for _, sc, n in ps) / tot
+
+    target = float(report.score)
+    if mean(0.0) <= target + 1.0:
+        return False
+    lo, hi = -12.0, 0.0
+    for _ in range(50):
+        mid = (lo + hi) / 2.0
+        if mean(mid) > target:
+            hi = mid
+        else:
+            lo = mid
+    d = (lo + hi) / 2.0
+    report.para_scores = [(i, round(100.0 / (1.0 + math.exp(-(lg(sc) + d))), 0), n) for i, sc, n in ps]
+    report.map_anchor = d
     return True
 
 
@@ -417,6 +451,9 @@ def _enhance(report):
             # score only: by design this rule is not written into the interface or the reports
         except Exception:
             pass
+
+    if not deck_mode and _anchor_map_to_index(report):
+        shifted = True
 
     if shifted:      # the engine's own "mixed document" line was computed before the file evidence reached the map
         report.reasons = [r for r in report.reasons if not str(r).startswith("⚠ مستند مختلط محتمل")]
