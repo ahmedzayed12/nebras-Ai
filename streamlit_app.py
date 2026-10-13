@@ -216,6 +216,9 @@ def shaded_plan(rep, source):
 
 
 def _suspect_share(rep) -> str:
+    deck = getattr(rep, "deck", None)
+    if deck is not None and deck.is_deck and deck.suspect_share is not None:
+        return "%.0f%% من الشرائح" % (100.0 * deck.suspect_share)
     ps = list(getattr(rep, "para_scores", []) or [])
     tot = sum(n for _, _, n in ps)
     return "%.0f%%" % (100.0 * sum(n for _, sc, n in ps if sc >= 55) / tot) if tot >= 150 else "—"

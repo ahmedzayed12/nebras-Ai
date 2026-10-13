@@ -68,11 +68,47 @@ def filename_only(name: str) -> str:
     return name
 
 
-def _attach(report, mm, forensics=None, paste=None):
+def _attach(report, mm, forensics=None, paste=None, deck=None):
     report.math = mm
     report.format_forensics = forensics
     report.paste = paste
+    report.deck = deck
     return _enhance(report)
+
+
+def _rescore(report):
+    conf = float(getattr(report, "confidence", 1.0) or 0.0)
+    if conf:
+        report.score = 100.0 / (1.0 + math.exp(-float(report.z) * conf))
+
+
+def _deck_layout_fix(report):
+    """Inside a slide deck, a bullet without a full stop or a blank line between text boxes is layout, not a human
+    slip. Remove exactly that part of the engine's 'human error' credit (other typos still count)."""
+    eng = get_engine()
+    feats = dict(getattr(report, "features", None) or {})
+    ctx = getattr(report, "ctx", {}) or {}
+    removed = 0.0
+    err_w = sum(eng.KINDS[f.kind][2] for f in report.findings if f.kind in eng.KINDS and eng.KINDS[f.kind][1] in eng.ERR_CATS)
+    layout_w = sum(eng.KINDS[f.kind][2] for f in report.findings if f.kind in ("no_final_punct",))
+    d_err = float(ctx.get("d_err", 0.0) or 0.0)
+    if err_w > 0 and layout_w > 0 and "err_density" in feats:
+        d_new = d_err * max(0.0, err_w - layout_w) / err_w
+        for k, fv in (("err_density", 1.0 - math.exp(-d_new / 5.0)), ("clean", math.exp(-d_new / 3.0))):
+            if k in feats:
+                v, w, c = feats[k]
+                removed += c - w * fv
+                feats[k] = (fv, w, w * fv)
+    if "fmt_incons" in feats and feats["fmt_incons"][2] < 0:        # blank lines between slide boxes
+        v, w, c = feats["fmt_incons"]
+        removed += c
+        feats["fmt_incons"] = (0.0, w, 0.0)
+    if abs(removed) < 1e-9:
+        return 0.0
+    report.features = feats
+    report.z = float(report.z) - removed
+    _rescore(report)
+    return -removed
 
 
 # "Container" features: they describe the Word FILE (edit time, tracked changes, template formatting, quote styles),
@@ -124,6 +160,14 @@ def _enhance(report):
     report.academic = None
     lines = []
 
+    deck = getattr(report, "deck", None)
+    deck_mode = deck is not None and deck.is_deck
+    if deck_mode:
+        before = float(report.score)
+        delta = _deck_layout_fix(report)
+        lines.append("■ عرض تقديمي (%s): يُحلَّل شريحةً شريحة، ولا يُحتسب غياب النقطة في آخر العناوين والنقاط خطأً بشريًا%s."
+                     % (deck.reason, (" (المؤشر %.0f ← %.0f)" % (before, report.score)) if abs(delta) > 1e-6 else ""))
+
     try:
         import academic_signals as acad
         acad_layer = acad.analyze([t for t in report.texts if t and t.strip()])
@@ -134,6 +178,20 @@ def _enhance(report):
     # The container veto is relaxed ONLY when the prose itself independently converges on LLM habits.
     # Without that, a human-edited Word file keeps the full v2.1 human evidence (no new false positives).
     prose_fired = acad_layer is not None and acad_layer.confidence > 0
+    if deck_mode:
+        import slide_mode
+        before = float(report.score)
+        fused = slide_mode.fuse(before, deck)
+        if fused > before + 0.5:
+            report.score = float(fused)
+            lines.append("▲ طبقة بنية الشرائح رفعت المؤشر من %.0f إلى %.0f لاجتماع %d بصمات قالبية:" % (before, report.score, deck.fired))
+        elif deck.score is not None:
+            lines.append("■ بنية الشرائح: %d بصمات قالبية من 3 مطلوبة؛ لا رفع للمؤشر." % deck.fired)
+        for x in deck.signals:
+            if x.weight * x.z >= 0.05:
+                lines.append("   +%.1f  %s (%s)" % (x.weight * x.z, x.label,
+                             ("CV=%.2f" % x.value) if x.key == "desc_cv" else "%.0f%% من الشرائح" % (100 * x.value)))
+        prose_fired = prose_fired or deck.confidence > 0
     pa = getattr(report, "paste", None)
     paste_fired = pa is not None and pa.total >= PASTE_MIN
     if paste_fired:
@@ -181,11 +239,14 @@ def _enhance(report):
     except Exception:
         pass
 
-    if abs(report.score - report.score_engine) > 0.5:
+    if abs(report.score - report.score_engine) > 0.5 or deck_mode:
         report.verdict, report.color = eng.make_verdict(report.score, report.words)
         tot = sum(n for _, _, n in report.para_scores)
         hi = sum(n for _, sc, n in report.para_scores if sc >= 55)
-        if tot >= 150 and tot and hi / tot >= 0.30 and report.score < 65:
+        if deck_mode and deck.suspect_share is not None:
+            if deck.suspect_share >= 0.30 and report.score < 65:
+                report.verdict += " — مع شرائح مشتبه بها (%.0f%% من نص العرض)" % (100 * deck.suspect_share)
+        elif tot >= 150 and tot and hi / tot >= 0.30 and report.score < 65:
             report.verdict += " — مع فقرات مشتبه بها (%.0f%% من النص)" % (100 * hi / tot)
         report.reasons = list(report.reasons) + lines
     ff = getattr(report, "format_forensics", None)
@@ -194,13 +255,23 @@ def _enhance(report):
     return report
 
 
-def analyze_text_guarded(text: str, source: str = "نص ملصق"):
+def analyze_text_guarded(text: str, source: str = "نص ملصق", deck=None):
     """Text route (paste / TXT / MD / PDF text): equations out, then the unchanged engine."""
     import math_guard
     clean, mm = math_guard.sanitize_text(text)
     if not mm.active:                       # no maths: byte-for-byte the original route
-        return _attach(get_engine().analyze_text(text, source=source), mm)
-    return _attach(get_engine().analyze_text(clean, source=source), mm)
+        return _attach(get_engine().analyze_text(text, source=source), mm, deck=deck)
+    return _attach(get_engine().analyze_text(clean, source=source), mm, deck=deck)
+
+
+def _read_deck(content: bytes):
+    """Slide-deck recognition for PDFs (slide_mode). Any failure simply means 'not a deck'."""
+    try:
+        import slide_mode
+        meta, slides = slide_mode.read_pdf(content)
+        return slide_mode.analyze(meta, slides)
+    except Exception:
+        return None
 
 
 def prepare_docx(path: str, content: bytes):
@@ -286,9 +357,7 @@ def analyze_uploaded_bytes(filename: str, content: bytes):
         raise ValueError("حجم الملف يتجاوز حد الرفع في الواجهة (25 MB).")
     if Path(name).suffix.lower() == ".pdf":
         from pdf_input import extract_pdf_text
-        # The original engine always sees plain extracted text; no new AI
-        # scoring algorithm or PDF-specific thresholds are introduced.
-        return analyze_text_guarded(extract_pdf_text(content), source=name)
+        return analyze_text_guarded(extract_pdf_text(content), source=name, deck=_read_deck(content))
     with tempfile.TemporaryDirectory(prefix="ai_inspector_") as tmp:
         path = Path(tmp) / name
         path.write_bytes(content)
