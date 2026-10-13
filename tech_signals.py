@@ -56,6 +56,7 @@ _LEX = [
     r"provides? a (?:viable|clean|consistent|physically)", r"enables? a", r"tailored", r"nuanced", r"multifaceted",
     r"unambiguous", r"substantial(?:ly)?", r"consistent baseline", r"dedicated", r"calibrated",
 ]
+STEM_CAP = 3
 _LEX_RX = re.compile(r"\b(?:" + "|".join(_LEX) + r")\b", re.I)
 
 _SCOPE = re.compile(
@@ -144,7 +145,11 @@ def measure(paragraphs) -> dict:
     labels = _LABEL_ITEM.findall(text)
     runins = _RUNIN.findall(text)
     m["label"] = (len(labels) + len(runins)) / k
-    m["lex"] = len(_LEX_RX.findall(text)) / k
+    per = {}
+    for h in _LEX_RX.findall(text):          # one word counts at most STEM_CAP times (a repeated word is the topic)
+        key = re.sub(r"(?:ing|ed|es|s|ly|ness)$", "", h.lower())
+        per[key] = per.get(key, 0) + 1
+    m["lex"] = sum(min(v, STEM_CAP) for v in per.values()) / k
     m["scope"] = len(_SCOPE.findall(text)) / k
     m["adv"] = len(_ADV.findall(text)) / k
     m["open"] = len(_OPEN.findall(text)) / ns
@@ -205,7 +210,8 @@ def analyze(paragraphs) -> TechLayer:
     sigs.append(TechSignal("friction", "نص بلا أي هفوة كتابية (مسافات/ترقيم)", 0.5, m["typo"], "لكل 1000 كلمة", friction))
     total += 0.5 * friction
     score = 50.0 + 50.0 * math.tanh((total - SCORE_OFFSET) / SCORE_SCALE)
-    conf = min(1.0, m["words"] / 3000.0) * (1.0 if fired >= 3 else 0.7 if fired == 2 else 0.35 if fired == 1 else 0.0)
+    # a single habit never lifts the index (a lone habit is how an ordinary author writes); two lift partly, three fully
+    conf = min(1.0, m["words"] / 3000.0) * (1.0 if fired >= 3 else 0.7 if fired == 2 else 0.0)
     notes = []
     if fired >= 3:
         notes.append("اجتمعت %d بصمات أسلوبية مميّزة للأوراق التقنية المولَّدة." % fired)

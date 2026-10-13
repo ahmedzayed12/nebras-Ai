@@ -447,6 +447,7 @@ def input_desk():
         # No `type=` filter: Android/iOS pickers grey out files when given a list of extensions (and drop files
         # that arrive without one). Unsupported types are rejected with a clear message below instead.
         uploaded = st.file_uploader("ملف PDF أو Word أو نص", key=f"one_file_{n}")
+        md('<p class="note">على الهاتف: اختر الملف وانتظر ظهور اسمه تحت الزر قبل الضغط على «حلّل الملف». إن ظهر «فشل الرفع» فاختر الملف مرة أخرى (من «الملفات» أو «التنزيلات» لا من معاينة التطبيق)، ولا تُبدّل التطبيق أثناء الرفع.</p>')
         md('<p class="note">ملفات PDF النصية تُقرأ مباشرة، والمصوّرة عبر OCR محلي (يحتاج Tesseract مثبتًا). ملفات Word تحتفظ بقرائن تنسيقها.</p>')
         if st.button("حلّل الملف", type="primary", key=f"analyze_file_{n}"):
             if uploaded is None:
@@ -454,7 +455,7 @@ def input_desk():
             else:
                 try:
                     data = uploaded.getvalue()
-                    uname = normalize_upload_name(uploaded.name, getattr(uploaded, "type", ""))
+                    uname = normalize_upload_name(uploaded.name, getattr(uploaded, "type", ""), data)
                     report = analyze_uploaded_bytes(uname, data)
                     st.session_state["current_report"] = report
                     st.session_state["batch_reports"] = None
@@ -497,7 +498,10 @@ def input_desk():
                 st.warning("ارفع ملفًا واحدًا على الأقل.")
             else:
                 try:
-                    files = [(normalize_upload_name(x.name, getattr(x, 'type', '')), x.getvalue()) for x in multiple]
+                    files = []
+                    for x in multiple:
+                        _d = x.getvalue()
+                        files.append((normalize_upload_name(x.name, getattr(x, 'type', ''), _d), _d))
                     results = analyze_batch_inputs(files)
                     if results:
                         st.session_state["batch_sources"] = {lbl: d for lbl, d in expand_uploaded_inputs(files)}

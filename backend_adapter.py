@@ -68,6 +68,56 @@ def filename_only(name: str) -> str:
     return name
 
 
+# Photographs placed in the body. A real photograph (JPEG, not a PNG chart / diagram / vector) that sits in the document
+# is first-hand material: somebody stood in front of something and photographed it. That is evidence of human involvement
+# in producing the document, NOT proof of who typed its sentences, so it is small, bounded, one-directional (no photos
+# says nothing) and is withheld when the file itself names a generator. Fixed constants, not fitted to any file.
+PHOTO_MIN_BYTES = 20_000
+PHOTO_EACH, PHOTO_CAP = -0.1, -0.4
+
+
+def photo_count(content: bytes) -> int:
+    """Distinct JPEG photographs actually referenced by the body of a DOCX (0 when unreadable)."""
+    try:
+        import hashlib
+        zf = zipfile.ZipFile(io.BytesIO(content))
+        rels = zf.read("word/_rels/document.xml.rels").decode("utf8", "ignore")
+        body = zf.read("word/document.xml").decode("utf8", "ignore")
+        used = set(_re.findall(r'<a:blip[^>]*?r:embed="([^"]+)"', body))
+        seen = set()
+        for m in _re.finditer(r"<Relationship\b[^>]*>", rels):
+            tag = m.group(0)
+            rid = _re.search(r'\bId="([^"]+)"', tag)
+            tgt = _re.search(r'\bTarget="([^"]+)"', tag)
+            if not rid or not tgt or rid.group(1) not in used:
+                continue
+            path = "word/" + tgt.group(1).lstrip("/") if not tgt.group(1).startswith("/") else tgt.group(1).lstrip("/")
+            if not path.lower().endswith((".jpg", ".jpeg")):
+                continue
+            data = zf.read(path)
+            if len(data) >= PHOTO_MIN_BYTES and data[:3] == b"\xff\xd8\xff":
+                seen.add(hashlib.sha1(data).hexdigest())
+        return len(seen)
+    except Exception:
+        return 0
+
+
+def _photo_evidence(report):
+    """Document-level human-side evidence from embedded photographs. Returns the log-odds change (<= 0)."""
+    n = int(getattr(report, "photos_n", 0) or 0)
+    report.photo_note = None
+    if n <= 0 or explicit_generator(getattr(report, "meta", None)) > 0:
+        return 0.0
+    d = max(PHOTO_CAP, PHOTO_EACH * n)
+    feats = dict(getattr(report, "features", None) or {})
+    report.z = float(report.z) + d
+    feats["photos"] = (min(1.0, n / 4.0), PHOTO_CAP, d)
+    report.features = feats
+    _rescore(report)
+    report.photo_note = (n, d)
+    return d
+
+
 def _attach(report, mm, forensics=None, paste=None, deck=None, paras=None):
     report.math = mm
     report.doc_paras = paras
@@ -80,15 +130,70 @@ def _attach(report, mm, forensics=None, paste=None, deck=None, paras=None):
 # Word "edit history" (edit time, revisions, comments, rsid sessions) is reset by a plain Save-As / another editor.
 # Its swing must not exceed what the TEXT can do: both history features are bounded.
 META_HUMAN_MIN, META_GEN_MAX = -0.25, 0.1
-PROSE_ONLY_EXCLUDE = {"meta_human", "meta_gen", "fmt_incons", "fmt_perfect", "mixed_conv", "err_density", "clean", "ortho"}
+PROSE_ONLY_EXCLUDE = {"photos", "meta_human", "meta_gen", "fmt_incons", "fmt_perfect", "mixed_conv", "err_density", "clean", "ortho"}
+
+
+# Explicit generator traces (a code library or an AI product named as the author, or the python-docx template date).
+# Pandoc / "unnamed" are NOT listed: researchers use them for ordinary human work.
+EXPLICIT_GEN_NAMES = ("python-docx", "openpyxl", "docx4j", "aspose", "apache poi", "chatgpt", "openai", "anthropic")
+EXPLICIT_GEN_TEMPLATE_DATE = "2013-12-23"
+EXPLICIT_GEN_FLOOR = 0.5     # an explicit trace is first-hand provenance (the file says a program wrote it): at least this share counts
+                             # even when the wording is neutral; the rest is earned only by wording that agrees (up to 100%)
+
+
+def explicit_generator(meta) -> float:
+    """0..1: how explicitly the file's own data says a program (not a person in Word) produced it."""
+    meta = meta or {}
+    names = (str(meta.get("creator") or "") + " " + str(meta.get("last_modified_by") or "")).lower()
+    v = 0.55 if any(g in names for g in EXPLICIT_GEN_NAMES) else 0.0
+    if str(meta.get("created") or "").startswith(EXPLICIT_GEN_TEMPLATE_DATE):
+        v += 0.35
+    return min(1.0, v)
+
+
+def _academic_for(report):
+    """(module, layer, topic) of the academic-prose layer; computed once per report. It depends only on the text."""
+    cached = getattr(report, "_acad_cache", None)
+    if cached is not None:
+        return cached
+    try:
+        import academic_signals as acad
+        _dp = getattr(report, "doc_paras", None) or []
+        topic = acad.topic_terms([getattr(q, "text", "") for q in _dp if getattr(q, "role", "") == "heading"],
+                                 extra=[getattr(q, "text", "") for q in _dp if getattr(q, "role", "") == "keywords"])
+        out = (acad, acad.analyze([t for t in report.texts if t and t.strip()], topic), topic)
+    except Exception:
+        out = (None, None, None)
+    report._acad_cache = out
+    return out
+
+
+def wording_corroboration(report) -> float:
+    """0..1: how far the WORDING alone, judged by the academic-prose layer (habits calibrated on external human and LLM
+    corpora, never on the file's history), points the same way as a generator trace. The engine's own wording features are
+    not used here: they reach +2..+3 log-odds on ordinary human prose too, so they cannot say whether the text agrees."""
+    layer = _academic_for(report)[1]
+    return float(getattr(layer, "strength", 0.0) or 0.0) if layer is not None else 0.0
 
 
 def _stabilize_meta(report):
+    """Edit-history traces are bounded (Save-As resets them). A generator trace keeps its small bound too, EXCEPT an
+    explicit one (python-docx, template date...) when independent wording evidence agrees with it: then it counts in
+    proportion to that agreement. Returns the change in log-odds."""
     feats = dict(getattr(report, "features", None) or {})
     delta = 0.0
+    report.meta_gen_note = None
     for k, lo, hi in (("meta_human", META_HUMAN_MIN, 0.0), ("meta_gen", 0.0, META_GEN_MAX)):
         if k in feats:
             v, w, c = feats[k]
+            if k == "meta_gen":
+                expl = explicit_generator(getattr(report, "meta", None))
+                if expl > 0 and c > hi:
+                    corr = wording_corroboration(report)
+                    share = EXPLICIT_GEN_FLOOR + (1.0 - EXPLICIT_GEN_FLOOR) * corr
+                    allowed = hi + share * max(0.0, w * expl - hi)
+                    hi = max(hi, min(c, allowed))
+                    report.meta_gen_note = (share, getattr(_academic_for(report)[1], "fired", 0), hi, corr)
             nc = max(lo, min(hi, c))
             if nc != c:
                 delta += nc - c
@@ -97,7 +202,26 @@ def _stabilize_meta(report):
         report.features = feats
         report.z = float(report.z) + delta
         _rescore(report)
+        _relabel_meta_reasons(report, feats)
     return delta
+
+
+def _relabel_meta_reasons(report, feats):
+    """The engine printed the file-history lines at their raw size; show the size that actually counted."""
+    out = []
+    for r in (report.reasons or []):
+        t = str(r)
+        for key, frag in (("meta_gen", "بيانات الملف تدل على توليد برمجي"), ("meta_human", "آثار تحرير بشري حقيقية")):
+            if frag in t and key in feats and t.lstrip()[:1] in "+-":
+                c = feats[key][2]
+                if abs(c) < 0.05:
+                    t = None
+                else:
+                    t = "   %+.1f  %s" % (c, t.split("  ", 2)[-1].strip())
+                break
+        if t is not None:
+            out.append(t)
+    report.reasons = out
 
 
 def prose_only_score(report) -> float:
@@ -115,6 +239,129 @@ def _rescore(report):
     conf = float(getattr(report, "confidence", 1.0) or 0.0)
     if conf:
         report.score = 100.0 / (1.0 + math.exp(-float(report.z) * conf))
+
+
+import re as _re
+_APA_DECIMAL = _re.compile(r"[ \t\u00A0]\.\d")                       # "p < .001", "r = .34": a decimal without leading zero
+_BRACED_ITEM = _re.compile(r"[\{\[\(<][^\s\{\}\[\]\(\)<>]{1,14}[\}\]\)>]")   # "{h,c}", "(i,j)", "[x,y]": notation, not prose
+
+
+def _lists_neutral(report):
+    """The engine counts every sentence containing "A, B and C" as a balanced rhetorical triad, without checking that it is
+    balanced. A list that NAMES things (taxa, places, acronyms, numbers) is forced by the subject, and a comma-separated stretch of
+    clauses is not a triad; those sentences leave the count and the feature is re-derived."""
+    feats = dict(getattr(report, "features", None) or {})
+    if "tricolon" not in feats or not getattr(report, "findings", None):
+        return 0.0
+    eng = get_engine()
+    texts = list(getattr(report, "texts", None) or [])
+    tri = [f for f in report.findings if f.kind == "ai_tricolon" and 0 <= f.para < len(texts)]
+    share = float((getattr(report, "ctx", None) or {}).get("tricolon_share", 0.0) or 0.0)
+    if not tri or share <= 0 or len(tri) >= eng.CAP_PER_KIND:
+        return 0.0
+    try:
+        import academic_signals as acad
+    except Exception:
+        return 0.0
+    sent_of, named = {}, set()
+    spans_cache = {}
+    for f in tri:
+        spans = spans_cache.setdefault(f.para, eng.split_sentences(texts[f.para]))
+        k = next((j for j, (a, b) in enumerate(spans) if a <= f.start < b), -1)
+        key = (f.para, k)
+        sent_of.setdefault(key, []).append(f)
+    for key, fs in sent_of.items():
+        if not any(acad.rhetorical_triad(texts[f.para][f.start:f.end]) for f in fs):
+            named.add(key)
+    if not named:
+        return 0.0
+    n_tri = len(sent_of)
+    nsent = n_tri / share
+    new_share = (n_tri - len(named)) / nsent
+    lo, hi = 0.10, 0.40
+    v2 = max(0.0, min(1.0, (new_share - lo) / (hi - lo)))
+    v, w, c = feats["tricolon"]
+    feats["tricolon"] = (v2, w, v2 * w)
+    delta = v2 * w - c
+    drop = {id(f) for key in named for f in sent_of[key]}
+    report.findings = [f for f in report.findings if id(f) not in drop]
+    report.features = feats
+    report.z = float(report.z) + delta
+    report.lists_removed = len(named)
+    _rescore(report)
+    out = []
+    for r in (report.reasons or []):
+        t = str(r)
+        if "قوائم ثلاثية متوازنة" in t and t.lstrip()[:1] in "+-":
+            if v2 * w < 0.05:
+                continue
+            t = "   %+.1f  %.0f%% من الجمل تحوي قوائم ثلاثية متوازنة (أ، ب، وج)" % (v2 * w, 100 * new_share)
+        out.append(t)
+    report.reasons = out
+    return delta
+
+
+_ABBREV = frozenset(("spp", "sp", "var", "subsp", "ssp", "cf", "al", "vs", "etc", "approx", "ca", "fig", "figs", "eq", "eqs", "no", "nos",
+                     "vol", "pp", "ed", "eds", "sensu", "syn", "st", "dr", "prof", "mr", "mrs", "inc", "ltd", "co", "viz", "ie", "eg"))
+
+
+def _notation_neutral(report):
+    """Statistics and formula notation is not a typing slip: APA decimals (" .001") and subscript lists ("{h,c}") were read as
+    spacing errors, i.e. as HUMAN evidence. Those findings are removed and the error-density features re-derived."""
+    feats = dict(getattr(report, "features", None) or {})
+    if "err_density" not in feats or not getattr(report, "findings", None):
+        return 0.0
+    eng = get_engine()
+    texts = list(getattr(report, "texts", None) or [])
+    drop_w = 0.0
+    dropped = []
+    for f in report.findings:
+        if f.kind not in ("space_before_punct", "no_space_after_punct", "lower_start") or not (0 <= f.para < len(texts)):
+            continue
+        t = texts[f.para]
+        if f.kind == "space_before_punct":
+            hit = bool(_APA_DECIMAL.match(t[f.start:f.end + 1]))
+        elif f.kind == "lower_start":
+            m = _re.search(r"([A-Za-z]+)\.\s*$", t[:f.start])
+            hit = bool(m) and m.group(1).lower() in _ABBREV      # "Fusarium spp. and ...": not the end of a sentence
+        else:
+            hit = any(m.start() <= f.start < m.end() for m in _BRACED_ITEM.finditer(t))
+        if hit:
+            drop_w += eng.KINDS[f.kind][2]
+            dropped.append(f)
+    if not dropped:
+        return 0.0
+    err_w = sum(eng.KINDS[k][2] * n for k, n in report.count_by_kind().items() if eng.KINDS[k][1] in eng.ERR_CATS)
+    d_old = float((getattr(report, "ctx", None) or {}).get("d_err", 0.0) or 0.0)
+    if err_w <= 0 or d_old <= 0:
+        return 0.0
+    kw = err_w / d_old
+    d_new = max(0.0, err_w - drop_w) / kw
+    new_v = {"err_density": 1.0 - math.exp(-d_new / 5.0), "clean": math.exp(-d_new / 3.0)}
+    delta = 0.0
+    for k, v2 in new_v.items():
+        if k in feats and feats[k][2] != 0:
+            v, w, c = feats[k]
+            feats[k] = (v2, w, v2 * w)
+            delta += v2 * w - c
+    if abs(delta) < 1e-9:
+        return 0.0
+    report.findings = [f for f in report.findings if f not in dropped]
+    report.features = feats
+    report.z = float(report.z) + delta
+    report.notation_removed = len(dropped)
+    _rescore(report)
+    out = []
+    for r in (report.reasons or []):
+        t = str(r)
+        if "أخطاء مسافات/ترقيم/إملاء بشرية الطابع" in t and t.lstrip()[:1] in "+-":
+            c = feats["err_density"][2]
+            if abs(c) < 0.05:
+                continue
+            t = "   %+.1f  أخطاء مسافات/ترقيم/إملاء بشرية الطابع (%.1f لكل 1000 كلمة)" % (c, d_new)
+        out.append(t)
+    report.reasons = out
+    return delta
 
 
 # In a PDF, spacing / punctuation "slips", quote styles and blank lines are produced by the PDF writer and by text
@@ -175,6 +422,39 @@ def _pdf_reference_gate(report) -> bool:
     report.z = float(report.z) - c
     _rescore(report)
     return True
+
+
+# Structural slips: a reference list nobody cites, a table/figure nobody mentions. They are the ordinary mistakes of a
+# hurried human writer (and a pasted AI text carries the same gap), so by themselves they say nothing about WHO wrote
+# the prose. They are kept visible in the findings, but they may not push the score toward AI.
+STRUCTURAL_SLIPS = ("cite_gap", "caption_orphan")
+
+
+def _structural_neutral(report):
+    feats = dict(getattr(report, "features", None) or {})
+    removed = 0.0
+    for k in STRUCTURAL_SLIPS:
+        if k in feats and feats[k][2] > 0:
+            v, w, c = feats[k]
+            removed += c
+            feats[k] = (v, w, 0.0)
+    if removed <= 1e-9:
+        return 0.0
+    report.features = feats
+    report.z = float(report.z) - removed
+    _rescore(report)
+    report.structural_removed = removed
+    report.score_neutral = float(report.score)       # the index the later layers start from
+    note = "   0.0  %s (بنيوي: قد يكون خطأً بشريًا فلا يُحتسب مؤيدًا للذكاء الاصطناعي)"
+    out = []
+    for r in (report.reasons or []):
+        t = str(r)
+        if t.lstrip().startswith(("+", "-")) and ("قائمة المراجع فيها" in t or "تسميات الجداول/الأشكال" in t):
+            out.append(note % t.split("  ", 2)[-1].strip())
+        else:
+            out.append(r)
+    report.reasons = out
+    return -removed
 
 
 def _pdf_verdict(report, eng):
@@ -263,8 +543,23 @@ def _lift_paras(report, mod, conf, **kw):
 def _tech_input_texts(report, ts):
     """Prose for the technical layer: headings are structure, not prose."""
     paras = getattr(report, "doc_paras", None) or []
-    heads = {i for i, q in enumerate(paras) if getattr(q, "role", "") == "heading"} if len(paras) == len(report.texts) else set()
-    return [t for i, t in enumerate(report.texts) if t and t.strip() and i not in heads and not ts._REFLINE.match(t)]
+    # prose only: headings, captions, table cells, the keywords line and front matter are not sentences the author drafted
+    skip = {i for i, q in enumerate(paras) if getattr(q, "role", "") in ("heading", "caption", "table", "keywords", "front", "reference")} \
+        if len(paras) == len(report.texts) else set()
+    return [t for i, t in enumerate(report.texts) if t and t.strip() and i not in skip and not ts._REFLINE.match(t)]
+
+
+def _generator_to_paragraphs(report, logit: float) -> bool:
+    """An explicit generator trace is about the whole file (the script put EVERY paragraph there), so it is a prior shared by
+    all paragraphs: their log-odds rise by the share of it that counted. The map is anchored to the index afterwards."""
+    if logit <= 0.05 or not report.para_scores:
+        return False
+    out = []
+    for i, sc, n in report.para_scores:
+        p = min(0.995, max(0.005, sc / 100.0))
+        out.append((i, round(100.0 / (1.0 + math.exp(-(math.log(p / (1 - p)) + logit))), 0), n))
+    report.para_scores = out
+    return True
 
 
 def _file_evidence_to_paragraphs(report) -> bool:
@@ -333,12 +628,24 @@ def _enhance(report):
 
     if getattr(report, "is_docx", False):
         _stabilize_meta(report)
+        note = getattr(report, "meta_gen_note", None)
+        if note:
+            lines.append("■ بصمة المولّد الصريحة في بيانات الملف (أداة برمجية لا مستخدم Word) احتُسبت بنسبة %.0f%%: نصفها لأنها شهادة مباشرة بأن الملف لم يُكتب في Word، "
+                         "والباقي بقدر اتفاق طبقة النثر الأكاديمي المستقلة معها (%d بصمات أسلوبية، اتفاق %.0f%%)." % (100 * note[0], note[1], 100 * note[3]))
+            _generator_to_paragraphs(report, note[2])
+    _notation_neutral(report)
+    _lists_neutral(report)
+    if getattr(report, "is_docx", False) and _photo_evidence(report) < 0:
+        n_, d_ = report.photo_note
+        lines.append("▼ %.1f  %d صورة فوتوغرافية (JPEG) موضوعة في المتن: مادة ميدانية/مخبرية مباشرة تدل على تدخل إنسان في إنتاج الملف. "
+                     "وهي لا تثبت من كتب الجمل، لذلك أثرها صغير ومحدود، وغيابها لا يدل على شيء." % (d_, n_))
     pdf_gated = False
     if getattr(report, "from_pdf", False):
         _pdf_neutralize(report)
         pdf_gated = _pdf_reference_gate(report)
         if pdf_gated:
             lines.append("■ PDF: قائمة المراجع مقطّعة في الاستخراج (مداخل ناقصة)، فعُطِّلت قرينة «مراجع بلا إحالات» ولم تُحتسب.")
+    _structural_neutral(report)
     deck = getattr(report, "deck", None)
     deck_mode = deck is not None and deck.is_deck
     if deck_mode:
@@ -347,13 +654,7 @@ def _enhance(report):
         lines.append("■ عرض تقديمي (%s): يُحلَّل شريحةً شريحة، ولا يُحتسب غياب النقطة في آخر العناوين والنقاط خطأً بشريًا%s."
                      % (deck.reason, (" (المؤشر %.0f ← %.0f)" % (before, report.score)) if abs(delta) > 1e-6 else ""))
 
-    try:
-        import academic_signals as acad
-        topic = acad.topic_terms([getattr(q, "text", "") for q in (getattr(report, "doc_paras", None) or [])
-                                  if getattr(q, "role", "") == "heading"])
-        acad_layer = acad.analyze([t for t in report.texts if t and t.strip()], topic)
-    except Exception:
-        acad, acad_layer, topic = None, None, None
+    acad, acad_layer, topic = _academic_for(report)
     report.academic = acad_layer
 
     # The container veto is relaxed ONLY when the prose itself independently converges on LLM habits.
@@ -386,7 +687,7 @@ def _enhance(report):
     if (prose_fired or paste_fired) and _recalibrate_container(report, strength):
         lines.append("◆ معايرة آثار الملف: آثار التحرير/التنسيق/الاقتباس في ملف Word تدل على أن إنسانًا تعامل مع الملف، "
                      "لا على أنه كتب النص؛ فخُفِّف أثرها المجتمع من %.1f إلى %.1f بنسبة تقارب القرائن الأسلوبية المستقلة %.0f%% (المؤشر %.0f ← %.0f)."
-                     % (report.container_raw, report.container_eff, 100 * strength, report.score_engine, report.score))
+                     % (report.container_raw, report.container_eff, 100 * strength, getattr(report, "score_neutral", report.score_engine), report.score))
 
     try:
         import tech_signals as ts
@@ -462,6 +763,8 @@ def _enhance(report):
         if _tot >= 150 and _hi / _tot >= 0.30 and report.score < 65:
             lines.insert(0, "⚠ مستند مختلط محتمل: %.0f%% من كلمات المتن في فقرات درجتها ≥ 55 (راجع تبويب «خريطة الفقرات»)" % (100 * _hi / _tot))
     pdf_text_only = getattr(report, "from_pdf", False) and not deck_mode
+    if pdf_text_only:
+        lines.insert(0, "■ PDF: ملف PDF يحمل النص النهائي وحده - بلا تاريخ تحرير ولا تنسيق يدوي ولا هفوات كتابة - فالتقدير من الصياغة وحدها (النص وحده).")
     if abs(report.score - report.score_engine) > 0.5 or deck_mode or shifted or pdf_text_only or getattr(report, "friction", None) is not None:
         report.verdict, report.color = (_pdf_verdict(report, eng) if pdf_text_only else eng.make_verdict(report.score, report.words))
         tot = sum(n for _, _, n in report.para_scores)
@@ -530,7 +833,7 @@ def analyze_docx_guarded(path: str, content: bytes):
     eng = get_engine()
     clean, meta, mm, st, gen = prepare_docx(path, content)
     refs_fixed = any(n.startswith("refs_numbered=") and not n.endswith("=0") for n in st.notes)
-    fast = not mm.active and not st.removed and not st.trimmed and not st.fonts_unified and not gen and not refs_fixed
+    fast = not mm.active and not st.removed and not st.trimmed and not st.fonts_unified and not gen and not refs_fixed and not st.headings_restored
     if fast:
         report = eng.analyze_docx(path)
         eng.assign_roles(clean, True)
@@ -544,23 +847,58 @@ def analyze_docx_guarded(path: str, content: bytes):
         pa = format_forensics.paste_artifacts(content, ff)
     except Exception:
         pass
+    report.photos_n = photo_count(content)
     return _attach(report, mm, ff, pa, paras=clean)
 
 
-_MIME_EXT = {"application/pdf": ".pdf",
+_MIME_EXT = {"application/pdf": ".pdf", "application/x-pdf": ".pdf",
              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-             "text/plain": ".txt", "text/markdown": ".md", "application/zip": ".zip",
-             "application/x-zip-compressed": ".zip"}
+             "text/plain": ".txt", "text/markdown": ".md", "text/x-markdown": ".md", "application/zip": ".zip",
+             "application/x-zip-compressed": ".zip", "application/x-zip": ".zip",
+             "application/msword": ".doc"}
 
 
-def normalize_upload_name(name: str, mime: str = "") -> str:
-    """Phone browsers often hand over files without an extension (content:// URIs, WhatsApp, Drive) or with an upper-case
-    one. Restore the extension from the MIME type so the file is not rejected as unsupported."""
-    name = filename_only(name or "upload")
+def sniff_extension(data: bytes) -> str:
+    """Extension implied by the file's own bytes ('' when unsure). Android pickers (Drive, WhatsApp, content:// URIs) often
+    hand over a file with no extension, a doubled one ('report.docx.bin', 'report.docx (1)') or MIME application/octet-stream."""
+    head = bytes(data[:2048]) if data else b""
+    if not head:
+        return ""
+    if b"%PDF-" in head[:1024]:
+        return ".pdf"
+    if head[:4] == b"PK\x03\x04":
+        try:
+            names = zipfile.ZipFile(io.BytesIO(data)).namelist()
+        except Exception:
+            return ""
+        return ".docx" if "word/document.xml" in names else ".zip"
+    if head[:8] == bytes.fromhex("D0CF11E0A1B11AE1"):
+        return ".doc"
+    for enc in ("utf-8-sig", "utf-16"):
+        try:
+            sample = head.decode(enc)
+        except Exception:
+            continue
+        if sample and sum(c.isprintable() or c in "\r\n\t" for c in sample) / len(sample) > 0.95:
+            return ".txt"
+    return ""
+
+
+def normalize_upload_name(name: str, mime: str = "", data: bytes | None = None) -> str:
+    """Give an uploaded file a reliable name. The file's own bytes decide when they are conclusive (a PDF / DOCX / ZIP is
+    recognised whatever the phone called it); otherwise the extension is kept (lower-cased) or restored from the MIME type."""
+    try:
+        name = filename_only(name or "upload")
+    except ValueError:
+        name = "upload"
     suffix = Path(name).suffix
+    sniffed = sniff_extension(data) if data else ""
+    if sniffed in (".pdf", ".docx", ".zip", ".doc"):
+        stem = name[: len(name) - len(suffix)] if suffix.lower() in SUPPORTED | {".zip", ".doc"} else name
+        return stem + sniffed
     if suffix.lower() in SUPPORTED | {".zip"}:
         return name[: len(name) - len(suffix)] + suffix.lower()
-    ext = _MIME_EXT.get((mime or "").split(";")[0].strip().lower())
+    ext = _MIME_EXT.get((mime or "").split(";")[0].strip().lower()) or sniffed
     return name + ext if ext else name
 
 

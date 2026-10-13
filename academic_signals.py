@@ -82,23 +82,80 @@ def _stem(w: str) -> str:
     return re.sub(r"(?:ing|ed|es|s|e|ly)$", "", w.lower())
 
 
-def topic_terms(headings) -> frozenset:
+def topic_terms(headings, extra=None) -> frozenset:
     """Stems of the words the author put in the title / headings. A word that NAMES the subject of the document
     ("framework" in a thesis about a framework, "nuances" in a thesis about nuances) is vocabulary the topic forces,
     not a stylistic habit, so it is not counted as LLM 'excess vocabulary'."""
     out = set()
-    for h in headings or []:
+    for h in list(headings or []) + list(extra or []):      # extra: the keywords line, which names the subject too
         for w in _W.findall(str(h)):
             if len(w) >= 5:
                 out.add(_stem(w))
     return frozenset(out)
 
 
+STEM_CAP = 3        # one word counts at most this many times: the LLM signature is MANY different marker words,
+                    # while a word repeated dozens of times is the subject of the text ("framework", "robustness")
+
+
 def _lex_hits(text: str, topic) -> int:
     hits = _LEX.findall(text)
     if topic:
         hits = [h for h in hits if _stem(h) not in topic]
-    return len(hits)
+    per = {}
+    for h in hits:
+        k = _stem(h)
+        per[k] = per.get(k, 0) + 1
+    return sum(min(v, STEM_CAP) for v in per.values())
+
+
+_TECH_ITEM = re.compile(r"^(?:[A-Z]{2,}[A-Za-z0-9\-/]*|[A-Za-z]*[A-Z][a-z]+[A-Z][A-Za-z0-9]*|[A-Za-z]*\d[\w\-/.]*)$")
+
+
+def technical_list(s: str) -> bool:
+    """A, B, and C that NAMES things instead of making a rhetorical point: acronyms, numbers, product / protocol names or code
+    (MQTT, CoAP, and Zigbee; 128, 64, and 32), or proper names / taxa written with capitals inside the sentence
+    (Rhizopus, Alternaria and Fusarium; Nepal, Sri Lanka, and Yemen). The subject forces such an enumeration."""
+    items = [x.strip() for x in re.split(r",\s+(?:and|or|&)\s+|,\s+|\s+(?:and|or|&)\s+", s) if x.strip()]
+    tech = sum(1 for x in items if _TECH_ITEM.match(x.split()[-1].strip(".;:")))
+    if tech >= 2:
+        return True
+    named = sum(1 for x in items[1:] if x[:1].isupper() and not x.isupper())
+    return named >= 2
+
+
+_CLAUSE = re.compile(r"\b(?:because|however|whereas|although|though|while|which|that|but|so|when|if|nor|then|therefore|thus|since|"
+                     r"whether|as|where|who|whose|unless|until|yet|either|neither)\b", re.I)
+
+
+def balanced_triad(s: str) -> bool:
+    """The label says BALANCED triad: three short, parallel items. `s` is the loose regex match, so its first item can carry a
+    few lead-in words ("to examine how institutional"); only the TAIL of that item, as long as the middle item, is judged.
+    A match is not a rhetorical triad when a clause word sits inside it (because, however, whereas ...), when an item itself
+    contains and / or ("between healthy and rotted tissue, placed on PDA and incubated"), or when the middle item is long."""
+    # the regex match may end in ", and X" or in plain " and X" (no serial comma): normalise to three comma parts
+    s = re.sub(r"(?<!,)\s+(and|or)\s+(?=[\w\-/]+\s*$)", r", \1 ", s.strip())
+    parts = [x.strip() for x in s.split(",") if x.strip()]
+    if len(parts) != 3:
+        return False
+    first, mid, last = parts
+    last = re.sub(r"^(?:and|or)\s+", "", last, flags=re.I)
+    mw = mid.split()
+    if not mw or len(mw) > 3 or len(last.split()) > 3:
+        return False
+    tail = " ".join(first.split()[-(len(mw) + 1):])
+    for item in (tail, mid, last):
+        if _CLAUSE.search(item) or re.search(r"\b(?:and|or)\b", item, re.I):
+            return False
+    return True
+
+
+def rhetorical_triad(s: str) -> bool:
+    return balanced_triad(s) and not technical_list(s)
+
+
+def count_triads(text: str) -> int:
+    return sum(1 for m in _TRI.findall(text) if rhetorical_triad(m))
 
 
 def measure(paragraphs, topic=None) -> dict:
@@ -110,7 +167,7 @@ def measure(paragraphs, topic=None) -> dict:
     return {
         "words": n,
         "lex": _lex_hits(text, topic) / k,
-        "tri": len(_TRI.findall(text)) / k,
+        "tri": count_triads(text) / k,
         "long_w": 100.0 * sum(1 for w in words if len(w) >= 10) / max(1, n),
         "first": len(_FIRST.findall(text)) / k,
     }
@@ -156,7 +213,7 @@ def para_score(text: str, topic=None) -> Optional[float]:
         return None
     k = n / 1000.0
     lex = _lex_hits(text, topic) / k
-    tri = len(_TRI.findall(text)) / k
+    tri = count_triads(text) / k
     lw = 100.0 * sum(1 for w in words if len(w) >= 10) / n
     x = max(0.0, (lex - 8.0) / 6.0) * 1.4 + max(0.0, (tri - 3.8) / 6.2) * 0.6 + max(0.0, (lw - 13.8) / 3.2) * 0.8
     return round(100.0 * (1 - math.exp(-x / 1.2)), 0)

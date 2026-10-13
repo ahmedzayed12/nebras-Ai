@@ -3,8 +3,9 @@
 
 This module NEVER calculates or alters an engine score. It only
   1. keeps the original engine's document-wide score as the headline result;
-     shades direct-evidence sentences strongly and adds a *lighter, explicitly illustrative*
-     shade where required to show the document score on the same visual scale;
+     shades the passages the evidence LOCATED - whole sentences / whole paragraphs, using the wording
+     verdicts plus the paragraph provenance read from the Word XML (provenance.py) - and a paler tint
+     for probable ones. Nothing is shaded merely to reach the document score;
   2. applies the shading to a COPY of the uploaded DOCX (run-level background only: text, fonts,
      spacing and layout are untouched, and any highlight that already existed is removed first);
   3. renders that copy to PDF with Microsoft Word or LibreOffice, so the pages look exactly like the
@@ -20,6 +21,7 @@ import unicodedata
 import hashlib
 import html as _html
 import io
+import math
 import os
 import re
 import shutil
@@ -116,6 +118,7 @@ class Plan:
     soft_sentences: int = 0
     engine_index: float | None = None             # unchanged document-wide engine score
     target_words: int = 0
+    units: list = field(default_factory=list)       # (level, confidence, para, start, end) located passages
 
     @property
     def percent(self) -> float:
@@ -185,6 +188,17 @@ def _paras_for(rep, filename, data, text):
     return paras, kind, mm
 
 
+def _prov_for(kind, data, mm):
+    """Word-XML provenance keyed by ANALYSED paragraph index ({} for anything that is not a DOCX)."""
+    if kind != "docx" or data is None or mm is None:
+        return {}
+    try:
+        import provenance
+        return provenance.to_analysed(provenance.read(data), list(mm.orig_index))
+    except Exception:
+        return {}
+
+
 def _plan_to_original(plan: "Plan", mm) -> "Plan":
     """Move plan ranges computed on the analysed paragraphs onto the SOURCE paragraphs.
 
@@ -227,73 +241,199 @@ def _source_shading(rep, paras, plan: "Plan", mm):
 
 
 # ---------------------------------------------------------------- what to shade
-def plan_highlights(rep, paras) -> Plan:
-    """Sentence-level shading, gated by the engine's own paragraph verdicts.
+# The shading answers ONE question: "which passages of this file did the evidence locate?". It is never padded to
+# reach the document index (the old allocation step painted human paragraphs pale cyan just to make the shaded
+# share equal the index). Units are whole paragraphs or whole sentences - never a cut inside a sentence.
+P_STRONG = 0.55        # combined probability that makes a paragraph a located (strong) passage
+P_SOFT = 0.30          # probable passage: partial evidence, shown in the paler tint
+MIN_WORDING = 12       # a paragraph the wording scores below this is never shaded because of its file traces
+PARA_WHOLE = 0.60      # when this share of a paragraph's words is flagged, the whole paragraph is one passage
+SENT_GAP = 1           # a single unflagged sentence between two flagged ones belongs to the same passage
+INDEX_SLACK = 10.0     # shaded words may exceed the index share by at most this many points (whole-unit granularity)
 
-    * paragraph score >= 55  -> the paragraph is judged AI as a unit; its sentences are shaded
-      (a sentence that carries human traces such as typos/double spaces and no direct AI marker is not);
-    * paragraph score 30-54 or unscored short paragraph -> only sentences that carry direct engine
-      evidence (weights from the engine's own _PARA_W) are shaded;
-    * below that nothing is shaded.
+
+def _logit(p: float) -> float:
+    p = min(0.995, max(0.005, p))
+    return math.log(p / (1.0 - p))
+
+
+def _sigmoid(z: float) -> float:
+    return 1.0 / (1.0 + math.exp(-z))
+
+
+def _technical_list(text, a, b) -> bool:
+    try:
+        import academic_signals
+        return not academic_signals.rhetorical_triad(text[a:b])
+    except Exception:
+        return False
+
+
+def plan_highlights(rep, paras, prov=None) -> Plan:
+    """Locate AI passages from three independent kinds of evidence and express them as whole sentences/paragraphs.
+
+    1. wording     - the engine's paragraph score and its sentence-level findings (unchanged, as before);
+    2. file traces - `provenance` (Word XML): chat font / colour / shade / Autospacing on the paragraph itself.
+                     They are added to the paragraph's log-odds, only upward, only when the wording is not clearly
+                     human (>= MIN_WORDING), and only when a trace covers most of the paragraph;
+    3. block shape - paragraphs that carry the same pasted fingerprint form one block: short or unscored members
+                     between/next to located paragraphs belong to it, and its edges snap to the neighbouring
+                     paragraphs written in the same editing session (soft tint only).
+    A paragraph located as a unit is shaded from its first to its last sentence. Otherwise the old rule applies
+    (sentences with direct engine evidence, or all sentences of a >= 55 paragraph), with gaps of one sentence closed.
     """
     eng = ba.get_engine()
     W = eng._PARA_W
+    prov = prov or {}
     pscore = {i: sc for i, sc, _n in rep.para_scores}
     ev, trace = defaultdict(list), defaultdict(list)
     for f in rep.findings:
         if f.para < 0:
             continue
         if f.kind in W:
+            if f.kind == "ai_tricolon" and _technical_list(paras[f.para].text, f.start, f.end):
+                continue        # MQTT, CoAP, and Zigbee / 128, 64, and 32: an enumeration the subject forces
             weight = W[f.kind] * (0.25 if "ضعيفة" in (f.note or "") else 1.0)
             ev[f.para].append((f.start, weight))
         elif f.kind in HUMAN_TRACE:
             trace[f.para].append(f.start)
 
     plan = Plan()
-    for i, p in enumerate(paras):
-        if p.role not in ("body", "list"):
+    body = [i for i, p in enumerate(paras) if p.role in ("body", "list")]
+    spans_of = {i: eng.split_sentences(paras[i].text) for i in body}
+
+    def words_in(i, a, b):
+        return len(eng.WORD_RE.findall(paras[i].text[a:b]))
+
+    # ---- 1. paragraph-level verdict from wording + file traces
+    level = {}                    # i -> ("strong"|"soft", confidence 0..100, why)
+    for i in body:
+        pv, sc = prov.get(i), pscore.get(i)
+        if pv is None or sc is None or pv.bonus <= 0 or sc < MIN_WORDING:
             continue
-        spans = eng.split_sentences(p.text)
+        p = _sigmoid(_logit(sc / 100.0) + pv.bonus)
+        if p >= P_STRONG:
+            level[i] = ("strong", 100.0 * p, "file+wording")
+        elif p >= P_SOFT:
+            level[i] = ("soft", 100.0 * p, "file+wording")
+
+    # ---- 2. blocks of one pasted fingerprint (skipping headings / empty lines between members)
+    order = [i for i in body if prov.get(i) is not None and prov[i].has_ui_fingerprint]
+    blocks, cur = [], []
+    for i in order:
+        if cur and (prov[i].sig != prov[cur[-1]].sig or any(
+                paras[k].role in ("body", "list") and not (prov.get(k) and prov[k].sig == prov[i].sig)
+                for k in range(cur[-1] + 1, i))):
+            blocks.append(cur)
+            cur = []
+        cur.append(i)
+    if cur:
+        blocks.append(cur)
+    for blk in blocks:
+        anchors = [i for i in blk if level.get(i, ("", 0))[0] == "strong" or
+                   (pscore.get(i) is not None and pscore[i] >= HIGH)]
+        if not anchors:
+            continue
+        for i in blk:
+            sc = pscore.get(i)
+            if level.get(i, ("", 0))[0] == "strong":
+                continue
+            if sc is None:                                    # short member of a located block
+                level[i] = ("strong", 70.0, "block")
+            elif i not in level:        # same pasted fingerprint, wording too mild to decide alone: probable
+                level[i] = ("soft", 45.0 if sc >= MIN_WORDING else 35.0, "block")
+        # edges: the neighbouring body paragraph written in the same editing session as the block's edge
+        for edge, step in ((blk[0], -1), (blk[-1], 1)):
+            j = body.index(edge) + step
+            if 0 <= j < len(body):
+                n = body[j]
+                pn, pe = prov.get(n), prov.get(edge)
+                if n not in blk and n not in level and pn is not None and pe is not None and pn.rsid and pn.rsid == pe.rsid \
+                        and (pscore.get(n) or 0) >= 20:
+                    level[n] = ("soft", 40.0, "session")
+
+    # ---- 3. units
+    plan.units = []           # (level, confidence, para, a, b)
+    for i in body:
+        text = paras[i].text
+        spans = spans_of[i]
         if not spans:
             continue
         sc = pscore.get(i)
-        hits = []                       # (sentence index, start, end, words)
-        pw = fw = 0
-        for k, (a, b) in enumerate(spans):
-            n = len(eng.WORD_RE.findall(p.text[a:b]))
-            if n == 0:
-                continue
-            pw += n
-            plan.qualifying_sentences += 1
+        counted = [(k, a, b, words_in(i, a, b)) for k, (a, b) in enumerate(spans)]
+        counted = [c for c in counted if c[3] > 0]
+        pw = sum(c[3] for c in counted)
+        plan.qualifying_words += pw
+        plan.qualifying_sentences += len(counted)
+        plan.per_para[i] = (pw, 0)
+        if not counted:
+            continue
+        if i in level:
+            lv, conf, _why = level[i]
+            plan.units.append((lv, conf, i, counted[0][1], counted[-1][2]))
+            continue
+        hit = {}
+        for k, a, b, n in counted:
             e = sum(w for s, w in ev[i] if a <= s < b)
             has_trace = any(a <= s < b for s in trace[i])
-            hit = False
             if sc is not None and sc >= HIGH and n >= MIN_SENT_WORDS and not (has_trace and e < STRONG):
-                hit = True
+                hit[k] = min(99.0, sc + 8 * e)
             elif e >= STRONG and (sc is None or sc >= MID):
-                hit = True
-            if hit:
-                hits.append((k, a, b, n))
-                fw += n
-        plan.qualifying_words += pw
-        plan.flagged_words += fw
-        plan.flagged_sentences += len(hits)
-        plan.per_para[i] = (pw, fw)
-        merged = []
-        for k, a, b, _n in hits:
-            if merged and merged[-1][2] == k - 1:
-                merged[-1][1] = b
-                merged[-1][2] = k
-            else:
-                merged.append([a, b, k])
-        if merged:
-            plan.flags[i] = [(a, b) for a, b, _ in merged]
+                hit[k] = min(99.0, (sc or 50.0) + 8 * e)
+        ks = sorted(hit)
+        for x, y in zip(ks, ks[1:]):                            # close a one-sentence gap inside one passage
+            if 1 < y - x <= SENT_GAP + 1:
+                for k, a, b, n in counted:
+                    if x < k < y and k not in hit and not any(a <= s < b for s in trace[i]):
+                        hit[k] = min(hit[x], hit[y]) - 1.0
+        if hit and sc is not None and sc >= HIGH:
+            share = sum(n for k, a, b, n in counted if k in hit) / pw
+            if share >= PARA_WHOLE and not any(trace[i]):       # a clean, mostly flagged paragraph is one passage
+                plan.units.append(("strong", max(hit.values()), i, counted[0][1], counted[-1][2]))
+                continue
+        cur = None
+        for k, a, b, n in counted:
+            if k in hit:
+                if cur is None:
+                    cur = [a, b, hit[k]]
+                else:
+                    cur[1], cur[2] = b, max(cur[2], hit[k])
+            elif cur is not None:
+                plan.units.append(("strong", cur[2], i, cur[0], cur[1]))
+                cur = None
+        if cur is not None:
+            plan.units.append(("strong", cur[2], i, cur[0], cur[1]))
+
+    def sents_in(i, a, b):
+        return sum(1 for x, y in spans_of[i] if a <= x and y <= b)
+
+    _materialise(plan, plan.units, words_in, sents_in)
     if plan.qualifying_words < MIN_WORDS:
         plan.sufficient = False
-        plan.flags = {}
-        plan.flagged_words = plan.flagged_sentences = 0
+        plan.flags, plan.soft_flags, plan.units = {}, {}, []
+        plan.flagged_words = plan.flagged_sentences = plan.soft_words = plan.soft_sentences = 0
         plan.per_para = {i: (w, 0) for i, (w, _f) in plan.per_para.items()}
     return plan
+
+
+def _materialise(plan: Plan, units, words_in, sents_in):
+    """Turn the chosen units into merged character ranges and the word / sentence counters."""
+    strong, soft = defaultdict(list), defaultdict(list)
+    for lv, _conf, i, a, b in units:
+        (strong if lv == "strong" else soft)[i].append((a, b))
+    plan.flags = {i: _merge_ranges(v) for i, v in strong.items()}
+    plan.soft_flags = {}
+    for i, v in soft.items():               # a soft range inside a strong one is dropped (strong wins)
+        keep = [(a, b) for a, b in _merge_ranges(v)
+                if not any(x <= a and b <= y for x, y in plan.flags.get(i, ()))]
+        if keep:
+            plan.soft_flags[i] = keep
+    strong_w = {i: sum(words_in(i, a, b) for a, b in rs) for i, rs in plan.flags.items()}
+    plan.flagged_words = sum(strong_w.values())
+    plan.soft_words = sum(words_in(i, a, b) for i, rs in plan.soft_flags.items() for a, b in rs)
+    plan.flagged_sentences = sum(sents_in(i, a, b) for i, rs in plan.flags.items() for a, b in rs)
+    plan.soft_sentences = sum(sents_in(i, a, b) for i, rs in plan.soft_flags.items() for a, b in rs)
+    plan.per_para = {i: (w, strong_w.get(i, 0)) for i, (w, _f) in plan.per_para.items()}
 
 
 def _merge_ranges(ranges):
@@ -310,17 +450,14 @@ def _merge_ranges(ranges):
 
 
 def balance_to_engine_index(rep, paras, plan: Plan) -> Plan:
-    """Prepare *visualization* so total shaded words approximate the original engine index.
+    """Keep the document index and the shading consistent WITHOUT inventing shading.
 
-    The engine's 0-100 document score is NOT a word-level probability.  Strong tint
-    denotes the existing evidence-based selection.  Supplementary tint is a separate
-    visual allocation (ranked by the existing paragraph scores/evidence), NOT an
-    independently detected AI passage.  Never alter score, verdict or engine data.
-
-    If more words were strongly flagged than the document index permits, keep the
-    highest-signal strongly flagged sentences first; if fewer, retain all strong
-    shades and extend with lower-confidence sentences in the lighter tint.
-    An endpoint can fall mid-sentence to avoid reporting an inaccurate ratio.
+    The index is a document-level probability, not a word share, so the shading is not stretched to reach it (the old
+    behaviour painted whole human paragraphs to match the number). The only rule that remains is the safety one that
+    existed before: the shaded words never exceed the share the index allows (plus INDEX_SLACK points, because the
+    index is a document-level figure and units are whole paragraphs). When they would, the
+    lowest-confidence WHOLE units are dropped first (strong before soft, then by confidence); nothing is cut in
+    the middle of a sentence and nothing is ever added.
     """
     plan.engine_index = max(0.0, min(100.0, float(rep.score))) if plan.sufficient else None
     if not plan.sufficient:
@@ -328,65 +465,30 @@ def balance_to_engine_index(rep, paras, plan: Plan) -> Plan:
     plan.target_words = max(0, min(plan.qualifying_words,
                                   int(plan.qualifying_words * plan.engine_index / 100.0 + 0.5)))
     eng = ba.get_engine()
-    W = eng._PARA_W
-    pscore = {i: sc for i, sc, _n in rep.para_scores}
-    evidence, human = defaultdict(list), defaultdict(list)
-    for f in rep.findings:
-        if f.para < 0:
-            continue
-        if f.kind in W:
-            evidence[f.para].append((f.start, W[f.kind] * (0.25 if "ضعيفة" in (f.note or "") else 1.0)))
-        elif f.kind in HUMAN_TRACE:
-            human[f.para].append(f.start)
+    texts = {i: p.text for i, p in enumerate(paras)}
+    spans = {}
 
-    candidates = []
-    for i, para in enumerate(paras):
-        if para.role not in ("body", "list"):
-            continue
-        marked = plan.flags.get(i, ())
-        for a, b in eng.split_sentences(para.text):
-            tokens = list(eng.WORD_RE.finditer(para.text, a, b))
-            if not tokens:
-                continue
-            strong = any(start <= a and b <= end for start, end in marked)
-            ev = sum(weight for off, weight in evidence[i] if a <= off < b)
-            trace = any(a <= off < b for off in human[i])
-            priority = float(pscore.get(i, 0)) + 8 * ev - (20 if trace else 0)
-            if len(tokens) < MIN_SENT_WORDS:
-                priority -= 15
-            candidates.append((strong, priority, i, a, b, tokens))
+    def words_in(i, a, b):
+        return len(eng.WORD_RE.findall(texts[i][a:b]))
 
-    # Strong direct-evidence passages are kept ahead of any supplementary shading.
-    # Among each group prefer more suspicious sentences, with stable source order.
-    candidates.sort(key=lambda item: (-int(item[0]), -item[1], item[2], item[3]))
-    strong_ranges, soft_ranges = defaultdict(list), defaultdict(list)
-    strong_counts, soft_counts = defaultdict(int), defaultdict(int)
-    strong_sents = soft_sents = 0
-    left = plan.target_words
-    for is_strong, _priority, i, a, b, tokens in candidates:
-        if left <= 0:
-            break
-        take = min(len(tokens), left)
-        # A whole selected sentence retains punctuation; a partial one ends at a word boundary.
-        end = b if take == len(tokens) else tokens[take - 1].end()
-        dest = strong_ranges if is_strong else soft_ranges
-        dest[i].append((a, end))
-        if is_strong:
-            strong_counts[i] += take
-            strong_sents += 1
-        else:
-            soft_counts[i] += take
-            soft_sents += 1
-        left -= take
+    def sents_in(i, a, b):
+        if i not in spans:
+            spans[i] = eng.split_sentences(texts[i])
+        return sum(1 for x, y in spans[i] if a <= x and y <= b)
 
-    plan.flags = {i: _merge_ranges(v) for i, v in strong_ranges.items()}
-    plan.soft_flags = {i: _merge_ranges(v) for i, v in soft_ranges.items()}
-    plan.flagged_words = sum(strong_counts.values())
-    plan.soft_words = sum(soft_counts.values())
-    plan.flagged_sentences = strong_sents
-    plan.soft_sentences = soft_sents
-    plan.per_para = {i: (w, strong_counts[i]) for i, (w, _old) in plan.per_para.items()}
+    budget = plan.target_words + int(plan.qualifying_words * INDEX_SLACK / 100.0)
+    units = sorted(plan.units, key=lambda u: (u[0] != "strong", -u[1], u[2], u[3]))
+    used, kept = 0, []
+    for u in units:
+        w = words_in(u[2], u[3], u[4])
+        if used + w / 2.0 <= budget:
+            kept.append(u)
+            used += w
+    plan.units = kept
+    _materialise(plan, kept, words_in, sents_in)
     return plan
+
+
 
 
 # ---------------------------------------------------------------- DOCX: strip + shade
@@ -868,7 +970,7 @@ def _cover(doc, rep, plan, meta, page_total):
     _box(page, pymupdf.Rect(m + 215, top + 13, Wd - m - 16, top + 103),
          '<div style="font-size:9.7pt">%s</div><div dir="rtl" style="font-size:9.3pt;margin-top:6px">%s</div>'
          % (stat, _esc(ar)))
-    # Two tonal segments: strong evidence and light illustrative continuation.
+    # Two tonal segments: located passages and probable passages (partial evidence).
     bx0, bx1, by = m + 18, Wd - m - 18, top + 112
     length = bx1 - bx0
     page.draw_rect(pymupdf.Rect(bx0, by, bx1, by + 12), color=None,
@@ -881,7 +983,8 @@ def _cover(doc, rep, plan, meta, page_total):
                        color=None, fill=CYAN, radius=0.5)
     page.draw_rect(pymupdf.Rect(bx0, by + 21, bx0 + 9, by + 30), color=None, fill=CYAN)
     _box(page, pymupdf.Rect(bx0 + 14, by + 16, bx0 + 250, by + 37),
-         '<div dir="rtl" class="sm">تظليل أساسي: <b dir="ltr">%.0f%%</b></div>' % strong_pct)
+         '<div dir="rtl" class="sm">تظليل أساسي: <b dir="ltr">%.0f%%</b>%s</div>'
+         % (strong_pct, (' &nbsp;·&nbsp; محتمل: <b dir="ltr">%.0f%%</b>' % soft_pct) if plan.soft_words else ""))
 
     # document facts
     y = top + 176
@@ -916,14 +1019,19 @@ def _details(doc, rep, plan):
     y = _flow(page, m, TOP_BAND + 16, Wd - m, ymax,
               '<div style="font-size:16pt;font-weight:bold">Detection details</div>'
               '<div dir="rtl" style="font-size:10pt" class="mut">تفاصيل الفحص</div>', gap=8)
-    how = ("<b>Reading the highlights.</b> Cyan marks passages selected by existing engine evidence "
-           "and paragraph heuristics. This index is not a measured percentage of AI-authored words; "
-           "shading does not prove that any particular sentence is AI-generated. Headers, references, "
-           "captions and tables are excluded from the visual allocation.")
-    how_ar = ("<b>قراءة التظليل:</b> يُظلَّل النص المختار بقرائن المحرك وقواعد الفقرات، "
-              "وقد تُعطى الأولوية للمقاطع الأقوى. المؤشر ليس قياسًا حقيقيًا لنسبة الكلمات "
-              "المكتوبة آليًا، والتظليل ليس إثباتًا لمصدر جملة بعينها. "
-              "تُستثنى المراجع والعناوين والجداول.")
+    how = ("<b>Reading the highlights.</b> Cyan marks passages the evidence located: whole sentences or whole "
+           "paragraphs whose wording matches generated text, strengthened where Word itself recorded that the "
+           "paragraph was pasted in (chat-window font, text colour, background or spacing). Pale cyan marks "
+           "<i>probable</i> passages that have only partial evidence, such as neighbours inside the same pasted block. "
+           "Nothing is shaded just to reach the index, and human-written passages are left unmarked. The index is a "
+           "document-level figure, not a measured percentage of AI-authored words, and shading is not proof of "
+           "authorship. Headers, references, captions and tables are excluded.")
+    how_ar = ("<b>قراءة التظليل:</b> اللون السماوي يحدّد المقاطع التي دلّت عليها القرائن: جمل كاملة أو فقرات كاملة "
+              "يطابق أسلوبها النص المولَّد، ويتعزّز ذلك حين يسجّل ملف Word نفسه أن الفقرة أُدخلت بالنسخ واللصق "
+              "(خط نافذة الدردشة أو لون النص أو الخلفية أو التباعد). السماوي الباهت يدل على مقاطع <i>محتملة</i> "
+              "لا يسندها إلا دليل جزئي، كالفقرات المجاورة داخل الكتلة الملصوقة نفسها. لا يُظلَّل شيء لمجرد بلوغ "
+              "المؤشر، وتُترك الفقرات البشرية بلا تظليل. المؤشر قياس للمستند كله لا نسبة حقيقية للكلمات المكتوبة "
+              "آليًا، والتظليل ليس إثباتًا للكاتب. تُستثنى المراجع والعناوين والجداول.")
     y = _flow(page, m, y, Wd - m, ymax,
               '<div class="sm">%s</div><div dir="rtl" class="sm" style="margin-top:5px">%s</div>' % (how, how_ar), gap=16)
     reasons = [_clean_ui_text(x) for x in rep.reasons if _clean_ui_text(x)][:7]
@@ -1076,8 +1184,8 @@ def _content_box(page):
 
 def compute_plan(rep, *, filename=None, data=None, text=None) -> Plan:
     """Same plan the PDF uses, without any conversion; lets the UI show the identical percentage."""
-    paras, _kind, _mm = _paras_for(rep, filename, data, text)
-    return balance_to_engine_index(rep, paras, plan_highlights(rep, paras))
+    paras, kind, mm = _paras_for(rep, filename, data, text)
+    return balance_to_engine_index(rep, paras, plan_highlights(rep, paras, _prov_for(kind, data, mm)))
 
 
 def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGHT_HEX) -> bytes:
@@ -1086,7 +1194,7 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
     if text is None and (filename is None or data is None):
         raise ValueError("يلزم الملف الأصلي أو النص الأصلي لإنشاء التقرير.")
     paras, kind, mm = _paras_for(rep, filename, data, text)
-    plan = balance_to_engine_index(rep, paras, plan_highlights(rep, paras))
+    plan = balance_to_engine_index(rep, paras, plan_highlights(rep, paras, _prov_for(kind, data, mm)))
     orig_texts, shade = _source_shading(rep, paras, plan, mm)   # ranges expressed on the SOURCE paragraphs
 
     if text is not None:

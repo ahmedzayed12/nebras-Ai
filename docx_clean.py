@@ -32,9 +32,11 @@ _AFFIL = re.compile(r"(?i)\b(?:department|university|faculty|college|institute|s
 _STRUCTURAL = re.compile(r"(?i)^\s*(?:listing|algorithm|theorem|lemma|proposition|corollary|definition|remark|proof|example|"
                          r"assumption|claim|conjecture|notation|study\s+scope|keywords?|2020\s+mathematics\s+subject|"
                          r"msc|jel\s+classification|pacs|highlights?|input|output|"
-                         r"(?:figure|fig\.|table|chart|scheme|equation|appendix|الشكل|شكل|الجدول|جدول)\s*[A-Z]?\d+|"
+                         r"(?:figure|fig\.?|table|chart|scheme|equation|appendix|الشكل|شكل|الجدول|جدول)\s*\(?\s*[A-Z]?\d+|"
                          r"ethics\s+approval|consent\s+for|competing\s+interests?|conflicts?\s+of\s+interest|funding|data\s+availability|"
                          r"author\s+contributions?|acknowledg(?:e)?ments?|code\s+availability|availability\s+of)\b")
+# A display formula typed as plain text with its number at the end: "Occurrence (%) = (a / b) x 100     (3-1)"
+_EQ_LINE = re.compile(r"=.*\S\s*\(\s*\d+(?:[-.\u2013]\d+)*\s*\)\s*$")
 _SENT_END = re.compile(r"[.!?؟…][\"'”’»)\]]*\s*$")
 _ABSTRACT = re.compile(r"(?i)^\s*(?:abstract|summary|ملخص|المستخلص|الملخص)\s*:?\s*$")
 # Many journal templates (MDPI, Springer, Elsevier pre-prints) run the heading into the paragraph: "Abstract. We ..." /
@@ -55,6 +57,7 @@ class CleanStats:
     normalised: int = 0        # structural paragraphs whose template-driven formatting was neutralised
     trimmed: int = 0           # paragraphs whose layout padding (leading/trailing spaces, tabs) was trimmed
     fonts_unified: int = 0     # runs whose theme-font alias was resolved to the real family name
+    headings_restored: int = 0  # prose paragraphs carrying a Heading style (converted / template artefact) given back as prose
     notes: list = field(default_factory=list)
 
     @property
@@ -90,20 +93,30 @@ def _is_equation(p) -> bool:
 
 
 def _front_matter_ids(paras) -> set:
-    """Title / authors / affiliations / e-mails: everything before the Abstract heading that is not real prose."""
+    """Title / authors / affiliations / e-mails: everything before the Abstract heading that is not real prose. Without an
+    Abstract (a thesis chapter), the title lines and the spacing paragraphs that precede the first real paragraph.
+    Blank paragraphs in this region are cover-page layout: they say nothing about who wrote the prose."""
     ab = next((i for i, p in enumerate(paras) if _ABSTRACT.match(p.text.strip())), None)
     if ab is None:
         ab = next((i for i, p in enumerate(paras[:40]) if _ABSTRACT_RUNIN.match(p.text)), None)
-    if ab is None:
-        return set()
+    chapter = ab is None
+    if chapter:
+        ab = next((i for i, p in enumerate(paras) if not p.in_table and len(p.text.split()) >= 25), None)
+        if ab is None:
+            return set()
     out = set()
     for i in range(ab):
         p = paras[i]
         t = p.text.strip()
-        if not t or p.has_drawing:
+        if p.has_drawing or p.in_table:
+            continue
+        if not t:
+            out.add(i)
             continue
         words = len(t.split())
-        if p.in_table:
+        if chapter:
+            if words < 25 and not p.is_heading and not _SENT_END.search(t):
+                out.add(i)       # an unfinished short line before the first paragraph is a title line, not a sentence
             continue
         if _AFFIL.search(t) or words < 25 or p.is_heading:
             out.add(i)
@@ -234,13 +247,30 @@ def unify_theme_fonts(paras, table: dict) -> int:
     return n
 
 
+_PROSE_END = re.compile(r"[.!?؟][\"'”’)\]]*\s*$")
+
+
+def _restore_prose_headings(paras) -> int:
+    """A paragraph of >= 25 words that ends like a sentence is prose, whatever style Word gives it. Files converted from
+    other formats (or built on a template that styles every opening paragraph) carry such 'Heading 1' paragraphs; the
+    engine would skip them as headings, so a fifth of a chapter could go unanalysed."""
+    n = 0
+    for p in paras:
+        t = (p.text or "").strip()
+        if getattr(p, "is_heading", False) and len(t.split()) >= 25 and _PROSE_END.search(t):
+            p.is_heading = False
+            n += 1
+    return n
+
+
 def clean_docx_paras(paras, mm=None, theme_fonts=None):
     """Return (clean_paras, stats).  When `mm` (math_guard.MathMap) is given, its index maps are filtered in step so the
     report can still highlight the ORIGINAL paragraphs."""
     stats = CleanStats()
+    stats.headings_restored = _restore_prose_headings(paras)
     drop = set()
     for i, p in enumerate(paras):
-        if _is_equation(p):
+        if _is_equation(p) or (not p.in_table and len(p.text.split()) <= 40 and _EQ_LINE.search(p.text.strip())):
             drop.add(i); stats.equations += 1
         elif _is_code(p):
             drop.add(i); stats.code += 1
@@ -250,7 +280,7 @@ def clean_docx_paras(paras, mm=None, theme_fonts=None):
     cells = {i for i in cells if i not in drop}
     drop |= cells; stats.table_cells = len(cells)
     stats.normalised = _normalise_structural(paras)
-    eq_idx = {i for i, p in enumerate(paras) if _is_equation(p)}
+    eq_idx = {i for i, p in enumerate(paras) if _is_equation(p) or (not p.in_table and len(p.text.split()) <= 40 and _EQ_LINE.search(p.text.strip()))}
     if drop:
         keep = [i for i in range(len(paras)) if i not in drop]
         before_eq = {keep.index(i - 1) for i in eq_idx if (i - 1) in keep}
