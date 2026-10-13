@@ -87,13 +87,52 @@ CLEAN_LONG = ("The second sample was wetter than the first one, and the rain pro
               "Soil moisture was recorded twice, once in May and again in June, at every plot in the study area.")
 
 
-def test_friction_floor_only_for_long_clean_word_files():
-    long_clean = b.analyze_uploaded_bytes("c.docx", _docx([CLEAN_LONG] * 40))       # ~2000 words, no slip
-    assert long_clean.friction is not None and long_clean.friction.floor is not None and long_clean.score >= 58
-    human = b.analyze_uploaded_bytes("h.docx", _docx([HUMAN_SLIPPY] * 40))          # same length, typical slips
-    assert human.friction is not None and human.friction.floor is None
-    short = b.analyze_uploaded_bytes("s.docx", _docx([CLEAN_LONG] * 5))             # short: rule not applied
+HUMAN_CLEAN_VARIED = [
+    "I spent the first week of March in Tamale, mostly waiting for permits. The district office was closed on Monday, so I sat in the market and counted bicycles, which turned out to be more useful than I expected: 214 bicycles passed the corner in two hours, and only nine of them carried passengers.",
+    "My supervisor did not like the first questionnaire. She said it was too long, and she was right; the pilot took forty minutes per household. We cut it to eighteen questions and dropped the section on remittances altogether, which I still regret.",
+    "Prices were the main complaint. A bag of maize cost 310 cedis in April and 420 in June. Several women told me they now buy in smaller quantities from the same trader, paying more per kilo, because they cannot raise the full amount at once.",
+    "The second village was different. There is a borehole, a clinic that opens twice a week, and a teacher who has lived there for eleven years. People talked about the teacher more than about the clinic. Nobody mentioned the borehole until I asked.",
+    "Not everything worked. Two recorders failed in the heat, and I lost most of the interviews from 12 May. I reconstructed what I could from my notebook that evening, but the quotations in Chapter 5 from that day are paraphrases, not transcripts.",
+    "Why did the cooperative collapse? The official answer is mismanagement. The farmers I spoke to blamed the 2019 floods, a disputed loan, and a chairman who moved to Kumasi. I suspect all three mattered, in that order.",
+    "On the last day the chief invited us to his compound. He asked what the study was for and whether it would bring a road. I said honestly that it would not. He laughed, gave us groundnuts, and asked us to send him a copy anyway.",
+    "Looking back, the sample is small and the seasons are uneven. I visited the northern sites in the dry season and the southern ones after the rains began. Any comparison between them in the following chapters should be read with that in mind.",
+]
+
+
+def test_clean_human_wording_is_never_lifted_by_cleanliness_alone():
+    clean_human = b.analyze_uploaded_bytes("c.docx", _docx(HUMAN_CLEAN_VARIED * 4))   # ~1900 words, no slip, human wording
+    assert clean_human.friction is None or clean_human.friction.floor is None
+    assert clean_human.score < 52
+    human = b.analyze_uploaded_bytes("h.docx", _docx([HUMAN_SLIPPY] * 40))
+    assert human.friction is None or human.friction.floor is None
+    short = b.analyze_uploaded_bytes("s.docx", _docx([CLEAN_LONG] * 5))
     assert short.friction is None or short.friction.floor is None
+
+
+def test_clean_llm_wording_stays_high_and_drops_when_rewritten():
+    full = b.analyze_uploaded_bytes("a.docx", _docx([LLM_PARA] * 30))
+    half = b.analyze_uploaded_bytes("r.docx", _docx([LLM_PARA] * 15 + [HUMAN_SLIPPY] * 15))
+    assert full.score >= 65 and half.score < full.score
+
+
+def test_edit_history_reset_moves_the_score_only_slightly():
+    import re as _re
+    plain = _docx([LLM_PARA] * 20 + [HUMAN_SLIPPY] * 20)
+    z = zipfile.ZipFile(io.BytesIO(plain))
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as out:
+        for it in z.infolist():
+            out.writestr(it, z.read(it.filename))
+        out.writestr("docProps/app.xml", '<?xml version="1.0"?><Properties xmlns="http://schemas.openxmlformats.org/'
+                     'officeDocument/2006/extended-properties"><TotalTime>2400</TotalTime><Application>Microsoft Office Word'
+                     '</Application></Properties>')
+        out.writestr("docProps/core.xml", '<?xml version="1.0"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/'
+                     'package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>Student'
+                     '</dc:creator><cp:lastModifiedBy>Student</cp:lastModifiedBy><cp:revision>14</cp:revision></cp:coreProperties>')
+        out.writestr("word/comments.xml", '<?xml version="1.0"?><w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>')
+    a = b.analyze_uploaded_bytes("a.docx", plain).score
+    h = b.analyze_uploaded_bytes("h.docx", buf.getvalue()).score
+    assert abs(a - h) <= 8.0
 
 
 def test_friction_never_applies_to_pasted_text_or_reports():
@@ -108,3 +147,21 @@ def test_friction_floor_is_continuous_no_fixed_steps():
     vals = [friction.floor_for(r / 100.0) for r in range(0, 200)]
     assert all(a > b for a, b in zip(vals, vals[1:]))          # every change in slip rate changes the result
     assert friction.floor_for(2.5) == 0.0
+
+
+def test_pdf_extraction_artifacts_are_neutral():
+    class R:   # engine report stub: "human slips" and quote mixing that came from PDF extraction
+        features = {"err_density": (0.5, -2.4, -1.4), "clean": (0.1, 0.25, 0.03), "mixed_conv": (1, -1.2, -1.2),
+                    "fmt_incons": (0.2, -1.8, -0.36), "contrast": (0.3, 1.5, 0.45)}
+        z, confidence, score = -2.0, 1.0, 11.9
+    r = R()
+    b._pdf_neutralize(r)
+    assert all(r.features[k][2] == 0 for k in b.PDF_EXTRACTION_FEATURES)
+    assert r.features["contrast"][2] == 0.45 and abs(r.z - (-2.0 + 1.4 - 0.03 + 1.2 + 0.36)) < 1e-9
+
+
+def test_academic_layer_has_no_cliff():
+    import academic_signals as acad
+    two = acad.analyze([LLM_PARA] * 30)
+    assert two.confidence > 0
+    assert acad.analyze([HUMAN_PARA] * 30).confidence == 0
