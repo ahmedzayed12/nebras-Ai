@@ -77,10 +77,65 @@ def _attach(report, mm, forensics=None, paste=None, deck=None, paras=None):
     return _enhance(report)
 
 
+# Word "edit history" (edit time, revisions, comments, rsid sessions) is reset by a plain Save-As / another editor.
+# Its swing must not exceed what the TEXT can do: both history features are bounded.
+META_HUMAN_MIN, META_GEN_MAX = -0.25, 0.1
+PROSE_ONLY_EXCLUDE = {"meta_human", "meta_gen", "fmt_incons", "fmt_perfect", "mixed_conv", "err_density", "clean", "ortho"}
+
+
+def _stabilize_meta(report):
+    feats = dict(getattr(report, "features", None) or {})
+    delta = 0.0
+    for k, lo, hi in (("meta_human", META_HUMAN_MIN, 0.0), ("meta_gen", 0.0, META_GEN_MAX)):
+        if k in feats:
+            v, w, c = feats[k]
+            nc = max(lo, min(hi, c))
+            if nc != c:
+                delta += nc - c
+                feats[k] = (v, w, nc)
+    if delta:
+        report.features = feats
+        report.z = float(report.z) + delta
+        _rescore(report)
+    return delta
+
+
+def prose_only_score(report) -> float:
+    """AI score from the wording alone: engine features minus file history, formatting and typing slips."""
+    try:
+        W = get_engine().load_weights()
+        z = W["bias"] + sum(c for k, (v, w, c) in (report.features or {}).items() if k not in PROSE_ONLY_EXCLUDE)
+        conf = float(getattr(report, "confidence", 1.0) or 0.0)
+        return 100.0 / (1.0 + math.exp(-z * conf))
+    except Exception:
+        return 0.0
+
+
 def _rescore(report):
     conf = float(getattr(report, "confidence", 1.0) or 0.0)
     if conf:
         report.score = 100.0 / (1.0 + math.exp(-float(report.z) * conf))
+
+
+# In a PDF, spacing / punctuation "slips", quote styles and blank lines are produced by the PDF writer and by text
+# extraction (line breaks, hyphenation, ligatures, columns) -- not by the writer's hands. They are neutral evidence.
+PDF_EXTRACTION_FEATURES = ("err_density", "clean", "mixed_conv", "fmt_incons")
+
+
+def _pdf_neutralize(report):
+    feats = dict(getattr(report, "features", None) or {})
+    removed = 0.0
+    for k in PDF_EXTRACTION_FEATURES:
+        if k in feats and feats[k][2] != 0:
+            v, w, c = feats[k]
+            removed += c
+            feats[k] = (0.0, w, 0.0)
+    if abs(removed) < 1e-9:
+        return 0.0
+    report.features = feats
+    report.z = float(report.z) - removed
+    _rescore(report)
+    return -removed
 
 
 def _deck_layout_fix(report):
@@ -161,6 +216,10 @@ def _enhance(report):
     report.academic = None
     lines = []
 
+    if getattr(report, "is_docx", False):
+        _stabilize_meta(report)
+    if getattr(report, "from_pdf", False):
+        _pdf_neutralize(report)
     deck = getattr(report, "deck", None)
     deck_mode = deck is not None and deck.is_deck
     if deck_mode:
@@ -249,7 +308,10 @@ def _enhance(report):
             import friction
             pa_ = getattr(report, "paste", None)
             fr = friction.measure(report, getattr(report, "doc_paras", None), getattr(report, "format_forensics", None),
-                                  uniform_indent=bool(pa_ is not None and pa_.space_indent_uniform > 0))
+                                  uniform_indent=bool(pa_ is not None and pa_.space_indent_uniform > 0),
+                                  prose_score=max(prose_only_score(report),
+                                                  acad_layer.score if (acad_layer is not None and acad_layer.confidence > 0
+                                                                       and acad_layer.score is not None) else 0.0))
             report.friction = fr
             before = float(report.score)
             if fr.floor is not None and fr.floor > before:
@@ -274,13 +336,13 @@ def _enhance(report):
     return report
 
 
-def analyze_text_guarded(text: str, source: str = "نص ملصق", deck=None):
+def analyze_text_guarded(text: str, source: str = "نص ملصق", deck=None, from_pdf: bool = False):
     """Text route (paste / TXT / MD / PDF text): equations out, then the unchanged engine."""
     import math_guard
     clean, mm = math_guard.sanitize_text(text)
-    if not mm.active:                       # no maths: byte-for-byte the original route
-        return _attach(get_engine().analyze_text(text, source=source), mm, deck=deck)
-    return _attach(get_engine().analyze_text(clean, source=source), mm, deck=deck)
+    rep = get_engine().analyze_text(text if not mm.active else clean, source=source)
+    rep.from_pdf = bool(from_pdf)
+    return _attach(rep, mm, deck=deck)
 
 
 def _read_deck(content: bytes):
@@ -376,7 +438,7 @@ def analyze_uploaded_bytes(filename: str, content: bytes):
         raise ValueError("حجم الملف يتجاوز حد الرفع في الواجهة (25 MB).")
     if Path(name).suffix.lower() == ".pdf":
         from pdf_input import extract_pdf_text
-        return analyze_text_guarded(extract_pdf_text(content), source=name, deck=_read_deck(content))
+        return analyze_text_guarded(extract_pdf_text(content), source=name, deck=_read_deck(content), from_pdf=True)
     with tempfile.TemporaryDirectory(prefix="ai_inspector_") as tmp:
         path = Path(tmp) / name
         path.write_bytes(content)

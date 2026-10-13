@@ -17,7 +17,12 @@ NOT a human slip
   - a bullet or heading without a full stop (layout), straight/curly quote mixtures and mixed digit styles (typical
     of pasted text), and formatting differences that come in large contiguous BLOCKS (pasted from another source).
 
-RULE
+RULE (v2: never on cleanliness alone)
+  Cleanliness STRENGTHENS a suspicion, it never creates one. It acts only on the paragraphs the paragraph map already
+  suspects, and only in proportion to (a) how far the wording alone -- without file traces and slips -- is above the
+  human range (PROSE_GATE) and (b) how much of the text is suspected (SHARE_GATE). A clean, proofread human text with
+  human wording therefore gets no floor; a human paragraph rewritten into an AI text leaves the suspected set or adds
+  slips, and the floor drops with it.
   Only texts of MIN_WORDS words or more. The floor of the final index is a CONTINUOUS function of the slip rate
   (slips per 1000 words), so every added or removed slip moves the result -- no fixed steps:
       rate 0.0 -> 90    0.3 -> 80    0.6 -> 70    1.2 -> 50    1.6 -> 25    >= 2.0 -> no floor
@@ -33,6 +38,10 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 MIN_WORDS = 1500
+SUSPECT = 55               # paragraph-map score from which a paragraph counts as suspected
+MIN_SUSPECT_WORDS = 1000   # enough suspected text to judge its cleanliness
+PROSE_GATE, PROSE_SPAN = 55.0, 25.0   # wording-only AI score: human Word files reach p97 50 / max 60
+SHARE_GATE, SHARE_SPAN = 0.35, 0.35   # share of suspected text: no effect below 35 %, full effect from 70 %
 TOP, KNEE, END = 90.0, 1.2, 2.0      # floor 90 at zero slips, 50 at KNEE slips/1000, fading to nothing at END
 
 
@@ -66,6 +75,12 @@ class Friction:
     strength: str = ""
     examples: List[str] = field(default_factory=list)
     note: str = ""
+    slip_paras: List[int] = field(default_factory=list)
+    format_slips_unplaced: int = 0
+    suspect_words: int = 0
+    suspect_share: float = 0.0
+    suspect_rate: Optional[float] = None
+    weight: float = 0.0
 
     @property
     def slips(self) -> int:
@@ -124,7 +139,7 @@ def _paste_runs(paras, min_run: int = 3) -> dict:
     return out
 
 
-def measure(report, paras=None, forensics=None, uniform_indent: bool = False) -> Friction:
+def measure(report, paras=None, forensics=None, uniform_indent: bool = False, prose_score: float = 0.0) -> Friction:
     words = int(getattr(report, "words", 0) or 0)
     fr = Friction(applied=False, words=words)
     if words < MIN_WORDS:
@@ -151,6 +166,7 @@ def measure(report, paras=None, forensics=None, uniform_indent: bool = False) ->
             if k == "double_space" and re.match(r"\s*\(\d", t[f.end:f.end + 4]):
                 continue                                   # spacing before an equation number "(3-1)"
             fr.text_slips += 1
+            fr.slip_paras.append(f.para)
             if len(fr.examples) < 5 and 0 <= f.para < len(texts):
                 t = texts[f.para]
                 fr.examples.append("%s: «…%s…»" % (k, t[max(0, f.start - 18):f.end + 18].strip()))
@@ -161,6 +177,7 @@ def measure(report, paras=None, forensics=None, uniform_indent: bool = False) ->
             if k == "fmt_fake_heading" and f.para in pasted:
                 continue
             fr.format_slips += 1
+            fr.slip_paras.append(f.para)
         elif k in FORMAT_SLIPS:
             if (f.para in in_block or f.para in pasted or roles.get(f.para) != "body" or (f.para, k) in seen_fmt
                     or _is_heading_like(paras[f.para])):
@@ -169,16 +186,35 @@ def measure(report, paras=None, forensics=None, uniform_indent: bool = False) ->
                 continue
             seen_fmt.add((f.para, k))
             fr.format_slips += 1
+            fr.slip_paras.append(f.para)
         elif k == "fmt_empty_para":
             prev = next((roles.get(j) for j in range(f.para - 1, -1, -1) if (paras[j].text or "").strip()), None)
             nxt = next((roles.get(j) for j in range(f.para + 1, len(paras)) if (paras[j].text or "").strip()), None)
             if prev == "body" and nxt == "body":
                 fr.format_slips += 1
+                fr.format_slips_unplaced += 1          # an empty line belongs to no paragraph: spread over the text
     fr.applied = True
     fr.rate = fr.slips / (words / 1000.0)
-    f = floor_for(fr.rate)
-    if f > 0:
-        fr.floor, fr.strength = round(f, 1), strength_for(fr.rate)
+    # ---- paragraph level: only text that the paragraph map already suspects is judged by its cleanliness ----------
+    per_para = Counter(fr.slip_paras)
+    ps = list(getattr(report, "para_scores", []) or [])
+    total = sum(n for _, _, n in ps) or 1
+    sus = [(i, n) for i, sc, n in ps if sc >= SUSPECT]
+    fr.suspect_words = sum(n for _, n in sus)
+    fr.suspect_share = fr.suspect_words / total
+    if fr.suspect_words < MIN_SUSPECT_WORDS:
+        fr.note = "النص المشتبه به قليل؛ لا تُطبَّق القاعدة"
+        return fr
+    slips_s = sum(per_para.get(i, 0) for i, _ in sus) + fr.format_slips_unplaced * fr.suspect_share
+    fr.suspect_rate = slips_s / (fr.suspect_words / 1000.0)
+    f = floor_for(fr.suspect_rate)
+    # ---- gates: cleanliness only STRENGTHENS a suspicion that the wording itself already raises -------------------
+    w_prose = max(0.0, min(1.0, (prose_score - PROSE_GATE) / PROSE_SPAN))
+    w_share = max(0.0, min(1.0, (fr.suspect_share - SHARE_GATE) / SHARE_SPAN))
+    fr.weight = w_prose * w_share
+    if f > 50.0 and fr.weight > 0:
+        fr.floor = round(50.0 + (f - 50.0) * fr.weight, 1)
+        fr.strength = strength_for(fr.suspect_rate)
     return fr
 
 

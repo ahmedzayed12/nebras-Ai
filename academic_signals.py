@@ -72,6 +72,7 @@ SPEC = {
     "long_w": ("كثافة الكلمات الطويلة (≥ 10 أحرف)", 0.8, 13.8, 17.0, "% من الكلمات"),
 }
 MIN_WORDS = 800
+TWO_STRONG = 1.4          # two habits must together be well past the human 99th percentile
 SCORE_OFFSET = 1.2
 SCORE_SCALE = 1.6
 
@@ -110,7 +111,15 @@ def analyze(paragraphs) -> AcadLayer:
     if zv and fired >= 2:
         fired += 1
     score = 50.0 + 50.0 * math.tanh((total - SCORE_OFFSET) / SCORE_SCALE)
-    conf = min(1.0, m["words"] / 3000.0) * (1.0 if fired >= 3 else 0.0)
+    # graded, no cliff: 3+ converging habits = full confidence; 2 STRONG habits (combined evidence >= TWO_STRONG)
+    # = partial confidence growing with their strength; fewer = nothing.
+    if fired >= 3:
+        g = 1.0
+    elif fired == 2 and total >= TWO_STRONG:
+        g = min(0.6, 0.6 * (total - TWO_STRONG + 0.4) / 0.8)
+    else:
+        g = 0.0
+    conf = min(1.0, m["words"] / 3000.0) * g
     notes = ["اجتمعت %d بصمات أسلوبية مميِّزة للنثر الأكاديمي المولَّد." % fired] if fired >= 3 else []
     return AcadLayer(score, conf, fired, m["words"], sigs, notes)
 
