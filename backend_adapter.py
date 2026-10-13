@@ -138,6 +138,55 @@ def _pdf_neutralize(report):
     return -removed
 
 
+_YEAR = __import__("re").compile(r"\b(?:19|20)\d\d[a-z]?\b")
+GATE_MIN_UNCITED = 5      # fewer than this: the citation gap is not a decisive signal anyway
+GATE_MALFORMED = 0.35     # share of complained-about entries that are not whole references
+_ENTRY = __import__("re").compile(r"^\W{0,2}(?:\d{1,3}[.\]\)]\s*)?[A-Z\u00C0-\u024F][\w'\u2019\-]+")
+
+
+def _whole_reference(t: str) -> bool:
+    """A whole entry starts with a name (or a number) and carries a year; a fragment of a wrapped entry starts in the
+    middle ('(2019). Title...', 'and Park, S.') or lacks the year."""
+    t = (t or "").strip()
+    return bool(_ENTRY.match(t)) and bool(_YEAR.search(t))
+
+
+def _pdf_reference_gate(report) -> bool:
+    """PDF text can split one reference over several lines. Each fragment then looks like a reference nobody cites
+    ('cite_gap'), which is an extraction artefact, not evidence. Before trusting the signal, check the entries it
+    complains about: if many of them have no year, the list was fragmented, so the signal is set to neutral."""
+    feats = dict(getattr(report, "features", None) or {})
+    if "cite_gap" not in feats or feats["cite_gap"][2] <= 0:
+        return False
+    uncited = [f for f in (getattr(report, "findings", None) or []) if f.kind == "ev_uncited"]
+    if len(uncited) < GATE_MIN_UNCITED:
+        return False
+    texts = list(getattr(report, "texts", None) or [])
+    entries = [texts[f.para] for f in uncited if 0 <= f.para < len(texts)]
+    if not entries:
+        return False
+    malformed = sum(1 for t in entries if not _whole_reference(t)) / len(entries)
+    report.pdf_ref_quality = 1.0 - malformed
+    if malformed < GATE_MALFORMED:
+        return False
+    v, w, c = feats["cite_gap"]
+    feats["cite_gap"] = (0.0, w, 0.0)
+    report.features = feats
+    report.z = float(report.z) - c
+    _rescore(report)
+    return True
+
+
+def _pdf_verdict(report, eng):
+    """A PDF carries the final text only: no edit history, no hand formatting, no typing slips. Its verdict is therefore
+    worded as a text-only estimate, and it never uses the two categorical wordings ('likely generated' /
+    'strongly leans to AI') that only the full Word file can justify. The number itself is not changed."""
+    base, color = eng.make_verdict(report.score, report.words)
+    if report.score >= 65:
+        base = "قرائن أسلوبية مرتفعة نحو الذكاء الاصطناعي"
+    return base + " — تقدير من النص وحده (PDF)؛ ارفع ملف Word لحكم أدق", color
+
+
 def _deck_layout_fix(report):
     """Inside a slide deck, a bullet without a full stop or a blank line between text boxes is layout, not a human
     slip. Remove exactly that part of the engine's 'human error' credit (other typos still count)."""
@@ -211,6 +260,13 @@ def _lift_paras(report, mod, conf, **kw):
     report.para_scores = new_ps
 
 
+def _tech_input_texts(report, ts):
+    """Prose for the technical layer: headings are structure, not prose."""
+    paras = getattr(report, "doc_paras", None) or []
+    heads = {i for i, q in enumerate(paras) if getattr(q, "role", "") == "heading"} if len(paras) == len(report.texts) else set()
+    return [t for i, t in enumerate(report.texts) if t and t.strip() and i not in heads and not ts._REFLINE.match(t)]
+
+
 def _file_evidence_to_paragraphs(report) -> bool:
     feats = getattr(report, "features", None) or {}
     cont = getattr(report, "container_eff", None)
@@ -243,8 +299,12 @@ def _enhance(report):
 
     if getattr(report, "is_docx", False):
         _stabilize_meta(report)
+    pdf_gated = False
     if getattr(report, "from_pdf", False):
         _pdf_neutralize(report)
+        pdf_gated = _pdf_reference_gate(report)
+        if pdf_gated:
+            lines.append("■ PDF: قائمة المراجع مقطّعة في الاستخراج (مداخل ناقصة)، فعُطِّلت قرينة «مراجع بلا إحالات» ولم تُحتسب.")
     deck = getattr(report, "deck", None)
     deck_mode = deck is not None and deck.is_deck
     if deck_mode:
@@ -298,9 +358,7 @@ def _enhance(report):
         import tech_signals as ts
         # Section headings ("Two Axes of Equivalence: Linguistic and Legal") are structure, not prose: a "Title: Subtitle"
         # heading is not the chat-style "Term: explanation" list item that the labelled-items habit looks for.
-        _paras = getattr(report, "doc_paras", None) or []
-        _head = {i for i, q in enumerate(_paras) if getattr(q, "role", "") == "heading"} if len(_paras) == len(report.texts) else set()
-        texts = [t for i, t in enumerate(report.texts) if t and t.strip() and i not in _head and not ts._REFLINE.match(t)]
+        texts = _tech_input_texts(report, ts)
         layer = ts.analyze(texts)
         report.tech = layer
         before = float(report.score)
@@ -366,8 +424,9 @@ def _enhance(report):
         _hi = sum(n for _, sc, n in report.para_scores if sc >= 55)
         if _tot >= 150 and _hi / _tot >= 0.30 and report.score < 65:
             lines.insert(0, "⚠ مستند مختلط محتمل: %.0f%% من كلمات المتن في فقرات درجتها ≥ 55 (راجع تبويب «خريطة الفقرات»)" % (100 * _hi / _tot))
-    if abs(report.score - report.score_engine) > 0.5 or deck_mode or shifted or getattr(report, "friction", None) is not None:
-        report.verdict, report.color = eng.make_verdict(report.score, report.words)
+    pdf_text_only = getattr(report, "from_pdf", False) and not deck_mode
+    if abs(report.score - report.score_engine) > 0.5 or deck_mode or shifted or pdf_text_only or getattr(report, "friction", None) is not None:
+        report.verdict, report.color = (_pdf_verdict(report, eng) if pdf_text_only else eng.make_verdict(report.score, report.words))
         tot = sum(n for _, _, n in report.para_scores)
         hi = sum(n for _, sc, n in report.para_scores if sc >= 55)
         if deck_mode and deck.suspect_share is not None:
