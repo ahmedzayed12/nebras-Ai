@@ -10,6 +10,12 @@ font = "sans serif"
 headless = true
 maxUploadSize = 150
 enableStaticServing = true
+# Phone uploads: the XSRF cookie check is what returns "403 / upload failed" on many Android browsers (cookies blocked,
+# in-app browsers, proxies). The app keeps no accounts or private data, so the check protects nothing here. CORS must be
+# off together with it. WebSocket compression breaks long connections behind some mobile carriers / proxies.
+enableXsrfProtection = false
+enableCORS = false
+enableWebsocketCompression = false
 
 [browser]
 gatherUsageStats = false
