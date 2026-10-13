@@ -76,3 +76,28 @@ def test_container_cap_needs_independent_evidence():
         z, confidence, score = -3.0, 1.0, 4.7
     r = R()
     assert b._recalibrate_container(r) and abs(r.z - (-3.0 + 5.2 - 1.0)) < 1e-9
+
+
+# ---------------------------------------------------------------- "a human always slips" (friction.py), synthetic only
+HUMAN_SLIPPY = ("We  measured the soil twice , once in May and again in June.The second sample was wetter than the "
+                "first one and and we think the rain explains it ( at least partly ). Next year we will add a third site, "
+                "probably near the river, because the farmers there asked us to.")
+CLEAN_LONG = ("The second sample was wetter than the first one, and the rain probably explains the difference. "
+              "Next year a third site will be added near the river, because the farmers there requested it. "
+              "Soil moisture was recorded twice, once in May and again in June, at every plot in the study area.")
+
+
+def test_friction_floor_only_for_long_clean_word_files():
+    long_clean = b.analyze_uploaded_bytes("c.docx", _docx([CLEAN_LONG] * 40))       # ~2000 words, no slip
+    assert long_clean.friction is not None and long_clean.friction.floor is not None and long_clean.score >= 58
+    human = b.analyze_uploaded_bytes("h.docx", _docx([HUMAN_SLIPPY] * 40))          # same length, typical slips
+    assert human.friction is not None and human.friction.floor is None
+    short = b.analyze_uploaded_bytes("s.docx", _docx([CLEAN_LONG] * 5))             # short: rule not applied
+    assert short.friction is None or short.friction.floor is None
+
+
+def test_friction_never_applies_to_pasted_text_or_reports():
+    r = b.analyze_pasted("\n".join([CLEAN_LONG] * 40))
+    assert getattr(r, "friction", None) is None
+    d = b.analyze_uploaded_bytes("c.docx", _docx([CLEAN_LONG] * 40))
+    assert not any("الإنسان يخطئ" in x for x in d.reasons)                         # score only, never shown
