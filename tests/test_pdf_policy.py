@@ -30,14 +30,15 @@ def _fragment(refs):
 def test_pdf_verdict_is_text_only_and_never_categorical():
     r = b.analyze_text_guarded("\n".join([LLM_PARA] * 30), from_pdf=True)
     assert r.score >= 65
-    assert "PDF" in r.verdict and "مولَّد بالذكاء الاصطناعي على الأرجح" not in r.verdict and "يميل بقوة" not in r.verdict
+    assert "مولَّد بالذكاء الاصطناعي على الأرجح" not in r.verdict and "يميل بقوة" not in r.verdict
+    assert any("PDF" in x and "النص وحده" in x for x in r.reasons)          # the caveat lives in the details list
     h = b.analyze_text_guarded("\n".join([HUMAN_PARA] * 12), from_pdf=True)
-    assert "PDF" in h.verdict
+    assert any("PDF" in x for x in h.reasons)
 
 
 def test_word_and_text_verdicts_are_unchanged_by_the_pdf_policy():
     r = b.analyze_text_guarded("\n".join([LLM_PARA] * 30))
-    assert "PDF" not in r.verdict and r.score >= 65
+    assert not any("PDF" in x for x in r.reasons) and r.score >= 65
 
 
 def test_pdf_score_is_not_changed_by_the_wording_policy():
