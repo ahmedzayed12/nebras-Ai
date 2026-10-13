@@ -180,28 +180,53 @@ PASTE_MAX_LOGIT = 3.0
 PASTE_MIN = 0.8
 
 
-def _recalibrate_container(report):
+def _recalibrate_container(report, strength: float = 1.0):
+    """Relax the human-trace (container) evidence toward CONTAINER_CAP in PROPORTION to how strongly the independent
+    wording evidence converges (strength 0..1). Full convergence (3 habits) = the full cap, as before; two habits
+    relax it only partly, so partial wording evidence cannot erase most of the human evidence in one step."""
     feats = getattr(report, "features", None) or {}
     raw = sum(feats[k][2] for k in CONTAINER_KEYS if k in feats and feats[k][2] < 0)
     report.container_raw = raw
-    if raw >= CONTAINER_CAP - 1e-9:
+    strength = max(0.0, min(1.0, strength))
+    report.container_eff = raw
+    if raw >= CONTAINER_CAP - 1e-9 or strength <= 0:
         return False
-    z = float(report.z) - raw + CONTAINER_CAP
+    target = raw + strength * (CONTAINER_CAP - raw)
+    report.container_eff = target
+    z = float(report.z) - raw + target
     conf = float(getattr(report, "confidence", 1.0) or 0.0)
     report.z = z
     report.score = 100.0 / (1.0 + math.exp(-z * conf)) if conf else report.score
     return True
 
 
-def _lift_paras(report, mod, conf):
+def _lift_paras(report, mod, conf, **kw):
     w = 0.9 * conf
     new_ps = []
     for i, sc, n in report.para_scores:
-        tp = mod.para_score(report.texts[i]) if 0 <= i < len(report.texts) else None
+        tp = mod.para_score(report.texts[i], **kw) if 0 <= i < len(report.texts) else None
         if tp is not None and tp > sc:
             sc = round(sc + w * (tp - sc), 0)
         new_ps.append((i, sc, n))
     report.para_scores = new_ps
+
+
+def _file_evidence_to_paragraphs(report) -> bool:
+    feats = getattr(report, "features", None) or {}
+    cont = getattr(report, "container_eff", None)
+    if cont is None:
+        cont = sum(feats[k][2] for k in CONTAINER_KEYS if k in feats and feats[k][2] < 0)
+    other = sum(c for k, (v, w, c) in feats.items() if k in PROSE_ONLY_EXCLUDE and k not in CONTAINER_KEYS and c < 0)
+    shift = (min(0.0, cont) + other) * float(getattr(report, "confidence", 1.0) or 0.0)
+    if shift > -0.05 or not report.para_scores:
+        return False
+    out = []
+    for i, sc, n in report.para_scores:
+        p = min(0.995, max(0.005, sc / 100.0))
+        out.append((i, round(100.0 / (1.0 + math.exp(-(math.log(p / (1 - p)) + shift))), 0), n))
+    report.para_scores = out
+    report.file_shift = shift
+    return True
 
 
 def _enhance(report):
@@ -230,9 +255,11 @@ def _enhance(report):
 
     try:
         import academic_signals as acad
-        acad_layer = acad.analyze([t for t in report.texts if t and t.strip()])
+        topic = acad.topic_terms([getattr(q, "text", "") for q in (getattr(report, "doc_paras", None) or [])
+                                  if getattr(q, "role", "") == "heading"])
+        acad_layer = acad.analyze([t for t in report.texts if t and t.strip()], topic)
     except Exception:
-        acad, acad_layer = None, None
+        acad, acad_layer, topic = None, None, None
     report.academic = acad_layer
 
     # The container veto is relaxed ONLY when the prose itself independently converges on LLM habits.
@@ -261,14 +288,19 @@ def _enhance(report):
         report.score = 100.0 / (1.0 + math.exp(-report.z * conf)) if conf else report.score
         lines.append("▲ آثار نسخ/لصق في تنسيق ملف Word (طبقة مستقلة) رفعت المؤشر من %.0f إلى %.0f:" % (before, report.score))
         lines += list(pa.evidence)
-    if (prose_fired or paste_fired) and _recalibrate_container(report):
+    strength = 1.0 if (paste_fired or (deck_mode and deck.confidence > 0)) else float(getattr(acad_layer, "strength", 0.0) or 0.0)
+    if (prose_fired or paste_fired) and _recalibrate_container(report, strength):
         lines.append("◆ معايرة آثار الملف: آثار التحرير/التنسيق/الاقتباس في ملف Word تدل على أن إنسانًا تعامل مع الملف، "
-                     "لا على أنه كتب النص؛ فحُدَّ أثرها المجتمع من %.1f إلى %.1f (المؤشر %.0f ← %.0f)."
-                     % (report.container_raw, CONTAINER_CAP, report.score_engine, report.score))
+                     "لا على أنه كتب النص؛ فخُفِّف أثرها المجتمع من %.1f إلى %.1f بنسبة تقارب القرائن الأسلوبية المستقلة %.0f%% (المؤشر %.0f ← %.0f)."
+                     % (report.container_raw, report.container_eff, 100 * strength, report.score_engine, report.score))
 
     try:
         import tech_signals as ts
-        texts = [t for t in report.texts if t and t.strip() and not ts._REFLINE.match(t)]
+        # Section headings ("Two Axes of Equivalence: Linguistic and Legal") are structure, not prose: a "Title: Subtitle"
+        # heading is not the chat-style "Term: explanation" list item that the labelled-items habit looks for.
+        _paras = getattr(report, "doc_paras", None) or []
+        _head = {i for i, q in enumerate(_paras) if getattr(q, "role", "") == "heading"} if len(_paras) == len(report.texts) else set()
+        texts = [t for i, t in enumerate(report.texts) if t and t.strip() and i not in _head and not ts._REFLINE.match(t)]
         layer = ts.analyze(texts)
         report.tech = layer
         before = float(report.score)
@@ -291,13 +323,21 @@ def _enhance(report):
         fused = acad.fuse(before, layer)
         if fused > before + 0.5:
             report.score = float(fused)
-            _lift_paras(report, acad, layer.confidence)
+            _lift_paras(report, acad, layer.confidence, topic=topic)
             lines.append("▲ طبقة النثر الأكاديمي رفعت المؤشر من %.0f إلى %.0f لاجتماع %d بصمات أسلوبية:" % (before, report.score, layer.fired))
             for x in layer.signals:
                 if x.weight * x.z >= 0.05:
                     lines.append("   +%.1f  %s (%.3g %s)" % (x.weight * x.z, x.label, x.value, x.unit))
     except Exception:
         pass
+
+    # Paragraph map = wording evidence only. The evidence about the FILE (human editing history, hand formatting,
+    # typing slips) applies to every paragraph of that file exactly as it applies to the document score, so it is
+    # added to each paragraph's log-odds (human evidence only, never raising). Without this the map and the
+    # document score describe different things and a human-edited thesis shows "76% suspected" beside a low index.
+    shifted = False
+    if not deck_mode:
+        shifted = _file_evidence_to_paragraphs(report)
 
     # "A human always slips": a long text with (almost) no human typing / formatting slip was not typed by a person.
     report.friction = None
@@ -320,7 +360,13 @@ def _enhance(report):
         except Exception:
             pass
 
-    if abs(report.score - report.score_engine) > 0.5 or deck_mode or getattr(report, "friction", None) is not None:
+    if shifted:      # the engine's own "mixed document" line was computed before the file evidence reached the map
+        report.reasons = [r for r in report.reasons if not str(r).startswith("⚠ مستند مختلط محتمل")]
+        _tot = sum(n for _, _, n in report.para_scores)
+        _hi = sum(n for _, sc, n in report.para_scores if sc >= 55)
+        if _tot >= 150 and _hi / _tot >= 0.30 and report.score < 65:
+            lines.insert(0, "⚠ مستند مختلط محتمل: %.0f%% من كلمات المتن في فقرات درجتها ≥ 55 (راجع تبويب «خريطة الفقرات»)" % (100 * _hi / _tot))
+    if abs(report.score - report.score_engine) > 0.5 or deck_mode or shifted or getattr(report, "friction", None) is not None:
         report.verdict, report.color = eng.make_verdict(report.score, report.words)
         tot = sum(n for _, _, n in report.para_scores)
         hi = sum(n for _, sc, n in report.para_scores if sc >= 55)

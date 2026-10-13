@@ -63,6 +63,7 @@ class AcadLayer:
     words: int
     signals: List[AcadSignal] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
+    strength: float = 0.0     # how far the habits CONVERGE (0 none, 1 three or more); independent of text length
 
 
 # key: (Arabic label, weight, z=0 level (~ human p95), z=+1 level (clearly LLM), unit)
@@ -77,7 +78,30 @@ SCORE_OFFSET = 1.2
 SCORE_SCALE = 1.6
 
 
-def measure(paragraphs) -> dict:
+def _stem(w: str) -> str:
+    return re.sub(r"(?:ing|ed|es|s|e|ly)$", "", w.lower())
+
+
+def topic_terms(headings) -> frozenset:
+    """Stems of the words the author put in the title / headings. A word that NAMES the subject of the document
+    ("framework" in a thesis about a framework, "nuances" in a thesis about nuances) is vocabulary the topic forces,
+    not a stylistic habit, so it is not counted as LLM 'excess vocabulary'."""
+    out = set()
+    for h in headings or []:
+        for w in _W.findall(str(h)):
+            if len(w) >= 5:
+                out.add(_stem(w))
+    return frozenset(out)
+
+
+def _lex_hits(text: str, topic) -> int:
+    hits = _LEX.findall(text)
+    if topic:
+        hits = [h for h in hits if _stem(h) not in topic]
+    return len(hits)
+
+
+def measure(paragraphs, topic=None) -> dict:
     paras = [str(p) for p in paragraphs if str(p).strip() and not _REFLINE.match(str(p))]
     text = "\n".join(paras)
     words = _W.findall(text)
@@ -85,15 +109,15 @@ def measure(paragraphs) -> dict:
     k = max(1.0, n / 1000.0)
     return {
         "words": n,
-        "lex": len(_LEX.findall(text)) / k,
+        "lex": _lex_hits(text, topic) / k,
         "tri": len(_TRI.findall(text)) / k,
         "long_w": 100.0 * sum(1 for w in words if len(w) >= 10) / max(1, n),
         "first": len(_FIRST.findall(text)) / k,
     }
 
 
-def analyze(paragraphs) -> AcadLayer:
-    m = measure(paragraphs)
+def analyze(paragraphs, topic=None) -> AcadLayer:
+    m = measure(paragraphs, topic)
     if m["words"] < MIN_WORDS:
         return AcadLayer(None, 0.0, 0, m["words"], [], ["النص الإنجليزي أقصر من %d كلمة على الطبقة الأكاديمية" % MIN_WORDS])
     sigs, total, fired = [], 0.0, 0
@@ -121,17 +145,17 @@ def analyze(paragraphs) -> AcadLayer:
         g = 0.0
     conf = min(1.0, m["words"] / 3000.0) * g
     notes = ["اجتمعت %d بصمات أسلوبية مميِّزة للنثر الأكاديمي المولَّد." % fired] if fired >= 3 else []
-    return AcadLayer(score, conf, fired, m["words"], sigs, notes)
+    return AcadLayer(score, conf, fired, m["words"], sigs, notes, g)
 
 
-def para_score(text: str) -> Optional[float]:
+def para_score(text: str, topic=None) -> Optional[float]:
     """0-100 paragraph indicator from the same habits (only used to decide which passages get shaded)."""
     words = _W.findall(text)
     n = len(words)
     if n < 40:
         return None
     k = n / 1000.0
-    lex = len(_LEX.findall(text)) / k
+    lex = _lex_hits(text, topic) / k
     tri = len(_TRI.findall(text)) / k
     lw = 100.0 * sum(1 for w in words if len(w) >= 10) / n
     x = max(0.0, (lex - 8.0) / 6.0) * 1.4 + max(0.0, (tri - 3.8) / 6.2) * 0.6 + max(0.0, (lw - 13.8) / 3.2) * 0.8
