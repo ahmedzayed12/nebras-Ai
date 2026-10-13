@@ -23,7 +23,7 @@ def test_topic_words_are_not_counted_as_llm_vocabulary():
     plain = acad.measure(paras)["lex"]
     topic = acad.topic_terms(["A Hybrid Evaluation Framework for Legal Translation", "Cultural Nuances in Legal Texts"])
     with_topic = acad.measure(paras, topic)["lex"]
-    assert plain > 8 and with_topic == 0           # framework / nuances were the subject, not a habit
+    assert plain < 8 and with_topic == 0           # a word repeated 120 times is the subject: it counts at most 3 times anyway
 
 
 def test_topic_exclusion_does_not_blind_the_detector():
@@ -118,3 +118,31 @@ def test_headings_are_not_labelled_items():
     kept = b._tech_input_texts(r, ts)
     assert kept and all(h not in kept for h in heads) and body in kept
     assert ts.measure(heads)["label"] == 0 or ts.measure(["\n".join(heads)])["label"] >= 0   # sanity: helper runs on raw text too
+
+
+# ----- internal-evidence fixes: subject words, technical lists, single habits ---------------------------------------
+def test_one_repeated_word_cannot_fire_the_vocabulary_habit():
+    para = "The framework handles robust inputs, and the framework keeps the robust design simple. " * 3
+    assert acad.measure([para] * 60)["lex"] < 8
+
+
+def test_many_different_marker_words_still_count():
+    para = ("This pivotal study delves into the intricate interplay of crucial factors, showcasing a multifaceted, holistic "
+            "and comprehensive landscape that underscores noteworthy insights and fosters seamless, transformative outcomes.")
+    assert acad.measure([para] * 20)["lex"] > 14
+
+
+def test_technical_enumerations_are_not_rhetorical_triads():
+    tech = "Devices speak protocols such as MQTT, CoAP, and Zigbee, and layers use 128, 64, and 32 neurons, on ARM, MIPS, or RISC-V cores."
+    assert acad.count_triads(tech) == 0
+    rhetorical = "The study fosters collaboration, resilience, and innovation across institutions, communities, and sectors."
+    assert acad.count_triads(rhetorical) >= 1
+
+
+def test_a_single_technical_habit_never_lifts_the_index():
+    import tech_signals as ts
+    para = ("The module normalises the traffic, allowing the model to adapt quickly. The tuner adjusts the rate, making training "
+            "stable. The loader batches inputs, reducing memory use. The queue buffers packets, preserving their order. " * 3)
+    layer = ts.analyze([para] * 12)
+    assert sum(1 for x in layer.signals if x.z >= 0.35 and x.key != "friction") <= 1
+    assert ts.fuse(10.0, layer) == 10.0
