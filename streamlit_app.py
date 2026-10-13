@@ -230,33 +230,15 @@ def dial_panel(rep=None, plan=None):
         <div class="ends"><span>أسلوب بشري</span><span>أسلوب مولَّد</span></div>
         <div class="verdict-pill idle">ضع نصًا ثم اضغط «حلّل»</div></section>""")
         return
+    # Result panel = the gauge and the number inside it, nothing else (no verdict pill, no legend, no side figures).
+    # The one exception is a text too short to judge: then a single line says so instead of showing a meaningless gauge.
     vc = _glow(rep.color)
-    dial_color = _grad(max(0.0, min(100.0, rep.score)) / 100)
-    soft_color = _dial_soft_color(dial_color)
     if plan is not None:
-        pct = plan.percent if plan.sufficient else 0.0
-        soft = 100 * plan.soft_words / plan.qualifying_words if plan.sufficient and plan.qualifying_words else 0.0
-        dial = dial_svg(rep.score, pct, plan.sufficient)
-        if plan.sufficient:
-            legend = (f'<div class="chips" style="justify-content:center;margin:6px 0 2px">'
-                      f'<span class="chip"><i style="background:{dial_color}"></i>تظليل أساسي '
-                      f'<b class="num">{pct:.0f}%</b></span>'
-                      f'<span class="chip"><i style="background:{soft_color};opacity:.65"></i>تظليل تكميلي فاتح '
-                      f'<b class="num">+{soft:.0f}%</b></span></div>'
-                      '<p class="note">اللون الفاتح امتداد بصري لمؤشر المحرك العام، وليس كشفًا مستقلًا للجمل.</p>')
-        else:
-            legend = '<p class="note">النص قصير جدًا؛ لا توجد نتيجة صالحة للعرض.</p>' 
+        dial = dial_svg(rep.score, plan.percent if plan.sufficient else 0.0, plan.sufficient)
+        short = "" if plan.sufficient else '<p class="note">النص قصير جدًا؛ لا توجد نتيجة صالحة للعرض.</p>'
     else:
-        dial, legend = dial_svg(rep.score), ""
-    md(f"""<section class="panel dial-panel" style="--halo:{vc}33" aria-label="لوحة النتيجة">{dial}
-      {legend}
-      <div class="verdict-pill" style="--vc:{vc}"><i></i><span>{esc(rep.verdict)}</span></div>
-      <dl class="facts">
-        <div><dt title="مثل نسبة Turnitin/GPTZero: حصة كلمات المتن الواقعة في فقرات درجتها ≥ 55">نسبة النص المشتبه به</dt><dd class="num">{_suspect_share(rep)}</dd></div>
-        <div><dt>الثقة بالحكم</dt><dd class="num">{rep.confidence*100:.0f}%</dd></div>
-        <div><dt>الكلمات</dt><dd class="num">{rep.words:,}</dd></div>
-        <div><dt>الجمل</dt><dd class="num">{rep.sentences:,}</dd></div>
-      </dl></section>""")
+        dial, short = dial_svg(rep.score), ""
+    md(f"""<section class="panel dial-panel" style="--halo:{vc}33" aria-label="لوحة النتيجة">{dial}{short}</section>""")
 
 
 def math_notice(rep):
