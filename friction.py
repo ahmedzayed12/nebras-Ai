@@ -18,10 +18,9 @@ NOT a human slip
     of pasted text), and formatting differences that come in large contiguous BLOCKS (pasted from another source).
 
 RULE
-  Only texts of MIN_WORDS words or more. slips per 1000 words -> floor of the final index:
-      < 0.25  -> 85   (decisive: practically no human slip at all)
-      < 0.50  -> 72
-      < 1.00  -> 58
+  Only texts of MIN_WORDS words or more. The floor of the final index is a CONTINUOUS function of the slip rate
+  (slips per 1000 words), so every added or removed slip moves the result -- no fixed steps:
+      rate 0.0 -> 90    0.3 -> 80    0.6 -> 70    1.2 -> 50    1.6 -> 25    >= 2.0 -> no floor
   The floor only raises the index; it never lowers it. Applied to Word (.docx) files only: pasted text and PDF
   extraction collapse spaces and drop formatting, so a human text would look slip-free there. Not applied to slide
   decks (bullets are layout). By design the rule changes the score only; it writes nothing into the interface/reports.
@@ -34,7 +33,20 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 MIN_WORDS = 1500
-FLOORS = ((0.25, 85.0, "قاطع"), (0.50, 72.0, "قوي"), (1.00, 58.0, "متوسط"))
+TOP, KNEE, END = 90.0, 1.2, 2.0      # floor 90 at zero slips, 50 at KNEE slips/1000, fading to nothing at END
+
+
+def floor_for(rate: float) -> float:
+    """Continuous, strictly decreasing floor: no two different slip rates give the same number."""
+    if rate >= END:
+        return 0.0
+    if rate <= KNEE:
+        return TOP - (TOP - 50.0) * rate / KNEE
+    return 50.0 * (END - rate) / (END - KNEE)
+
+
+def strength_for(rate: float) -> str:
+    return "قاطع" if rate < 0.3 else "قوي" if rate < 0.6 else "متوسط" if rate < 1.2 else "ضعيف"
 
 TEXT_SLIPS = {"space_before_punct", "no_space_after_punct", "double_space", "bracket_space", "trailing_space",
               "leading_space", "repeat_punct", "unbalanced", "lower_start", "repeated_word", "typo_en", "ar_orth",
@@ -164,10 +176,9 @@ def measure(report, paras=None, forensics=None, uniform_indent: bool = False) ->
                 fr.format_slips += 1
     fr.applied = True
     fr.rate = fr.slips / (words / 1000.0)
-    for limit, floor, strength in FLOORS:
-        if fr.rate < limit:
-            fr.floor, fr.strength = floor, strength
-            break
+    f = floor_for(fr.rate)
+    if f > 0:
+        fr.floor, fr.strength = round(f, 1), strength_for(fr.rate)
     return fr
 
 
