@@ -57,7 +57,9 @@ def test_fragmented_reference_list_does_not_count_as_a_citation_gap():
     assert gap_frag == 0.0
 
 
-def test_real_citation_gap_survives_in_pdf_when_entries_are_whole():
+def test_citation_gap_is_visible_but_never_pushes_toward_ai():
+    """An uncited reference list is an ordinary human slip: it stays in the findings, it adds nothing to the score."""
     fabricated = ["Garcia, M. (2017). Unrelated topic number %d. Journal of Things, %d(1), 1-20." % (i, i) for i in range(1, 9)]
     r = b.analyze_text_guarded(_doc(fabricated), from_pdf=True)
-    assert r.features["cite_gap"][2] > 0           # whole entries with years that nobody cites: still evidence
+    assert r.features["cite_gap"][2] == 0.0
+    assert any(f.kind in ("ev_uncited", "ev_nocite") for f in r.findings)
