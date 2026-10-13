@@ -1,0 +1,185 @@
+# -*- coding: utf-8 -*-
+"""Human-friction rule ("a human always slips").
+
+PRINCIPLE (product rule, not a trained model)
+  A person who types thousands of words by hand always leaves slips: a double space, a space before a comma, a comma
+  glued to the next word, a repeated word, a typo, a stray empty line, a paragraph whose spacing or alignment was
+  changed by hand. A LONG text with (almost) none of them was not typed by a person.
+
+WHAT COUNTS AS A HUMAN SLIP
+  text   : space before punctuation, no space after punctuation, double spaces, spaces inside brackets, trailing /
+           leading spaces (unless the same indent repeats mechanically), repeated punctuation, unbalanced brackets or
+           quotes, sentence starting lower-case, repeated word, common typos, Arabic orthography slips
+  format : (Word files) a paragraph whose font / size / alignment / spacing / indent differs from its neighbours
+           SCATTERED in the body, an empty paragraph used as spacing between two body paragraphs, Shift+Enter inside a
+           paragraph, a heading made by manual bold.
+NOT a human slip
+  - a bullet or heading without a full stop (layout), straight/curly quote mixtures and mixed digit styles (typical
+    of pasted text), and formatting differences that come in large contiguous BLOCKS (pasted from another source).
+
+RULE
+  Only texts of MIN_WORDS words or more. slips per 1000 words -> floor of the final index:
+      < 0.25  -> 85   (decisive: practically no human slip at all)
+      < 0.50  -> 72
+      < 1.00  -> 58
+  The floor only raises the index; it never lowers it. Applied to Word (.docx) files only: pasted text and PDF
+  extraction collapse spaces and drop formatting, so a human text would look slip-free there. Not applied to slide
+  decks (bullets are layout). By design the rule changes the score only; it writes nothing into the interface/reports.
+"""
+from __future__ import annotations
+
+import re
+from collections import Counter
+from dataclasses import dataclass, field
+from typing import List, Optional
+
+MIN_WORDS = 1500
+FLOORS = ((0.25, 85.0, "قاطع"), (0.50, 72.0, "قوي"), (1.00, 58.0, "متوسط"))
+
+TEXT_SLIPS = {"space_before_punct", "no_space_after_punct", "double_space", "bracket_space", "trailing_space",
+              "leading_space", "repeat_punct", "unbalanced", "lower_start", "repeated_word", "typo_en", "ar_orth",
+              "mixed_punct_script"}
+FORMAT_SLIPS = {"fmt_font", "fmt_size", "fmt_align", "fmt_spacing", "fmt_indent"}
+ALWAYS_HUMAN_FORMAT = {"fmt_hard_break", "fmt_fake_heading"}
+
+
+@dataclass
+class Friction:
+    applied: bool
+    words: int
+    text_slips: int = 0
+    format_slips: int = 0
+    rate: Optional[float] = None
+    floor: Optional[float] = None
+    strength: str = ""
+    examples: List[str] = field(default_factory=list)
+    note: str = ""
+
+    @property
+    def slips(self) -> int:
+        return self.text_slips + self.format_slips
+
+
+def _block_index_set(forensics) -> set:
+    out = set()
+    for a, b, _n in (getattr(forensics, "blocks", None) or []):
+        out.update(range(a, b + 1))
+    return out
+
+
+_ATTR = {"fmt_align": lambda p: p.align or "",
+         "fmt_spacing": lambda p: (p.after or 0, p.before or 0, p.line or 0),
+         "fmt_indent": lambda p: p.first or 0}
+_ABBR_BEFORE = re.compile(r"\b(?:spp?|var|subsp|cv|et al|etc|cf|e\.g|i\.e|vs|approx|fig|figs|eq|eqs|no|vol|pp|ca|resp|incl)\.\s+[a-z]$", re.I)
+
+
+_CAPTION = re.compile(r"^\s*(?:Table|Figure|Fig\.?|Chart|Graph|Plate|Diagram|Equation|Scheme|Box|Appendix|"
+                      r"جدول|الجدول|شكل|الشكل|رسم|مخطط|صورة)\s*\(?[\dIVXivx]+(?:[-–.]\d+)*\)?", re.I)
+
+
+def _is_heading_like(p) -> bool:
+    """Headings and table/figure captions follow their own style; their formatting is not a typing slip."""
+    t = (p.text or "").strip()
+    return bool(_CAPTION.match(t)) or (len(t.split()) <= 15 and not re.search(r"[.!?؟:;]$", t))
+
+
+_LABEL_TAB = re.compile(r"^\s*\S{1,14}[:.)\]]?\t")      # "RQ1:<tab>…", "(a)<tab>…": a definition/list layout
+
+
+def _paste_runs(paras, min_run: int = 3) -> dict:
+    """For every formatting attribute: body paragraphs whose off-dominant value belongs to a run of >= min_run
+    consecutive body paragraphs (headings / empty lines in between are skipped). Such runs are pasted blocks."""
+    body = [i for i, p in enumerate(paras) if getattr(p, "role", "") == "body" and (p.text or "").strip()]
+    out = {}
+    for kind, fn in _ATTR.items():
+        vals = [(i, fn(paras[i])) for i in body]
+        if not vals:
+            out[kind] = set()
+            continue
+        dom = Counter(v for _, v in vals).most_common(1)[0][0]
+        marked, k = set(), 0
+        while k < len(vals):
+            if vals[k][1] == dom:
+                k += 1
+                continue
+            j = k
+            while j + 1 < len(vals) and vals[j + 1][1] == vals[k][1]:
+                j += 1
+            if j - k + 1 >= min_run:
+                marked.update(i for i, _ in vals[k:j + 1])
+            k = j + 1
+        out[kind] = marked
+    return out
+
+
+def measure(report, paras=None, forensics=None, uniform_indent: bool = False) -> Friction:
+    words = int(getattr(report, "words", 0) or 0)
+    fr = Friction(applied=False, words=words)
+    if words < MIN_WORDS:
+        fr.note = "النص أقصر من %d كلمة؛ قاعدة «الإنسان يخطئ» لا تُطبَّق على النصوص القصيرة" % MIN_WORDS
+        return fr
+    in_block = _block_index_set(forensics)
+    runs = _paste_runs(paras) if paras else {}
+    pasted = set().union(*runs.values()) if runs else set()   # inside a pasted block, every difference comes from the source
+    roles = {i: getattr(p, "role", "body") for i, p in enumerate(paras or [])}
+    seen_fmt = set()
+    texts = list(getattr(report, "texts", []) or [])
+    for f in getattr(report, "findings", []) or []:
+        k = f.kind
+        if f.para is None or f.para < 0:
+            continue
+        if k in TEXT_SLIPS:
+            if k == "leading_space" and uniform_indent:
+                continue
+            t = texts[f.para] if 0 <= f.para < len(texts) else ""
+            if k == "lower_start" and _ABBR_BEFORE.search(t[max(0, f.start - 12):f.end]):
+                continue                                   # "Rhizopus spp. and …" is an abbreviation, not a slip
+            if k == "double_space" and len(t[f.start:f.end]) >= 3:
+                continue                                   # a long run of spaces is deliberate alignment
+            if k == "double_space" and re.match(r"\s*\(\d", t[f.end:f.end + 4]):
+                continue                                   # spacing before an equation number "(3-1)"
+            fr.text_slips += 1
+            if len(fr.examples) < 5 and 0 <= f.para < len(texts):
+                t = texts[f.para]
+                fr.examples.append("%s: «…%s…»" % (k, t[max(0, f.start - 18):f.end + 18].strip()))
+            continue
+        if paras is None:
+            continue
+        if k in ALWAYS_HUMAN_FORMAT:
+            if k == "fmt_fake_heading" and f.para in pasted:
+                continue
+            fr.format_slips += 1
+        elif k in FORMAT_SLIPS:
+            if (f.para in in_block or f.para in pasted or roles.get(f.para) != "body" or (f.para, k) in seen_fmt
+                    or _is_heading_like(paras[f.para])):
+                continue
+            if k == "fmt_indent" and _LABEL_TAB.match(paras[f.para].text or ""):
+                continue
+            seen_fmt.add((f.para, k))
+            fr.format_slips += 1
+        elif k == "fmt_empty_para":
+            prev = next((roles.get(j) for j in range(f.para - 1, -1, -1) if (paras[j].text or "").strip()), None)
+            nxt = next((roles.get(j) for j in range(f.para + 1, len(paras)) if (paras[j].text or "").strip()), None)
+            if prev == "body" and nxt == "body":
+                fr.format_slips += 1
+    fr.applied = True
+    fr.rate = fr.slips / (words / 1000.0)
+    for limit, floor, strength in FLOORS:
+        if fr.rate < limit:
+            fr.floor, fr.strength = floor, strength
+            break
+    return fr
+
+
+def lines(fr: Friction, before: float, after: float) -> List[str]:
+    if not fr.applied:
+        return []
+    head = ("● قاعدة «الإنسان يخطئ»: %d هفوة بشرية فقط في %d كلمة (%.2f لكل 1000؛ نصية %d، تنسيقية متفرقة %d)."
+            % (fr.slips, fr.words, fr.rate, fr.text_slips, fr.format_slips))
+    if fr.floor is None:
+        return [head + " عدد الهفوات طبيعي لكتابة بشرية."]
+    out = [head + " نص بهذا الطول بلا هفوات تقريبًا لا يكتبه إنسان بيده — دليل %s؛ الحد الأدنى للمؤشر %.0f%%%s."
+           % (fr.strength, fr.floor, (" (المؤشر %.0f ← %.0f)" % (before, after)) if after > before + 0.5 else "")]
+    for e in fr.examples[:3]:
+        out.append("   الهفوات الموجودة: " + e)
+    return out

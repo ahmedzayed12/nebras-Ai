@@ -68,8 +68,9 @@ def filename_only(name: str) -> str:
     return name
 
 
-def _attach(report, mm, forensics=None, paste=None, deck=None):
+def _attach(report, mm, forensics=None, paste=None, deck=None, paras=None):
     report.math = mm
+    report.doc_paras = paras
     report.format_forensics = forensics
     report.paste = paste
     report.deck = deck
@@ -239,7 +240,25 @@ def _enhance(report):
     except Exception:
         pass
 
-    if abs(report.score - report.score_engine) > 0.5 or deck_mode:
+    # "A human always slips": a long text with (almost) no human typing / formatting slip was not typed by a person.
+    report.friction = None
+    # Word files only: pasted text and PDF extraction collapse double spaces and lose formatting, so a human text
+    # would look 'clean' there. Applying the rule outside DOCX would wrong human writers.
+    if not deck_mode and getattr(report, "is_docx", False) and getattr(report, "doc_paras", None) is not None:
+        try:
+            import friction
+            pa_ = getattr(report, "paste", None)
+            fr = friction.measure(report, getattr(report, "doc_paras", None), getattr(report, "format_forensics", None),
+                                  uniform_indent=bool(pa_ is not None and pa_.space_indent_uniform > 0))
+            report.friction = fr
+            before = float(report.score)
+            if fr.floor is not None and fr.floor > before:
+                report.score = fr.floor
+            # score only: by design this rule is not written into the interface or the reports
+        except Exception:
+            pass
+
+    if abs(report.score - report.score_engine) > 0.5 or deck_mode or getattr(report, "friction", None) is not None:
         report.verdict, report.color = eng.make_verdict(report.score, report.words)
         tot = sum(n for _, _, n in report.para_scores)
         hi = sum(n for _, sc, n in report.para_scores if sc >= 55)
@@ -321,7 +340,7 @@ def analyze_docx_guarded(path: str, content: bytes):
         pa = format_forensics.paste_artifacts(content, ff)
     except Exception:
         pass
-    return _attach(report, mm, ff, pa)
+    return _attach(report, mm, ff, pa, paras=clean)
 
 
 _MIME_EXT = {"application/pdf": ".pdf",
