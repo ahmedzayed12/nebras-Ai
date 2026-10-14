@@ -96,10 +96,11 @@ def _w(tag: str) -> str:
 HIGH = 55            # engine's own "high suspicion" paragraph band (same cut-off the UI uses)
 MID = 30             # engine's "medium" band
 STRONG = 1.2         # direct evidence needed inside one sentence (weights = engine's _PARA_W)
+SOFT = STRONG / 2    # retained, partial wording evidence; never formatting or neighbouring text
 MIN_SENT_WORDS = 4   # a 1-3 word fragment is never shaded by paragraph membership alone
 MIN_WORDS = 40       # engine: below 40 words it refuses to judge
 HIGHLIGHT_HEX = "8EE3F5"     # strong: directly flagged by sentence / paragraph heuristic
-SOFT_HIGHLIGHT_HEX = "DDF5FA"  # supplementary, visibly paler cyan (illustrative only)
+SOFT_HIGHLIGHT_HEX = "DDF5FA"  # supplementary, visibly paler cyan (partial wording evidence)
 HUMAN_TRACE = {"repeated_word", "typo_en", "repeat_punct", "lower_start", "mixed_punct_script", "ar_orth"}
 
 
@@ -112,7 +113,7 @@ class Plan:
     flagged_sentences: int = 0
     per_para: dict = field(default_factory=dict)    # para index -> (words, flagged_words)
     sufficient: bool = True
-    soft_flags: dict = field(default_factory=dict)  # paragraph -> paler illustrative ranges
+    soft_flags: dict = field(default_factory=dict)  # paragraph -> paler, locally evidenced ranges
     soft_words: int = 0
     soft_sentences: int = 0
     engine_index: float | None = None             # unchanged document-wide engine score
@@ -336,6 +337,7 @@ def plan_highlights(rep, paras, prov=None) -> Plan:
         if not counted:
             continue
         hit = {}
+        probable = {}
         for k, a, b, n in counted:
             e = sum(w for s, w in ev[i] if a <= s < b)
             has_trace = any(a <= s < b for s in trace[i])
@@ -344,6 +346,12 @@ def plan_highlights(rep, paras, prov=None) -> Plan:
                     and (sc is None or located_score >= MID)
                     and not (has_trace and e < 2 * STRONG)):
                 hit[k] = min(99.0, (sc or 50.0) + 8 * e)
+            elif (e >= SOFT and n >= MIN_SENT_WORDS and not has_trace
+                  and (sc is None or located_score >= MIN_WORDING)):
+                # A contributing vocabulary / rhetorical finding may be too
+                # weak for the strong band. Keep its OWN complete sentence as
+                # a probable candidate, not the rest of its paragraph/block.
+                probable[k] = min(99.0, (sc if sc is not None else MIN_WORDING) + 8 * e)
         cur = None
         for k, a, b, n in counted:
             if k in hit:
@@ -356,6 +364,10 @@ def plan_highlights(rep, paras, prov=None) -> Plan:
                 cur = None
         if cur is not None:
             plan.units.append(("strong", cur[2], i, cur[0], cur[1]))
+        # Keep probable sentences independent until selection: merging them
+        # here could force an entire long paragraph into the remaining budget.
+        plan.units.extend(("soft", probable[k], i, a, b)
+                          for k, a, b, _n in counted if k in probable)
 
     def sents_in(i, a, b):
         return sum(1 for x, y in spans_of[i] if a <= x and y <= b)
@@ -403,14 +415,14 @@ def _merge_ranges(ranges):
 
 
 def balance_to_engine_index(rep, paras, plan: Plan) -> Plan:
-    """Keep the document index and the shading consistent WITHOUT inventing shading.
+    """Select whole, evidenced units and reconcile probable coverage with the index.
 
-    The index is a document-level probability, not a word share, so the shading is not stretched to reach it (the old
-    behaviour painted whole human paragraphs to match the number). The only rule that remains is the safety one that
-    existed before: the shaded words never exceed the share the index allows (plus INDEX_SLACK points, because the
-    index is a document-level figure and units are whole paragraphs). When they would, the
-    lowest-confidence WHOLE units are dropped first (strong before soft, then by confidence); nothing is cut in
-    the middle of a sentence and nothing is ever added.
+    Strong passages have priority. Remaining coverage comes only from the
+    probable sentences located by plan_highlights, strongest first. Stop when
+    another complete sentence would move coverage farther from the target.
+    Insufficient local evidence leaves a gap rather than inventing locations.
+    The headline remains the heuristic index, not a calibrated authorship
+    probability. Whole-unit overshoot remains bounded by INDEX_SLACK.
     """
     plan.engine_index = max(0.0, min(100.0, float(rep.score))) if plan.sufficient else None
     if not plan.sufficient:
@@ -434,7 +446,9 @@ def balance_to_engine_index(rep, paras, plan: Plan) -> Plan:
     used, kept = 0, []
     for u in units:
         w = words_in(u[2], u[3], u[4])
-        if used + w <= budget:
+        within_budget = used + w <= budget
+        closer = abs(plan.target_words - used - w) < abs(plan.target_words - used)
+        if within_budget and closer:
             kept.append(u)
             used += w
     plan.units = kept
@@ -887,9 +901,10 @@ def _verdict_color(p):
     return (0.12, 0.62, 0.48) if p < 20 else (0.85, 0.55, 0.0) if p < 50 else (0.84, 0.19, 0.42)
 
 
-def _cover(doc, rep, plan, meta, page_total):
+def _cover(doc, rep, plan, meta, page_total, *, page=None):
     import pymupdf
-    page = doc.new_page(width=595.28, height=841.89)
+    if page is None:
+        page = doc.new_page(width=595.28, height=841.89)
     Wd, H = page.rect.width, page.rect.height
     m = 42.0
     # header band
@@ -915,8 +930,8 @@ def _cover(doc, rep, plan, meta, page_total):
          % (int(col[0] * 255), int(col[1] * 255), int(col[2] * 255), _esc(percent_label(plan))))
     if plan.sufficient:
         ar = "النتيجة النهائية من مؤشر المحرك العام."
-        stat = ("<b>%d</b> of <b>%d</b> eligible words carry strong evidence"
-                % (plan.flagged_words, plan.qualifying_words))
+        stat = ("<b>%d</b> of <b>%d</b> eligible words highlighted (strong + probable)"
+                % (plan.total_words, plan.qualifying_words))
     else:
         ar = "النص المؤهَّل أقصر من 40 كلمة؛ لا يحكم المحرك على نص بهذا القِصَر"
         stat = "Fewer than 40 qualifying words: no score is reported."
@@ -935,9 +950,11 @@ def _cover(doc, rep, plan, meta, page_total):
         page.draw_rect(pymupdf.Rect(bx0, by, bx0 + length * strong_pct / 100, by + 12),
                        color=None, fill=CYAN, radius=0.5)
     page.draw_rect(pymupdf.Rect(bx0, by + 21, bx0 + 9, by + 30), color=None, fill=CYAN)
-    _box(page, pymupdf.Rect(bx0 + 14, by + 16, bx0 + 250, by + 37),
-         '<div dir="rtl" class="sm">تظليل أساسي: <b dir="ltr">%.0f%%</b>%s</div>'
-         % (strong_pct, (' &nbsp;·&nbsp; محتمل: <b dir="ltr">%.0f%%</b>' % soft_pct) if plan.soft_words else ""))
+    _box(page, pymupdf.Rect(bx0 + 14, by + 16, bx1, by + 37),
+         '<div dir="rtl" class="sm">إجمالي التظليل: <b dir="ltr">%.0f%%</b>'
+         ' &nbsp;·&nbsp; قوي: <b dir="ltr">%.0f%%</b>%s</div>'
+         % (plan.total_percent, strong_pct,
+            (' &nbsp;·&nbsp; محتمل: <b dir="ltr">%.0f%%</b>' % soft_pct) if plan.soft_words else ""))
 
     # document facts
     y = top + 176
@@ -975,15 +992,15 @@ def _details(doc, rep, plan):
     how = ("<b>Reading the highlights.</b> Cyan marks passages the evidence located: whole sentences or whole "
            "paragraphs whose wording matches generated text, strengthened where Word itself recorded that the "
            "paragraph was pasted in (chat-window font, text colour, background or spacing). Pale cyan marks "
-           "<i>probable</i> passages that have only partial evidence, such as neighbours inside the same pasted block. "
-           "Nothing is shaded just to reach the index, and human-written passages are left unmarked. The index is a "
+           "<i>probable</i> passages with partial wording evidence in their own sentences. "
+           "Unsupported neighbours are left unmarked. The index is a "
            "document-level figure, not a measured percentage of AI-authored words, and shading is not proof of "
            "authorship. Headers, references, captions and tables are excluded.")
     how_ar = ("<b>قراءة التظليل:</b> اللون السماوي يحدّد المقاطع التي دلّت عليها القرائن: جمل كاملة أو فقرات كاملة "
               "يطابق أسلوبها النص المولَّد، ويتعزّز ذلك حين يسجّل ملف Word نفسه أن الفقرة أُدخلت بالنسخ واللصق "
               "(خط نافذة الدردشة أو لون النص أو الخلفية أو التباعد). السماوي الباهت يدل على مقاطع <i>محتملة</i> "
-              "لا يسندها إلا دليل جزئي، كالفقرات المجاورة داخل الكتلة الملصوقة نفسها. لا يُظلَّل شيء لمجرد بلوغ "
-              "المؤشر، وتُترك الفقرات البشرية بلا تظليل. المؤشر قياس للمستند كله لا نسبة حقيقية للكلمات المكتوبة "
+              "تسندها قرائن لغوية جزئية في الجملة نفسها، وتُترك الجمل المجاورة دون تظليل إذا لم تسندها قرائن. "
+              "المؤشر قياس للمستند كله لا نسبة حقيقية للكلمات المكتوبة "
               "آليًا، والتظليل ليس إثباتًا للكاتب. تُستثنى المراجع والعناوين والجداول.")
     y = _flow(page, m, y, Wd - m, ymax,
               '<div class="sm">%s</div><div dir="rtl" class="sm" style="margin-top:5px">%s</div>' % (how, how_ar), gap=16)
@@ -1071,7 +1088,7 @@ def _align_paragraphs(texts, pdf_tokens):
     return out
 
 
-def _shade_pdf_pages(body_pdf, dest_page, offsets, texts, plan: Plan, ocr_pages=()):
+def _shade_pdf_pages(body_pdf, dest_page, offsets, texts, plan: Plan, ocr_pages=(), *, painted_ranges=None):
     """Draw contiguous, line-by-line highlights on copies of the ORIGINAL pages (nothing is re-typeset)."""
     import pymupdf
     words, line_box, pdf_tokens = _pdf_word_stream(body_pdf, ocr_pages)
@@ -1095,6 +1112,8 @@ def _shade_pdf_pages(body_pdf, dest_page, offsets, texts, plan: Plan, ocr_pages=
                 ids = sorted(set(ids))
                 if not ids:
                     continue
+                if painted_ranges is not None:
+                    painted_ranges.setdefault(level, {}).setdefault(i, []).append((a, b))
                 filled = set(ids)
                 for p, q in zip(ids, ids[1:]):       # bridge inline maths / stray glyphs inside a sentence
                     if 1 < q - p and words[p][5] == words[q][5]:
@@ -1119,6 +1138,21 @@ def _shade_pdf_pages(body_pdf, dest_page, offsets, texts, plan: Plan, ocr_pages=
             pymupdf.Rect((r["x0"] - 1.0) * sc + dx, (y0 - 0.6) * sc + dy, (r["x1"] + 1.0) * sc + dx, (y1 + 0.6) * sc + dy),
             color=None, fill=colour, fill_opacity=opacity, overlay=True)
     return matched, total
+
+
+def _retain_rendered_units(plan, paras, mm, painted_ranges):
+    """A PDF location rejected by page alignment must not be counted on its cover."""
+    eng = ba.get_engine()
+    kept = []
+    for unit in plan.units:
+        level, _confidence, i, a, b = unit
+        j, x, y = mm.to_original(i, a, b) if mm is not None else (i, a, b)
+        if any(c <= x and y <= d for c, d in painted_ranges.get(level, {}).get(j, ())):
+            kept.append(unit)
+    plan.units = kept
+    _materialise(plan, kept,
+                 lambda i, a, b: len(eng.WORD_RE.findall(paras[i].text[a:b])),
+                 lambda i, a, b: sum(a <= x and y <= b for x, y in eng.split_sentences(paras[i].text)))
 
 
 def _content_box(page):
@@ -1185,7 +1219,10 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
             "engine_version": eng.VERSION, "engine_sha": ba.ENGINE_SHA256, "removed_highlights": removed}
 
     out = pymupdf.open()
-    _cover(out, rep, plan, meta, None)
+    if kind == "pdf":
+        out.new_page(width=595.28, height=841.89)  # fill after actual page-alignment coverage is known
+    else:
+        _cover(out, rep, plan, meta, None)
     offsets = {}
     for i in range(len(body_pdf)):
         src = body_pdf[i]
@@ -1201,7 +1238,11 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
         pg.show_pdf_page(pymupdf.Rect(dx, dy, dx + w * sc, dy + h * sc), body_pdf, i)
         offsets[i] = (sc, dx, dy)
     if kind == "pdf":
-        _shade_pdf_pages(body_pdf, lambda n: out[n + 1], offsets, orig_texts, shade, ocr_pages)
+        painted_ranges = {}
+        _shade_pdf_pages(body_pdf, lambda n: out[n + 1], offsets, orig_texts, shade, ocr_pages,
+                         painted_ranges=painted_ranges)
+        _retain_rendered_units(plan, paras, mm, painted_ranges)
+        _cover(out, rep, plan, meta, None, page=out[0])
     total = len(out)
 
     reg = str(_font_dir() / "NebrasPlex-Regular.ttf")

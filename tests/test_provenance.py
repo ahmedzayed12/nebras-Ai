@@ -109,7 +109,8 @@ def test_shading_is_not_stretched_to_the_document_index():
     rep, paras, plan = _plan(data)
     assert rep.score_pooled > 90
     assert rep.score < rep.score_pooled   # mixed local evidence now limits the pooled saturation
-    assert plan.soft_words == 0
+    assert set(plan.soft_flags) <= {3, 4, 5}  # only AI sentences with their own partial wording evidence
+    assert not ({0, 1, 2, 6} & (set(plan.flags) | set(plan.soft_flags)))
     assert plan.flagged_words < plan.qualifying_words
 
 
