@@ -38,7 +38,12 @@ def test_rewriting_progressively_reduces_suspicion_and_keeps_detection():
         r = b.analyze_uploaded_bytes("revision.docx", _docx(paras))
         scores.append(r.score)
         assert r.score_stages[-1]["score"] == pytest.approx(r.score)
-        assert r.score <= r.score_pooled
+        # v2.5: with the paragraph reading the index is the share of attributed words (it may exceed the pooled score
+        # of a mixed file); without it the paragraph aggregation may only lower the pooled score.
+        if getattr(r, "segmentation", None) is not None:
+            assert r.score == pytest.approx(round(100.0 * r.ai_share, 1))
+        else:
+            assert r.score <= r.score_pooled
     assert all(a > c for a, c in zip(scores, scores[1:]))
     assert scores[0] >= 65
     assert scores[-1] < 52
