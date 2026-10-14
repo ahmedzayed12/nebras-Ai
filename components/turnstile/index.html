@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{margin:0;background:transparent;color:#f4efe2;font:14px sans-serif}#message{margin:8px 0}#captcha{min-height:70px}</style></head>
+<body><div id="captcha"></div><div id="message" role="status"></div>
+<script>
+(() => {
+  let args = null, widget = null, rendered = null;
+  const send = (type, extra = {}) => window.parent.postMessage({isStreamlitMessage: true, type, ...extra}, "*");
+  const height = () => send("streamlit:setFrameHeight", {height: Math.max(100, document.body.scrollHeight)});
+  const value = (token, challenge) => send("streamlit:setComponentValue", {value: {token, challenge}, dataType: "json"});
+  function render() {
+    if (!args || !window.turnstile) return;
+    const next = JSON.stringify([args.site_key, args.action, args.challenge]);
+    if (next === rendered) return;
+    if (widget !== null) window.turnstile.remove(widget);
+    rendered = next;
+    const challenge = args.challenge;
+    document.getElementById("message").textContent = "";
+    value("", challenge);
+    widget = window.turnstile.render("#captcha", {
+      sitekey: args.site_key, action: args.action, cData: challenge,
+      theme: "dark", language: "ar", size: "flexible",
+      callback: token => {
+        if (!args || args.challenge !== challenge) return;
+        document.getElementById("message").textContent = "تم التحقق. يمكنك بدء الفحص.";
+        value(token, challenge); height();
+      },
+      "expired-callback": () => {
+        if (!args || args.challenge !== challenge) return;
+        document.getElementById("message").textContent = "انتهت صلاحية التحقق؛ يُجرى التحقق مجددًا.";
+        value("", challenge); window.turnstile.reset(widget); height();
+      },
+      "error-callback": () => {
+        if (!args || args.challenge !== challenge) return true;
+        document.getElementById("message").textContent = "تعذّر التحقق. أعد المحاولة أو حدّث الصفحة.";
+        value("", challenge); height(); return true;
+      }
+    });
+    height();
+  }
+  window.addEventListener("message", event => {
+    if (event.source !== window.parent || event.data?.type !== "streamlit:render") return;
+    args = event.data.args; render(); height();
+  });
+  window.nebrasTurnstileReady = render;
+  const script = document.createElement("script");
+  script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=nebrasTurnstileReady&render=explicit";
+  script.async = true; script.defer = true;
+  script.onerror = () => {
+    document.getElementById("message").textContent = "تعذّر تحميل التحقق. تحقق من الاتصال ثم حدّث الصفحة.";
+    if (args) value("", args.challenge); height();
+  };
+  document.head.appendChild(script);
+  new ResizeObserver(height).observe(document.body);
+  send("streamlit:componentReady", {apiVersion: 1}); height();
+})();
+</script></body></html>

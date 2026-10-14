@@ -18,6 +18,7 @@ import colorsys
 import math
 import streamlit as st
 import streamlit.components.v1 as components
+from turnstile_gate import require_human, render_turnstile
 
 from backend_adapter import (
     analyze_batch_inputs, analyze_pasted, analyze_uploaded_bytes, batch_csv_bytes, normalize_upload_name,
@@ -435,7 +436,7 @@ def input_desk():
                 st.warning("أدخل نصًا أولًا.")
             elif words < MIN_WORDS:
                 st.warning(f"النص يحتوي {words} كلمة فقط. لا يُقبل التحليل أقل من {MIN_WORDS} كلمة — أطِل النص ثم أعد المحاولة.")
-            else:
+            elif require_human():
                 try:
                     st.session_state["current_report"] = analyze_pasted(src)
                     st.session_state["batch_reports"] = None
@@ -450,7 +451,7 @@ def input_desk():
         if st.button("حلّل الملف", type="primary", key=f"analyze_file_{n}"):
             if uploaded is None:
                 st.warning("اختر ملفًا أولًا.")
-            else:
+            elif require_human():
                 try:
                     data = uploaded.getvalue()
                     uname = normalize_upload_name(uploaded.name, getattr(uploaded, "type", ""), data)
@@ -474,7 +475,7 @@ def input_desk():
                     text = st.session_state.get(edit_key, "")
                     if not text.strip():
                         st.warning("النص فارغ.")
-                    else:
+                    elif require_human():
                         try:
                             if text == st.session_state.get("original_file_text", ""):
                                 r = analyze_uploaded_bytes(origin[0], origin[1])
@@ -494,7 +495,7 @@ def input_desk():
         if st.button("حلّل الدفعة", type="primary", key=f"analyze_batch_{n}"):
             if not multiple:
                 st.warning("ارفع ملفًا واحدًا على الأقل.")
-            else:
+            elif require_human():
                 try:
                     files = []
                     for x in multiple:
@@ -510,6 +511,8 @@ def input_desk():
                         st.warning("لم يتضمن الرفع ملفات مدعومة.")
                 except Exception as ex:
                     st.error(str(ex))
+
+    render_turnstile()
 
 
 def cloudflare_web_analytics():

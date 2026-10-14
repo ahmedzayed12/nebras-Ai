@@ -113,6 +113,25 @@ python -m pytest tests -q
 
 تغطي `tests/test_targeted_highlights.py` حماية النص العلمي المصقول، والعربية البشرية، والقياسات والجداول، وتوطين الجمل، وحدود تظليل RTL. هذه اختبارات سلوك وتراجع، وليست قياسًا مستقلًا للدقة التجارية. صفحات PDF المصورة التي لا تحمل طبقة نصية لا تحصل على تظليل موضعي تلقائي من هذه الآلية.
 
+### Cloudflare Turnstile على Streamlit Community Cloud
+
+يدعم التطبيق Turnstile بمكوّن Streamlit مخصص، والتحقق من الرمز على الخادم عبر Siteverify قبل فحص النص والملف والدفعة وإعادة الفحص. الرموز أحادية الاستخدام ومربوطة بتحدٍ خاص بالجلسة؛ لا يُعتمد على إشارة نجاح المتصفح وحدها. لا يعمل الفحص إذا غاب المفتاح السري أو تعذّر التحقق.
+
+1. في Cloudflare → Turnstile أضف اسم مضيف التطبيق الفعلي، مثل `your-app.streamlit.app`، إلى Allowed hostnames. أضف النطاق المخصص أيضًا إذا استُخدم. لا تضف مخطط `https://` أو مسارًا.
+2. في Streamlit Cloud → Settings → Secrets أدخل المفتاح السري المرتبط بمفتاح الموقع بصيغة TOML، ثم احفظ:
+
+```toml
+TURNSTILE_SECRET_KEY = "YOUR_CLOUDFLARE_SECRET_KEY"
+# اختياري: قيد إضافي يراجعه الخادم؛ استبدله باسم التطبيق الفعلي.
+# TURNSTILE_HOSTNAMES = ["your-app.streamlit.app"]
+```
+
+مفتاح الموقع المعلن `0x4AAAAAAFUeD40X5Nr1Y-ox` محفوظ في الكود. يمكن تغييره باستخدام `TURNSTILE_SITE_KEY` في Secrets أو متغيرات البيئة. لا تضع المفتاح السري في GitHub أو في HTML. يدعم التطوير المحلي ملف `.streamlit/secrets.toml` المستبعد من Git أو متغيرات البيئة بالأسماء نفسها.
+
+3. تأكد من أن التطبيق مرتبط بفرع `main` ثم أعد تشغيله، وأكمل تحدي Turnstile قبل الضغط على الفحص. التحقق يحتاج اتصال الخادم والمتصفح بـ `challenges.cloudflare.com`.
+
+وثائق المزود: [التحقق على الخادم](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/)، [مفاتيح الاختبار](https://developers.cloudflare.com/turnstile/troubleshooting/testing/). اختبارات المشروع تحاكي استجابات التحقق وتثبت الحماية ومسار التطبيق؛ يلزم المفتاح السري وإعداد النطاق لإجراء اختبار فعلي على التطبيق المنشور.
+
 ## الرفع على GitHub
 
 ```bash
