@@ -84,3 +84,14 @@ def test_report_shading_equals_the_index_and_follows_the_paragraphs():
     shaded = [i for i, (w, f) in plan.per_para.items() if f]
     assert shaded and min(post[i] for i in shaded) >= max(
         [post[i] for i, (w, f) in plan.per_para.items() if not f] or [0.0]) - 1e-9
+
+
+def test_neighbours_never_attribute_a_paragraph_whose_own_evidence_is_human():
+    seg = sg.Segmentation(units=[sg.Unit(idx=[0], words=100, L=3.0), sg.Unit(idx=[1], words=100, L=-1.7),
+                                 sg.Unit(idx=[2], words=100, L=3.0)])
+    post = sg._forward_backward([u.L for u in seg.units])
+    for u, p in zip(seg.units, post):
+        u.post = p
+    sg.own_evidence_veto(seg)
+    assert seg.units[1].post < sg.SUSPECT and seg.units[0].post >= sg.SUSPECT
+    assert abs(seg.suspect_share - 2 / 3) < 1e-9
