@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Transport adapter. Never calculates or changes an AI Text Inspector score.
+"""Guarded analysis plus local evidence review over the original v2.1 engine.
 
-Every analysis is delegated to the unmodified AI_Text_Inspector.pyw v2.1.
-The SHA-256 guard catches accidental edits to the analysis engine.
-
-The ONE thing done before the engine sees a text is math_guard: equations (LaTeX, Word OMML,
-formula-only paragraphs) are removed, because the prose-only engine reads them as human typos
-and fake sentence-length variance and under-reports AI text (measured 44 -> 5 on one manuscript).
-The removal is recorded on `report.math` (a math_guard.MathMap) and shown to the user.
+The SHA-256 guard keeps AI_Text_Inspector.pyw unchanged. Input guards remove
+non-prose artefacts; subsequent repository layers correct evidence, review
+paragraphs and aggregate their word-weighted scores. Pooled and intermediate
+scores remain available for diagnostics. All scores are heuristic evidence
+indices rather than calibrated probabilities of authorship.
 """
 from __future__ import annotations
 
@@ -261,7 +259,8 @@ def _lists_neutral(report):
     texts = list(getattr(report, "texts", None) or [])
     tri = [f for f in report.findings if f.kind == "ai_tricolon" and 0 <= f.para < len(texts)]
     share = float((getattr(report, "ctx", None) or {}).get("tricolon_share", 0.0) or 0.0)
-    if not tri or share <= 0 or len(tri) >= eng.CAP_PER_KIND:
+    if not tri or share <= 0 or (len(tri) >= eng.CAP_PER_KIND
+                               and not getattr(report, "complete_style_findings", False)):
         return 0.0
     try:
         import academic_signals as acad
@@ -539,10 +538,8 @@ def wording_share(report) -> float:
         if not (0 <= i < len(texts)):
             continue
         t = acad.para_score(texts[i], topic=topic)
-        if t is None:
-            continue
         tot += n
-        if t >= WORDING_HOT_SCORE:
+        if t is not None and t >= WORDING_HOT_SCORE:
             hot += n
     if tot <= 0:
         return 0.0
@@ -621,21 +618,55 @@ def _generator_to_paragraphs(report, logit: float) -> bool:
     return True
 
 
-def _file_evidence_to_paragraphs(report) -> bool:
+def _file_evidence_to_paragraphs(report, paras=None) -> bool:
     feats = getattr(report, "features", None) or {}
     cont = getattr(report, "container_eff", None)
     if cont is None:
         cont = sum(feats[k][2] for k in CONTAINER_KEYS if k in feats and feats[k][2] < 0)
     other = sum(c for k, (v, w, c) in feats.items() if k in PROSE_ONLY_EXCLUDE and k not in CONTAINER_KEYS and c < 0)
     shift = (min(0.0, cont) + other) * float(getattr(report, "confidence", 1.0) or 0.0)
+    if paras is not None and getattr(report, "is_docx", False) and len(paras) == len(report.texts):
+        import friction
+        # Metadata is a bounded file prior. Formatting differences are local:
+        # a repeated template or pasted block cannot make every paragraph human.
+        blocks = friction._block_index_set(getattr(report, "format_forensics", None))
+        runs = friction._paste_runs(paras)
+        blocks.update(set().union(*runs.values()) if runs else set())
+        fmt, convention = set(), set()
+        eng = get_engine()
+        for f in report.findings:
+            if not (0 <= f.para < len(paras)) or paras[f.para].role != "body":
+                continue
+            if (f.kind in friction.FORMAT_SLIPS | friction.ALWAYS_HUMAN_FORMAT
+                    and f.para not in blocks and not friction._is_heading_like(paras[f.para])):
+                fmt.add(f.para)
+            if eng.KINDS.get(f.kind, ("", "", 0))[1] == "convention":
+                convention.add(f.para)
+        raw = sum(feats[k][2] for k in CONTAINER_KEYS if k in feats and feats[k][2] < 0)
+        scale = min(1.0, max(0.0, cont / raw)) if raw < 0 else 0.0
+        contribution = lambda key: min(0.0, feats.get(key, (0, 0, 0))[2]) * scale
+        conf = float(getattr(report, "confidence", 1.0) or 0.0)
+        shifts = {i: conf * (other + contribution("meta_human")
+                            + (contribution("fmt_incons") if i in fmt else 0.0)
+                            + (contribution("mixed_conv") if i in convention else 0.0))
+                  for i, _, _ in report.para_scores}
+        report.file_shifts = shifts
+        report.file_shift_uniform = len(set(shifts.values())) <= 1
+        words = sum(n for _, _, n in report.para_scores)
+        report.file_shift = sum(n * shifts[i] for i, _, n in report.para_scores) / max(words, 1)
+        if not any(d < -0.05 for d in shifts.values()):
+            return False
+    else:
+        shifts = {i: shift for i, _, _ in report.para_scores}
     if shift > -0.05 or not report.para_scores:
         return False
     out = []
     for i, sc, n in report.para_scores:
         p = min(0.995, max(0.005, sc / 100.0))
-        out.append((i, round(100.0 / (1.0 + math.exp(-(math.log(p / (1 - p)) + shift))), 0), n))
+        out.append((i, round(100.0 / (1.0 + math.exp(-(math.log(p / (1 - p)) + shifts[i]))), 0), n))
     report.para_scores = out
-    report.file_shift = shift
+    if not hasattr(report, "file_shifts"):
+        report.file_shift = shift
     return True
 
 
@@ -677,8 +708,45 @@ def _score_stage(report, key, label):
     """Keep an observable audit trail without changing the scoring model."""
     stages = report.score_stages
     previous = stages[-1]["score"] if stages else float(report.score)
+    ps = [(sc, n) for _, sc, n in getattr(report, "para_scores", []) if n > 0]
+    words = sum(n for _, n in ps)
     stages.append({"key": key, "label": label, "score": float(report.score),
-                   "delta": float(report.score) - previous})
+                   "delta": float(report.score) - previous,
+                   "paragraph_mean": sum(sc * n for sc, n in ps) / words if words else None,
+                   "paragraph_count": len(ps)})
+
+
+def _complete_style_findings(report, paras):
+    """A display limit must not suppress local evidence in the rest of a long file.
+
+    The engine counts every match for its pooled features but stores only the
+    first CAP_PER_KIND findings. Rescan saturated wording kinds with the same
+    engine rules, before neutralization, so local scores and highlighting see
+    all paragraphs. No engine globals, patterns or weights are changed.
+    """
+    from collections import Counter
+    eng = get_engine()
+    stored = Counter(f.kind for f in report.findings if f.kind in eng._PARA_W)
+    saturated = {kind for kind, count in stored.items() if count >= eng.CAP_PER_KIND}
+    if not saturated:
+        return
+
+    class WordingSink:
+        def __init__(self):
+            self.items = []
+
+        def add(self, kind, i, text, start, end, note=""):
+            if kind in saturated:
+                self.items.append(eng._mk(kind, i, text, start, end, note))
+
+    sink = WordingSink()
+    spans = {i: eng.split_sentences(p.text) for i, p in enumerate(paras)
+             if p.role in eng.PROSE_ROLES and p.text.strip()}
+    eng.check_style_markers(paras, sink, spans)
+    recovered = Counter(f.kind for f in sink.items)
+    report.findings = [f for f in report.findings if f.kind not in saturated] + sink.items
+    report.complete_style_findings = True
+    report.style_storage_recovered = {kind: (stored[kind], recovered[kind]) for kind in saturated}
 
 
 def _refresh_paragraph_evidence(report):
@@ -758,11 +826,10 @@ def _local_style_review(report, paras):
     report.style_spans = {}
     if not _corroborated_style(layer):
         return
-    before = report.score
-    combined = ai_signals.fuse(before, layer).combined
-    if combined <= before:
-        return
-    report.score = combined
+    # Local evidence is evaluated even when the pooled score is already above
+    # this layer's estimate. Otherwise paragraph aggregation loses the very
+    # evidence that made the document score high.
+    report.score = max(report.score, ai_signals.fuse(report.score, layer).combined)
     revised = []
     for i, sc, n in report.para_scores:
         pl = ai_signals.analyze([report.texts[i]], "para", topic=topic)
@@ -816,6 +883,11 @@ def _enhance(report):
     report.tech = None
     report.academic = None
     lines = []
+    paras = getattr(report, "doc_paras", None)
+    if paras is None:
+        paras = [eng.Para(text=t) for t in report.texts]
+        eng.assign_roles(paras, report.is_docx)
+    _complete_style_findings(report, paras)
 
     if getattr(report, "is_docx", False):
         _stabilize_meta(report)
@@ -838,10 +910,6 @@ def _enhance(report):
         if pdf_gated:
             lines.append("■ PDF: قائمة المراجع مقطّعة في الاستخراج (مداخل ناقصة)، فعُطِّلت قرينة «مراجع بلا إحالات» ولم تُحتسب.")
     _structural_neutral(report)
-    paras = getattr(report, "doc_paras", None)
-    if paras is None:
-        paras = [eng.Para(text=t) for t in report.texts]
-        eng.assign_roles(paras, report.is_docx)
     _topic_vocab_neutral(report, paras)
     _refresh_paragraph_evidence(report)
     _score_stage(report, "neutralization", "استبعاد قرائن القياسات والقوائم والبنية")
@@ -903,9 +971,10 @@ def _enhance(report):
         report.tech = layer
         before = float(report.score)
         fused = ts.fuse(before, layer)
+        if layer.confidence > 0:
+            _lift_paras(report, ts, layer.confidence)
         if fused > before + 0.5:
             report.score = float(fused)
-            _lift_paras(report, ts, layer.confidence)
             lines.append("▲ طبقة الأوراق التقنية رفعت المؤشر من %.0f إلى %.0f لاجتماع بصمات أسلوبية:" % (before, report.score))
             for x in layer.signals:
                 if x.z >= 0.35 and x.key != "friction":
@@ -920,9 +989,10 @@ def _enhance(report):
             raise RuntimeError
         before = float(report.score)
         fused = acad.fuse(before, layer)
+        if layer.confidence > 0:
+            _lift_paras(report, acad, layer.confidence, topic=topic)
         if fused > before + 0.5:
             report.score = float(fused)
-            _lift_paras(report, acad, layer.confidence, topic=topic)
             lines.append("▲ طبقة النثر الأكاديمي رفعت المؤشر من %.0f إلى %.0f لاجتماع %d بصمات أسلوبية:" % (before, report.score, layer.fired))
             for x in layer.signals:
                 if x.weight * x.z >= 0.05:
@@ -939,7 +1009,8 @@ def _enhance(report):
     # document score describe different things and a human-edited thesis shows "76% suspected" beside a low index.
     shifted = False
     if not deck_mode:
-        shifted = _file_evidence_to_paragraphs(report)
+        shifted = _file_evidence_to_paragraphs(report, paras)
+    _score_stage(report, "paragraph_file_evidence", "أثر قرائن Word على خريطة الفقرات")
 
     # "A human always slips": a long text with (almost) no human typing / formatting slip was not typed by a person.
     report.friction = None

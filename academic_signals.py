@@ -94,11 +94,11 @@ def topic_terms(headings, extra=None) -> frozenset:
     return frozenset(out)
 
 
-STEM_CAP = 3        # one word counts at most this many times: the LLM signature is MANY different marker words,
+STEM_CAP = 3        # per 1000 words: the LLM signature is MANY different marker words,
                     # while a word repeated dozens of times is the subject of the text ("framework", "robustness")
 
 
-def _lex_hits(text: str, topic) -> int:
+def _lex_hits(text: str, topic) -> float:
     hits = _LEX.findall(text)
     if topic:
         hits = [h for h in hits if _stem(h) not in topic]
@@ -106,7 +106,11 @@ def _lex_hits(text: str, topic) -> int:
     for h in hits:
         k = _stem(h)
         per[k] = per.get(k, 0) + 1
-    return sum(min(v, STEM_CAP) for v in per.values())
+    # Keep the original short-text cap, but scale it with the density denominator
+    # for long documents. A fixed count ceiling diluted identical wording to
+    # zero as chapters grew, independently of their actual style.
+    cap = STEM_CAP * max(1.0, len(_W.findall(text)) / 1000.0)
+    return sum(min(v, cap) for v in per.values())
 
 
 _TECH_ITEM = re.compile(r"^(?:[A-Z]{2,}[A-Za-z0-9\-/]*|[A-Za-z]*[A-Z][a-z]+[A-Z][A-Za-z0-9]*|[A-Za-z]*\d[\w\-/.]*)$")
@@ -152,6 +156,10 @@ def balanced_triad(s: str) -> bool:
 
 def rhetorical_triad(s: str, topic=None) -> bool:
     if not balanced_triad(s) or technical_list(s):
+        return False
+    # Named events with dates and first-person accounts describe observations;
+    # a three-part grammatical construction alone is not a rhetorical trace.
+    if re.search(r"\d", s) or _FIRST.search(s):
         return False
     if topic:
         items = [x.strip() for x in re.split(r",\s+(?:and|or|&)\s+|,\s+|\s+(?:and|or|&)\s+", s) if x.strip()]
@@ -219,10 +227,14 @@ def para_score(text: str, topic=None) -> Optional[float]:
     n = len(words)
     if n < 40:
         return None
-    k = n / 1000.0
+    # Sparse observations in one short paragraph are not stable density
+    # estimates. Use the same 150-word damping as the bilingual local layer.
+    k = max(n, 150) / 1000.0
     lex = _lex_hits(text, topic) / k
     tri = count_triads(text, topic) / k
     lw = 100.0 * sum(1 for w in words if len(w) >= 10) / n
+    if sum((lex > SPEC["lex"][2], tri > SPEC["tri"][2], lw > SPEC["long_w"][2])) < 2:
+        return None  # document-level agreement cannot manufacture local evidence
     x = max(0.0, (lex - 8.0) / 6.0) * 1.4 + max(0.0, (tri - 3.8) / 6.2) * 0.6 + max(0.0, (lw - 13.8) / 3.2) * 0.8
     return round(100.0 * (1 - math.exp(-x / 1.2)), 0)
 

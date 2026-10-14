@@ -146,10 +146,10 @@ def measure(paragraphs) -> dict:
     runins = _RUNIN.findall(text)
     m["label"] = (len(labels) + len(runins)) / k
     per = {}
-    for h in _LEX_RX.findall(text):          # one word counts at most STEM_CAP times (a repeated word is the topic)
+    for h in _LEX_RX.findall(text):          # bound repeated topic terms per 1000 words
         key = re.sub(r"(?:ing|ed|es|s|ly|ness)$", "", h.lower())
         per[key] = per.get(key, 0) + 1
-    m["lex"] = sum(min(v, STEM_CAP) for v in per.values()) / k
+    m["lex"] = sum(min(v, STEM_CAP * k) for v in per.values()) / k
     m["scope"] = len(_SCOPE.findall(text)) / k
     m["adv"] = len(_ADV.findall(text)) / k
     m["open"] = len(_OPEN.findall(text)) / ns
@@ -223,6 +223,8 @@ def para_score(text: str) -> Optional[float]:
     n = len(_W.findall(text))
     if n < 25:
         return None
+    if sum(bool(rx.search(text)) for rx in (_PART, _LABEL_ITEM, _LEX_RX, _SCOPE)) < 2:
+        return None  # one local habit cannot inherit the document's confidence
     ns = max(1, len(_sentences(text)))
     x = (1.0 * len(_PART.findall(text)) / ns * 8 + 1.2 * (len(_LABEL_ITEM.findall(text)) + len(_RUNIN.findall(text)))
          + 0.7 * len(_LEX_RX.findall(text)) + 0.9 * len(_SCOPE.findall(text))) / (n / 100.0)

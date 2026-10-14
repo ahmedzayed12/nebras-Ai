@@ -28,12 +28,19 @@ def diagnose(path: str) -> None:
     print(os.path.basename(path), "| words:", r.words)
     print("  engine v2.1 (unchanged)      : %5.1f" % getattr(r, "score_engine", r.score))
     print("  final index                  : %5.1f   %s" % (r.score, r.verdict))
+    print("  pooled / local index         : %5.1f / %5.1f" % (
+        getattr(r, "score_pooled", r.score), getattr(r, "score_local", r.score)))
     print("  suspected text share (map)   : %.0f%%   paragraphs scored: %d" % (share, len(ps)))
     if getattr(r, "file_shift", None):
-        print("  file evidence applied to map : %.2f log-odds on every paragraph" % r.file_shift)
+        mode = "localized (word-weighted mean)" if hasattr(r, "file_shifts") else "uniform"
+        print("  file evidence applied to map : %.2f log-odds, %s" % (r.file_shift, mode))
+    for kind, (stored, recovered) in getattr(r, "style_storage_recovered", {}).items():
+        print("  complete wording findings    : %s %d -> %d (before evidence filtering)" % (kind, stored, recovered))
     print("  stages:")
     for stage in getattr(r, "score_stages", []):
-        print("    %-35s %6.2f (%+.2f points)" % (stage["label"], stage["score"], stage["delta"]))
+        local = stage.get("paragraph_mean")
+        suffix = " | paragraph mean %.2f" % local if local is not None else ""
+        print("    %-35s %6.2f (%+.2f points)%s" % (stage["label"], stage["score"], stage["delta"], suffix))
     for line in r.reasons:
         if line[:1] in "▲◆■●⚠":
             print("    " + line)

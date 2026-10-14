@@ -555,7 +555,10 @@ def analyze(paragraphs, mode: str = "doc", topic=None) -> Layer:
         from academic_signals import _stem as topic_stem
         hits = Counter({k: v for k, v in hits.items()
                         if not all(topic_stem(w) in topic for w in _TOK.findall(k))})
-    wsum = sum(_STOCK[k] * min(c, 2) for k, c in hits.items())
+    # Bound each phrase's density, rather than its total count in a chapter.
+    # Repeating the same prose must not make its phrasing evidence disappear.
+    phrase_cap = 2 * max(1.0, n / 1000.0)
+    wsum = sum(_STOCK[k] * min(c, phrase_cap) for k, c in hits.items())
     rate = wsum / den * 1000
     z = _pw(rate, [(0, -.2), (1.5, -.05), (4, .3), (8, .75), (14, 1.0)])
     ev = [f"{_STOCK_DISP[k]} ×{c}" if c > 1 else _STOCK_DISP[k]
