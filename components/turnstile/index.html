@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<style>body{margin:0;background:transparent;color:#f4efe2;font:14px sans-serif}#message{margin:8px 0}#captcha{min-height:70px}</style></head>
+<style>html,body{margin:0;background:transparent;color:#fff;color-scheme:dark;font:600 12px/1.5 Tahoma,sans-serif}#message{margin:4px 0 0}#message:empty{display:none}#captcha{min-height:65px}</style></head>
 <body><div id="captcha"></div><div id="message" role="status"></div>
 <script>
 (() => {
   let args = null, widget = null, rendered = null;
   const send = (type, extra = {}) => window.parent.postMessage({isStreamlitMessage: true, type, ...extra}, "*");
-  const height = () => send("streamlit:setFrameHeight", {height: Math.max(100, document.body.scrollHeight)});
+  const height = () => send("streamlit:setFrameHeight", {height: Math.max(78, document.body.scrollHeight)});
   const value = (token, challenge) => send("streamlit:setComponentValue", {value: {token, challenge}, dataType: "json"});
   function render() {
     if (!args || !window.turnstile) return;

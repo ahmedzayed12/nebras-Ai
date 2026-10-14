@@ -115,10 +115,10 @@ def masthead():
           <span class="brand-name">NEBR<span class="brand-accent">A</span>S</span>
           <span class="brand-sub">AI DETECTOR</span>
         </h1>
-        <p class="lede">الصق نصًا أو ارفع ملفًا لتعرف مدى احتمال أن يكون مكتوبًا بالذكاء الاصطناعي،
-        وأي فقرات النص أكثر اشتباهًا.</p>
+        <p class="lede">فحص أسلوب النصوص العربية والإنجليزية،
+        من النص مباشرة أو ملفات Word وPDF.</p>
       </div>
-    </header>""")
+    </header>""".replace("\n", " "))
 
 
 def footer():
@@ -415,20 +415,31 @@ def reset_results():
         st.session_state.pop(key, None)
 
 
+def analysis_action(label, key):
+    """Keep the check beside the action; fill its slot after token consumption."""
+    with st.container(key="analysis_actions"):
+        challenge, submit = st.columns([1.65, 1], gap="small", vertical_alignment="center")
+        with challenge:
+            captcha_slot = st.container()
+        with submit:
+            pressed = st.button(label, type="primary", key=key, use_container_width=True)
+    return pressed, captcha_slot
+
+
 def input_desk():
     n = _nonce()
     has_results = (st.session_state.get("current_report") is not None
                    or st.session_state.get("batch_reports") is not None)
     selection = st.radio("طريقة الإدخال", [MODE_TEXT, MODE_FILE, MODE_BATCH],
                          horizontal=True, key=f"input_mode_{n}")
-    md('<div style="height:10px"></div>')
     if selection == MODE_TEXT:
         text_key = f"pasted_input_{n}"
-        st.text_area("النص", height=130 if has_results else 290, key=text_key,
-                     placeholder="الصق النص العربي أو الإنجليزي هنا (300 كلمة على الأقل). الفحص يطابق المحرك الأصلي.")
+        st.text_area("النص", height=130 if has_results else 170, key=text_key,
+                     placeholder="الصق النص هنا لبدء الفحص — 300 كلمة على الأقل.")
         _words_now = len(clean_for_engine(st.session_state.get(text_key, "")).split())
-        st.caption(f"عدد الكلمات: {_words_now} / الحد الأدنى {MIN_WORDS} كلمة.")
-        if st.button("حلّل النص", type="primary", key=f"analyze_text_{n}"):
+        md(f'<p class="word-count">عدد الكلمات: {_words_now} / الحد الأدنى {MIN_WORDS} كلمة.</p>')
+        pressed, captcha_slot = analysis_action("حلّل النص", f"analyze_text_{n}")
+        if pressed:
             s = st.session_state.get(text_key, "")
             src = clean_for_engine(s)
             words = len(src.split())
@@ -448,7 +459,8 @@ def input_desk():
         # No `type=` filter: Android/iOS pickers grey out files when given a list of extensions (and drop files
         # that arrive without one). Unsupported types are rejected with a clear message below instead.
         uploaded = st.file_uploader("ملف PDF أو Word أو نص", key=f"one_file_{n}")
-        if st.button("حلّل الملف", type="primary", key=f"analyze_file_{n}"):
+        pressed, captcha_slot = analysis_action("حلّل الملف", f"analyze_file_{n}")
+        if pressed:
             if uploaded is None:
                 st.warning("اختر ملفًا أولًا.")
             elif require_human():
@@ -492,7 +504,8 @@ def input_desk():
         multiple = st.file_uploader("ملفات متعددة أو أرشيف ZIP", accept_multiple_files=True,
                                     key=f"multi_files_{n}")
         md('<p class="note">ارفع أرشيف ZIP لمجلد كامل. يُحلَّل كل ملف بنفس طريقة الملف المنفرد.</p>')
-        if st.button("حلّل الدفعة", type="primary", key=f"analyze_batch_{n}"):
+        pressed, captcha_slot = analysis_action("حلّل الدفعة", f"analyze_batch_{n}")
+        if pressed:
             if not multiple:
                 st.warning("ارفع ملفًا واحدًا على الأقل.")
             elif require_human():
@@ -512,7 +525,8 @@ def input_desk():
                 except Exception as ex:
                     st.error(str(ex))
 
-    render_turnstile()
+    with captcha_slot:
+        render_turnstile()
 
 
 def cloudflare_web_analytics():
@@ -547,9 +561,9 @@ def main():
     masthead()
     batch = st.session_state.get("batch_reports")
     rep = st.session_state.get("current_report")
-    desk, board = st.columns([1.15, 1], gap="large")
+    desk, board = st.columns([1.35, 1], gap="medium")
     with desk:
-        with st.container(border=True):
+        with st.container(border=True, key="input_panel"):
             input_desk()
             batch = st.session_state.get("batch_reports")
             rep = st.session_state.get("current_report")
