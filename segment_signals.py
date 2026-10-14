@@ -95,6 +95,7 @@ SLIP_L, SLIP_CAP = 0.6, 1.8       # each human slip inside a unit (log-odds), an
 FMT_SLIP_L = 0.25                 # a scattered hand-format difference on that paragraph
 PASTE_L = 1.2                     # chat-window formatting carried by that very paragraph
 MIN_UNIT_WORDS = 12
+OWN_HUMAN_VETO = -1.0              # own evidence at least 1:2.7 for human: neighbours cannot attribute the unit to generation
 CLEAR_HUMAN_L = -1.5              # own evidence at least 1:4.5 for human: document-wide evidence does not move it
 SUSPECT = 0.5                     # a unit is attributed to generation when that is more likely than not
 
@@ -330,6 +331,19 @@ def raise_prior(seg: Segmentation, delta: float):
     for u, p in zip(seg.units, post):
         u.post = p
     _summarise(seg)
+
+
+def own_evidence_veto(seg: Segmentation, veto: float = None):
+    """Neighbours may decide a unit its own evidence leaves undecided, never one whose own evidence leans human:
+    a unit with L <= OWN_HUMAN_VETO is not attributed to generation, whatever the block around it says."""
+    veto = OWN_HUMAN_VETO if veto is None else veto
+    changed = False
+    for u in seg.units:
+        if u.L <= veto and u.post >= SUSPECT:
+            u.post = min(u.post, SUSPECT - 0.01)
+            changed = True
+    if changed:
+        _summarise(seg)
 
 
 def _summarise(seg: Segmentation):
