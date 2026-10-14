@@ -61,6 +61,22 @@ _PAREN = re.compile(r"\(([^()]{1,120})\)")
 _ACRONYM = re.compile(r"[A-Z][A-Za-z]{0,2}[A-Z]{1,6}s?")
 _YEAR = re.compile(r"\b(?:19|20)\d\d[a-z]?\b")
 _STATS = re.compile(r"[=<>±%§]|\b[pnNrtFβχ]\s*[=<>]|\d")       # "(R² = .04, p < .05)", "(n = 384)", "(Table 3)" is a reference
+# Humanizer spacing: a space character a keyboard does not type, inserted BETWEEN two words of running English prose
+# ("cyber\u2002attacks"). "Humanizer" tools sprinkle them (a few per cent of the word gaps) to break word matching.
+# Measured on 2254 human source files (LangSci chapters, PEPs, RFCs): 0 such spaces between letters.
+# Deliberately NOT counted and NOT cleaned (user decision): zero-width joiners inside words and look-alike Cyrillic
+# letters ("Lі\u2060terаture"). That masking is also used against plagiarism checkers, so it says nothing about
+# who wrote the words; such a file is read exactly as it is.
+_ODD_SPACE = re.compile(r"(?<=[A-Za-z,.;:)])[\u2000-\u200a\u202f\u205f\u3000](?=[A-Za-z(])")
+EVASION_L = 2.5
+EVASION_DOC_MIN = 10       # ten or more in one document (none in 2254 human files): then one artefact marks its unit
+EVASION_UNIT_MIN = 3       # otherwise a unit needs three of its own
+
+
+def evasion_count(text: str) -> int:
+    return len(_ODD_SPACE.findall(text or ""))
+
+
 _LABEL_ITEM = re.compile(r"^\s*(?:[\-•*•]\s*)?[A-Z][^:.!?]{1,60}:\s+\S")
 _CITE = re.compile(r"\(\s*[A-Z][^()]{1,80}?\b(?:19|20)\d\d[a-z]?\s*\)|\b[A-Z][a-z]+(?: et al\.?)? \((?:19|20)\d\d\)")
 
@@ -117,6 +133,8 @@ class Unit:
     slips: int = 0
     paste: float = 0.0
     arabic: bool = False
+    evasion: int = 0
+    tool_marked: bool = False       # carries evasion artefacts: attributed whatever its neighbours say
     post: float = 0.0
     habits: Dict[str, float] = field(default_factory=dict)
 
@@ -129,6 +147,7 @@ class Segmentation:
     words: int = 0
     blocks: List[tuple] = field(default_factory=list)   # (first text idx, last text idx, words) of suspected runs
     para_post: Dict[int, float] = field(default_factory=dict)
+    evasion: int = 0                # evasion artefacts found, when they are established across the document
 
 
 def _engine():
@@ -280,6 +299,7 @@ def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para
     paste_texts = paste_texts or {}
     for u in units:
         text = "\n".join(texts[i] for i in u.idx)
+        u.evasion = evasion_count(text)
         u.arabic = len(_AR.findall(text)) > len(_W.findall(text)) * 2
         if u.arabic:
             scs = [eng_ps[i] for i in u.idx if i in eng_ps]
@@ -299,6 +319,13 @@ def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para
             u.paste = pt
             u.L += PASTE_L * min(1.0, pt)
         u.L += global_logit
+    ev_total = sum(u.evasion for u in units)
+    doc_evasion = ev_total >= EVASION_DOC_MIN
+    seg.evasion = ev_total if doc_evasion else 0
+    for u in units:                           # deliberate obfuscation of the words: text passed through an evasion tool
+        if u.evasion >= (1 if doc_evasion else EVASION_UNIT_MIN):
+            u.L += EVASION_L
+            u.tool_marked = True
     post = _forward_backward([u.L for u in units])
     for u, p in zip(units, post):
         u.post = p
@@ -339,14 +366,22 @@ def own_evidence_veto(seg: Segmentation, veto: float = None):
     veto = OWN_HUMAN_VETO if veto is None else veto
     changed = False
     for u in seg.units:
-        if u.L <= veto and u.post >= SUSPECT:
+        if u.L <= veto and u.post >= SUSPECT and not u.tool_marked:
             u.post = min(u.post, SUSPECT - 0.01)
             changed = True
     if changed:
         _summarise(seg)
 
 
+def _lock_tool_marked(seg: Segmentation):
+    """A paragraph that itself carries evasion artefacts went through an evasion tool: its neighbours cannot clear it."""
+    for u in seg.units:
+        if u.tool_marked and u.post < 0.95:
+            u.post = 0.95
+
+
 def _summarise(seg: Segmentation):
+    _lock_tool_marked(seg)
     tot = sum(u.words for u in seg.units) or 1
     seg.words = tot
     seg.share = sum(u.post * u.words for u in seg.units) / tot

@@ -1330,6 +1330,9 @@ def _apply_segmentation(report, seg, lines):
     report.score = round(100.0 * hit / tot, 1)
     report.para_scores = [(i, round(100.0 * seg.para_post[i], 0), words_of[i]) for i in sorted(seg.para_post)]
     report.reasons = [r for r in report.reasons if not str(r).startswith("⚠ مستند مختلط محتمل")]
+    if getattr(seg, "evasion", 0):
+        lines.append("▲ %d مسافة من نوع غير عادي (مثل U+2002) مزروعة بين كلمات إنجليزية. لوحة المفاتيح لا تكتب هذه المسافة؛ "
+                     "تزرعها أدوات «أنسنة» النص للتحايل على أجهزة الكشف، فهي قرينة قوية على الفقرات التي تحملها." % seg.evasion)
     if seg.blocks:
         spans = "، ".join(("الفقرة %d" % (a + 1)) if a == b else ("الفقرات %d–%d" % (a + 1, b + 1)) for a, b, _ in seg.blocks[:8])
         lines.append("◆ قراءة المستند فقرةً فقرة: %.0f%% من كلمات المتن في فقرات تحمل عادات النص المولَّد، في %d كتلة (%s)."
