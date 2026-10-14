@@ -32,6 +32,8 @@ def diagnose(path: str) -> None:
     if getattr(r, "file_shift", None):
         print("  file evidence applied to map : %.2f log-odds on every paragraph" % r.file_shift)
     print("  stages:")
+    for stage in getattr(r, "score_stages", []):
+        print("    %-35s %6.2f (%+.2f points)" % (stage["label"], stage["score"], stage["delta"]))
     for line in r.reasons:
         if line[:1] in "▲◆■●⚠":
             print("    " + line)

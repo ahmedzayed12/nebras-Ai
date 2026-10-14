@@ -103,7 +103,8 @@ def test_shading_is_not_stretched_to_the_document_index():
     """Index ~100 used to paint every human paragraph pale cyan so the shaded share equalled the index."""
     data = _docx([_p(t) for t in HUMAN[:3]] + [_p(t, CHAT, UI, "00BB0002") for t in AI] + [_p(HUMAN[3], rsid="00AA0003")])
     rep, paras, plan = _plan(data)
-    assert rep.score > 90
+    assert rep.score_pooled > 90
+    assert rep.score < rep.score_pooled   # mixed local evidence now limits the pooled saturation
     assert plan.soft_words == 0
     assert plan.flagged_words < plan.qualifying_words
 

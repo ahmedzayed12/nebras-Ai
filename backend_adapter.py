@@ -669,6 +669,38 @@ def _anchor_map_to_index(report) -> bool:
     return True
 
 
+def _score_stage(report, key, label):
+    """Keep an observable audit trail without changing the scoring model."""
+    stages = report.score_stages
+    previous = stages[-1]["score"] if stages else float(report.score)
+    stages.append({"key": key, "label": label, "score": float(report.score),
+                   "delta": float(report.score) - previous})
+
+
+def _aggregate_paragraph_index(report):
+    """Bound the heuristic document index by its word-weighted local evidence.
+
+    The legacy logistic score pools markers across the entire document and can
+    saturate near 100 even when many paragraphs carry weak evidence. For a
+    mixed document, that pooled score must not overrule the local analysis.
+    This is an evidence index, not a calibrated probability of authorship.
+    Keep the pooled score for diagnostics; do not rescale paragraph scores to
+    force a desired result. Slide decks have their own unit of analysis.
+    """
+    deck = getattr(report, "deck", None)
+    if deck is not None and deck.is_deck:
+        return False
+    ps = list(getattr(report, "para_scores", None) or [])
+    total = sum(n for _, _, n in ps if n > 0)
+    if total <= 0:
+        return False
+    mean = sum(n * sc for _, sc, n in ps if n > 0) / total
+    report.score_pooled = float(report.score)
+    report.score_local = mean
+    report.score = min(report.score_pooled, mean)
+    return report.score < report.score_pooled - 1e-9
+
+
 def _enhance(report):
     """Layers that run AFTER the unchanged engine (the engine file itself is never touched):
       1. container recalibration (file-handling traces may not veto the prose evidence),
@@ -677,6 +709,8 @@ def _enhance(report):
     scores (which drive the PDF shading) are updated together so every report shows the same percentage."""
     eng = get_engine()
     report.score_engine = float(report.score)
+    report.score_stages = []
+    _score_stage(report, "engine", "المحرك الأصلي")
     report.wording_map = list(getattr(report, "para_scores", None) or [])
     report.tech = None
     report.academic = None
@@ -689,6 +723,7 @@ def _enhance(report):
             lines.append("■ بصمة المولّد الصريحة في بيانات الملف (أداة برمجية لا مستخدم Word) احتُسبت بنسبة %.0f%%: نصفها لأنها شهادة مباشرة بأن الملف لم يُكتب في Word، "
                          "والباقي بقدر اتفاق طبقة النثر الأكاديمي المستقلة معها (%d بصمات أسلوبية، اتفاق %.0f%%)." % (100 * note[0], note[1], 100 * note[3]))
             _generator_to_paragraphs(report, note[2])
+    _score_stage(report, "metadata", "ضبط أثر بيانات الملف")
     _notation_neutral(report)
     _lists_neutral(report)
     if getattr(report, "is_docx", False) and _photo_evidence(report) < 0:
@@ -702,6 +737,7 @@ def _enhance(report):
         if pdf_gated:
             lines.append("■ PDF: قائمة المراجع مقطّعة في الاستخراج (مداخل ناقصة)، فعُطِّلت قرينة «مراجع بلا إحالات» ولم تُحتسب.")
     _structural_neutral(report)
+    _score_stage(report, "neutralization", "استبعاد قرائن القياسات والقوائم والبنية")
     deck = getattr(report, "deck", None)
     deck_mode = deck is not None and deck.is_deck
     if deck_mode:
@@ -743,11 +779,13 @@ def _enhance(report):
     elif pa is not None and paste_raw >= PASTE_MIN:
         lines.append("■ في الملف آثار تنسيق نُسخ من ويب (%d أثرًا)، لكن %.0f%% فقط من النص تتفق صياغته معها، فلم تُحتسب. "
                      "التنسيق يبقى في الملف بعد إعادة كتابة الكلمات، فلا يُعتدّ به وحده دليلًا على النص." % (len(getattr(pa, "parts", {}) or pa.evidence), 100 * paste_share))
+    _score_stage(report, "layout", "بنية الشرائح وآثار اللصق")
     strength = 1.0 if (deck_mode and deck.confidence > 0) else max(float(getattr(acad_layer, "strength", 0.0) or 0.0), paste_share if paste_fired else 0.0)
     if (prose_fired or paste_fired) and _recalibrate_container(report, strength):
         lines.append("◆ معايرة آثار الملف: آثار التحرير/التنسيق/الاقتباس في ملف Word تدل على أن إنسانًا تعامل مع الملف، "
                      "لا على أنه كتب النص؛ فخُفِّف أثرها المجتمع من %.1f إلى %.1f بنسبة تقارب القرائن الأسلوبية المستقلة %.0f%% (المؤشر %.0f ← %.0f)."
                      % (report.container_raw, report.container_eff, 100 * strength, getattr(report, "score_neutral", report.score_engine), report.score))
+    _score_stage(report, "container", "معايرة آثار التحرير والتنسيق")
 
     try:
         import tech_signals as ts
@@ -768,6 +806,7 @@ def _enhance(report):
     except Exception:
         pass
 
+    _score_stage(report, "technical", "طبقة النثر التقني")
     try:
         layer = acad_layer
         if acad is None or layer is None:
@@ -784,6 +823,7 @@ def _enhance(report):
     except Exception:
         pass
 
+    _score_stage(report, "academic", "طبقة النثر الأكاديمي")
     # Paragraph map = wording evidence only. The evidence about the FILE (human editing history, hand formatting,
     # typing slips) applies to every paragraph of that file exactly as it applies to the document score, so it is
     # added to each paragraph's log-odds (human evidence only, never raising). Without this the map and the
@@ -809,10 +849,12 @@ def _enhance(report):
             before = float(report.score)
             if fr.floor is not None and fr.floor > before:
                 report.score = fr.floor
-            # score only: by design this rule is not written into the interface or the reports
         except Exception:
             pass
 
+    _score_stage(report, "friction", "قاعدة قلة الهفوات")
+    _aggregate_paragraph_index(report)
+    _score_stage(report, "paragraph_aggregation", "تجميع قرائن الفقرات موزونة بالكلمات")
     if not deck_mode and _anchor_map_to_index(report):
         shifted = True
 
@@ -963,7 +1005,7 @@ def normalize_upload_name(name: str, mime: str = "", data: bytes | None = None) 
 
 
 def analyze_pasted(text: str):
-    """The pasted-text route. Identical to the original engine route unless the text contains maths."""
+    """Analyze prose after math guarding and document/paragraph evidence aggregation."""
     return analyze_text_guarded(text)
 
 

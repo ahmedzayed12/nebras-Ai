@@ -84,9 +84,13 @@ def test_score_unchanged_by_equations_text():
     assert abs(base - raw) > 5          # proves the problem existed without the guard
 
 
-def test_no_math_is_byte_identical_route():
+def test_no_math_keeps_engine_input_and_pooled_score():
     t = _interleave(False)
-    assert ba.analyze_pasted(t).score == ba.get_engine().analyze_text(t).score
+    guarded = ba.analyze_pasted(t)
+    raw = ba.get_engine().analyze_text(t)
+    assert guarded.texts == raw.texts
+    assert guarded.score_pooled == raw.score
+    assert guarded.score <= guarded.score_pooled
 
 
 def _docx_with(mode):
