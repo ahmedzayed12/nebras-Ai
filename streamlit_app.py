@@ -115,18 +115,67 @@ def masthead():
           <span class="brand-name">NEBR<span class="brand-accent">A</span>S</span>
           <span class="brand-sub">AI DETECTOR</span>
         </h1>
-        <p class="lede">فحص أسلوب النصوص العربية والإنجليزية،
-        من النص مباشرة أو ملفات Word وPDF.</p>
+        <p class="lede">نبراس لتحليل النصوص العربية والإنجليزية؛
+        مؤشر واضح يدعم المراجعة البشرية.</p>
       </div>
     </header>""".replace("\n", " "))
 
 
 def footer():
     md("""
-    <footer class="foot">
-      <p>المؤشر تقدير احتمالي مبني على قرائن أسلوبية، وليس إثباتًا لمن كتب النص. لا تستخدمه وحده
-      في اتهام أحد أو في قرار عالي الأثر. تحقّق من أداء الكاشف باستقلال قبل الاعتماد عليه.</p>
-    </footer>""")
+    <footer class="institutional-footer" aria-label="معلومات نبراس والتواصل">
+      <div class="institutional-top">
+        <div class="institutional-identity">
+          <strong class="institutional-brand">نبراس<span>تحليل النصوص بمسؤولية</span></strong>
+          <p>قرائن تساعد على المراجعة، وليست إثباتًا لمصدر النص أو اتهامًا لكاتبه.</p>
+        </div>
+        <nav class="institutional-contact" aria-label="التواصل والدعم">
+          <a href="mailto:nebrascontactus@gmail.com" class="institutional-link">
+            <span>البريد والتواصل</span><bdi dir="ltr">nebrascontactus@gmail.com</bdi>
+          </a>
+          <a href="https://wa.me/201100010381" target="_blank" rel="noopener noreferrer" class="institutional-link">
+            <span>واتساب للدعم</span><bdi dir="ltr">+201100010381</bdi>
+          </a>
+        </nav>
+      </div>
+      <div class="institutional-guidance">
+        <details>
+          <summary>عن نبراس وطريقة الاستخدام</summary>
+          <div class="institutional-detail">
+            <p>نبراس خدمة تحليل تقدّر ميل النص العربي أو الإنجليزي إلى أسلوب مولّد بالذكاء الاصطناعي،
+            وتقدّم مؤشرًا وخريطة للفقرات المؤثرة وتقرير PDF.</p>
+            <p>الصق النص أو ارفع ملف Word أو PDF، وأكمل التحقق البشري، ثم اضغط زر الفحص.
+            ملف Word الأصلي يحافظ على قرائن التنسيق التي قد تفقدها نسخة PDF.</p>
+          </div>
+        </details>
+        <details>
+          <summary>قراءة النتائج والاستخدام المسؤول</summary>
+          <div class="institutional-detail">
+            <p>المؤشر تقدير استدلالي قد يخطئ في الاتجاهين. انخفاضه يعني ضعف القرائن المرصودة،
+            وارتفاعه يستدعي مراجعة بشرية؛ كلاهما لا يثبت من كتب النص.</p>
+            <p>التظليل يحدد جملًا أو فقرات تحمل قرائن مؤثرة في التقدير، ولا يثبت مصدرها.
+            النصوص القصيرة والشعرية والأدبية والتقنية الكثيفة تستدعي حذرًا إضافيًا في التفسير.</p>
+            <p>لا تعتمد على النتيجة وحدها في قرار أكاديمي أو تأديبي أو وظيفي أو قانوني.
+            راجع المسوّدات، وأتح للكاتب حق الرد، وحلّل فقط المستندات التي تملك حق تحليلها.</p>
+          </div>
+        </details>
+        <details>
+          <summary>الخصوصية وحقوق المحتوى</summary>
+          <div class="institutional-detail">
+            <p>تعمل خوارزميات الفحص على خادم التطبيق دون إرسال النص إلى واجهات نماذج خارجية.
+            تُستخدم ملفات مؤقتة أثناء المعالجة، وقد يبقى النص أو الملف والتقرير في ذاكرة جلسة العمل.</p>
+            <p>يستخدم الموقع Cloudflare للتحقق البشري وإحصاءات الزيارات.
+            تجنّب رفع بيانات شديدة الحساسية أو السرية إلى النسخة المستضافة على سحابة عامة.</p>
+            <p>مستنداتك تبقى ملكًا لك. للاستفسار عن الخصوصية أو للإبلاغ عن خلل أو ثغرة،
+            استخدم البريد أو واتساب الموضّحين أعلاه.</p>
+          </div>
+        </details>
+      </div>
+      <div class="institutional-bottom">
+        <span>© 2026 نبراس. جميع الحقوق محفوظة.</span>
+        <span class="font-credit">الخطوط: IBM Plex Sans Arabic وReem Kufi — ترخيص SIL OFL.</span>
+      </div>
+    </footer>""".replace("\n", " "))
 
 
 # ----------------------------------------------------------------- visual components
@@ -239,7 +288,7 @@ def dial_panel(rep=None, plan=None):
         short = "" if plan.sufficient else '<p class="note">النص قصير جدًا؛ لا توجد نتيجة صالحة للعرض.</p>'
     else:
         dial, short = dial_svg(rep.score), ""
-    md(f"""<section class="panel dial-panel" style="--halo:{vc}33" aria-label="لوحة النتيجة">{dial}{short}</section>""")
+    md(f"""<section id="nebras-result" class="panel dial-panel" style="--halo:{vc}33" aria-label="لوحة النتيجة">{dial}{short}</section>""")
 
 
 def math_notice(rep):
@@ -411,7 +460,7 @@ def reset_results():
     # empty widget, and drop cached results. Same effect as a page reload, but deterministic.
     st.session_state["desk_nonce"] = _nonce() + 1
     for key in ("current_report", "batch_reports", "editor_origin", "report_source",
-                "batch_sources", "original_file_text", "plan_cache", "pdf_cache"):
+                "batch_sources", "original_file_text", "plan_cache", "pdf_cache", "scroll_to_result"):
         st.session_state.pop(key, None)
 
 
@@ -453,6 +502,7 @@ def input_desk():
                     st.session_state["batch_reports"] = None
                     st.session_state["editor_origin"] = None
                     st.session_state["report_source"] = {"text": src}
+                    st.session_state["scroll_to_result"] = True
                 except Exception as ex:
                     st.error(str(ex))
     elif selection == MODE_FILE:
@@ -474,6 +524,7 @@ def input_desk():
                     st.session_state["report_source"] = {"filename": uname, "data": data}
                     st.session_state["editable_text"] = "\n".join(report.texts)
                     st.session_state["original_file_text"] = "\n".join(report.texts)
+                    st.session_state["scroll_to_result"] = True
                 except Exception as ex:
                     st.error(str(ex))
         origin = st.session_state.get("editor_origin")
@@ -498,6 +549,7 @@ def input_desk():
                                 st.session_state["report_source"] = {"text": src}
                             st.session_state["current_report"] = r
                             st.session_state["batch_reports"] = None
+                            st.session_state["scroll_to_result"] = True
                         except Exception as ex:
                             st.error(str(ex))
     else:
@@ -520,6 +572,7 @@ def input_desk():
                         st.session_state["batch_reports"] = results
                         st.session_state["current_report"] = None
                         st.session_state["editor_origin"] = None
+                        st.session_state["scroll_to_result"] = True
                     else:
                         st.warning("لم يتضمن الرفع ملفات مدعومة.")
                 except Exception as ex:
@@ -550,6 +603,31 @@ def cloudflare_web_analytics():
     )
 
 
+def reveal_mobile_result():
+    """Move to a newly completed result once; other widget reruns keep their position."""
+    if not st.session_state.pop("scroll_to_result", False):
+        return
+    components.html("""
+        <script>
+        (() => {
+            const host = window.parent;
+            if (!host.matchMedia('(max-width:760px)').matches) return;
+            let attempts = 0;
+            const reveal = () => {
+                const target = host.document.getElementById('nebras-result');
+                if (target && target.getBoundingClientRect().height > 0) {
+                    target.scrollIntoView({block:'start', behavior:
+                        host.matchMedia('(prefers-reduced-motion:reduce)').matches ? 'auto' : 'smooth'});
+                } else if (++attempts < 120) {
+                    host.requestAnimationFrame(reveal);
+                }
+            };
+            host.requestAnimationFrame(reveal);
+        })();
+        </script>
+        """, height=0)
+
+
 def main():
     md(f"<style>{_css()}</style>")
     cloudflare_web_analytics()
@@ -572,19 +650,21 @@ def main():
                 if rep is not None and batch is None:
                     md(f'<p class="note" style="margin:6px 0 0">المصدر: <bdi>{esc(rep.source)}</bdi></p>')
     with board:
-        if batch is not None:
-            md(f"""<section class="panel dial-panel" aria-label="لوحة الدفعة">{dial_svg(None).replace('بانتظار النص','دفعة')}
-            <div class="verdict-pill idle">تم تحليل {sum(1 for _, r in batch if not isinstance(r, Exception))} من {len(batch)} ملفًا</div></section>""")
-        else:
-            dial_panel(rep, shaded_plan(rep, st.session_state.get("report_source")) if rep is not None else None)
-            if rep is not None:
-                math_notice(rep)
-                report_download_panel(rep, st.session_state.get("report_source"), "single")
+        with st.container(key="result_board"):
+            if batch is not None:
+                md(f"""<section id="nebras-result" class="panel dial-panel" aria-label="لوحة الدفعة">{dial_svg(None).replace('بانتظار النص','دفعة')}
+                <div class="verdict-pill idle">تم تحليل {sum(1 for _, r in batch if not isinstance(r, Exception))} من {len(batch)} ملفًا</div></section>""")
+            else:
+                dial_panel(rep, shaded_plan(rep, st.session_state.get("report_source")) if rep is not None else None)
+                if rep is not None:
+                    math_notice(rep)
+                    report_download_panel(rep, st.session_state.get("report_source"), "single")
     if batch is not None:
         batch_dashboard(batch)
     elif rep is not None:
         report_dashboard(rep)
     footer()
+    reveal_mobile_result()
 
 
 if __name__ == "__main__":

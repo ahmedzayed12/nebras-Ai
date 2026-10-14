@@ -81,7 +81,8 @@ _STRONG_MATH = re.compile(_cls(
     (0x2080, 0x209C), (0x1D62, 0x1D6A),                                   # subscript digits / letters
     (0x02B0, 0x02B8), (0x02E0, 0x02E4), (0x1D2C, 0x1D61), (0x1D9B, 0x1DBF),  # modifier (superscript) letters
     0x2071, 0x207F, 0x2C7C, 0x2C7D,
-    (0x2200, 0x22FF), (0x2A00, 0x2AFF), (0x27C0, 0x27EF), (0x2190, 0x21FF), (0x2100, 0x214F),  # operators, arrows, R N Z
+    (0x2200, 0x22FF), (0x2A00, 0x2AFF), (0x27C0, 0x27EF), (0x2190, 0x21FF),  # operators, arrows
+    0x2102, 0x210D, 0x2115, 0x2119, 0x211A, 0x211D, 0x2124,              # blackboard C H N P Q R Z
     0x2212, (0x1D400, 0x1D7FF)))                                          # minus sign, math alphanumerics
 _SUP_DIGIT = re.compile(_cls(0x00B2, 0x00B3, 0x00B9, 0x2070, (0x2074, 0x207E)))
 _GREEK_CLS = _cls((0x0370, 0x03FF), (0x1F00, 0x1FFF))
@@ -91,7 +92,17 @@ _UNIT_TOKEN = re.compile(r"^[(\[]?(?:[kcmnd]?m|" + _cls(0x00B5, 0x03BC)[:-1] + r
                          + _cls(0x00B2, 0x00B3, 0x00B9, 0x2070, (0x2074, 0x207E), 0x00B7, 0x2F, (0x41, 0x5A), (0x61, 0x7A))
                          + r"*[)\]]?[.,;:]?$")
 _MICRO_UNIT = re.compile("^" + _cls(0x00B5, 0x03BC) + r"(?:g|m|M|L|l|mol|s|W|A|V)\b")
-_STAT_TOKEN = re.compile(r"^\(?[pPnNrRtFz]\s*[=<>]\s*[-\d.]+\)?[.,;:]?$")
+_STAT_TOKEN = re.compile(r"^\(?[pPnNrRtFz]\s*[=<>]\s*[-\d.]+(?:/(?:group|arm|مجموعة))?\)?[.,;:]?$")
+# Footnote numbers are attached to real words, not algebraic identifiers like x².
+_FOOTNOTE_WORD = re.compile(r"^[^\W\d_]{3,}[⁰¹²³⁴⁵⁶⁷⁸⁹]{1,3}$", re.U)
+_CHEM_ELEMENTS = ("H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn "
+                  "Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce "
+                  "Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn "
+                  "Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og").split()
+_CHEM_ATOM = r"(?:" + "|".join(sorted(_CHEM_ELEMENTS, key=len, reverse=True)) + r")[₀₁₂₃₄₅₆₇₈₉0-9]*"
+_CHEM_ATOM_RX = re.compile(_CHEM_ATOM)
+_CHEM_TOKEN = re.compile(r"^(?:" + _CHEM_ATOM + r"|\((?:" + _CHEM_ATOM + r")+\)[₀₁₂₃₄₅₆₇₈₉0-9]*)+[⁰¹²³⁴⁵⁶⁷⁸⁹]*[⁺⁻]?$")
+_DIATOMIC = {"H₂", "N₂", "O₂", "F₂", "Cl₂", "Br₂", "I₂", "S₈", "P₄"}
 _TERM_GREEK = re.compile(r"(?:[A-Za-z0-9]-" + _GREEK_CLS + "|" + _GREEK_CLS + r"-[A-Za-z0-9])")   # TNF-alpha, beta-actin
 _GREEK_WORD = re.compile("^" + _GREEK_CLS + "{4,}$")
 _EDGE_PUNCT = ".,;:!?\"'" + chr(0x201C) + chr(0x201D) + chr(0x2018) + chr(0x2019) + chr(0x00AB) + chr(0x00BB)
@@ -106,6 +117,13 @@ def _is_unicode_math_token(tok: str) -> bool:
     core = tok.strip(_EDGE_PUNCT)
     if not core:
         return False
+    if _FOOTNOTE_WORD.fullmatch(core):
+        return False
+    # Molecular names in scientific prose are vocabulary. Do not treat the
+    # subscript in CO₂ / Ca(OH)₂ as a reason to erase the entire token.
+    if any(c in "₀₁₂₃₄₅₆₇₈₉" for c in core) and _CHEM_TOKEN.fullmatch(core):
+        if core in _DIATOMIC or len(_CHEM_ATOM_RX.findall(core)) >= 2:
+            return False
     if _STRONG_MATH.search(core):
         return True
     if _ASCII_REL.search(core):
@@ -594,8 +612,16 @@ def sanitize_docx_paras(paras, flags=None) -> Tuple[list, MathMap]:
             mm.stats.display += 1                       # a paragraph that was nothing but an equation
             _close_prev_para(out, mm, j)
             continue
-        font_cuts = [(a, b) for (a, b, font, *_r) in p.runs
-                     if str(font).lower() in _MATH_FONTS and b > a and b <= len(text) and text[a:b].strip()]
+        # Choosing Cambria Math for ordinary prose does not make it an equation.
+        # A math font may support a cut only when the characters also show math.
+        font_cuts = []
+        contextual_spans = _spans(text)
+        for a, b, font, *_r in p.runs:
+            if str(font).lower() not in _MATH_FONTS or not (0 <= a < b <= len(text)):
+                continue
+            fragment = text[a:b]
+            if any(x < b and a < y for x, y in contextual_spans) and is_display_math_line(fragment):
+                font_cuts.append((a, b))
         if n_omml and marks is None:
             new, pmap, st = _legacy_omml(text, font_cuts)
         else:

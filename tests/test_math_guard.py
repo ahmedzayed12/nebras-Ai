@@ -50,6 +50,13 @@ def test_formula_only_paragraph_dropped(line):
     "The price is $5 and $10 per unit, which is fair to everybody involved.",
     "The dose was 200 mg/kg/day for 6 weeks (n = 10/group, p < 0.05) in all groups.",
     "Values are mean ± SD; significance was set at p < 0.05 throughout the experiment.",
+    "The study¹ compared field observations with previous research² in the local district.",
+    "تم توثيق الملاحظات¹ ومراجعة النتائج² في السجل الأصلي للتجربة.",
+    "The trial enrolled participants (n=10/group, p<0.05) during the summer season.",
+    "The sample contained H₂O and CO₂ at the station during the experiment.",
+    "The treatment used Ca(OH)₂ and NH₄⁺ with O₂ in the laboratory experiment.",
+    "The temperature was 25 ℃ and the volume was 10 m³ during the experiment.",
+    "The office uses NEBRAS℠ and record № 12 in official correspondence.",
 ])
 def test_prose_never_touched(line):
     new, pmap, st = mg.sanitize_paragraph(line)
@@ -59,6 +66,47 @@ def test_prose_never_touched(line):
 def test_inline_math_removed_prose_kept():
     new, pmap, st = mg.sanitize_paragraph(r"where $x$ is the mean and $y$ is the variance of the sample.")
     assert new == "where § is the mean and § is the variance of the sample." and st.inline == 2  # placeholder keeps sentence shape
+
+
+def test_real_unicode_math_still_excluded():
+    text = "The researcher used x² and x₁ in the fitted model over the study period."
+    new, pmap, stats = mg.sanitize_paragraph(text)
+    assert new == "The researcher used § and § in the fitted model over the study period."
+    assert stats.inline == 2
+    assert [text[pmap[i]] for i, ch in enumerate(new) if ch != mg.PLACEHOLDER] == [ch for ch in new if ch != mg.PLACEHOLDER]
+
+
+@pytest.mark.parametrize("text", [
+    "The field worker recorded each observation in the original laboratory notebook.",
+    "The study reported n=10/group and p<0.05 in the original laboratory notebook.",
+    "The study¹ compared the research² with the original laboratory notebook.",
+])
+def test_math_font_does_not_remove_ordinary_prose(text):
+    from types import SimpleNamespace
+    para = SimpleNamespace(text=text, runs=[(0, len(text), "Cambria Math", 12, False, False)])
+    clean, mapping = mg.sanitize_docx_paras([para])
+    assert clean[0].text == text
+    assert mapping.stats.found == 0
+    assert not mapping.active
+
+
+def test_footnote_in_separate_math_font_run_is_kept():
+    from types import SimpleNamespace
+    text = "The research² was compared with the original laboratory notebook."
+    start = text.index("²")
+    para = SimpleNamespace(text=text, runs=[(start, start + 1, "Cambria Math", 12, False, False)])
+    clean, mapping = mg.sanitize_docx_paras([para])
+    assert clean[0].text == text and not mapping.active
+
+
+def test_math_font_removes_formula_without_erasing_surrounding_prose():
+    from types import SimpleNamespace
+    text = "The field worker calculated x² before checking the original laboratory notebook."
+    para = SimpleNamespace(text=text, runs=[(0, len(text), "Cambria Math", 12, False, False)])
+    clean, mapping = mg.sanitize_docx_paras([para])
+    assert clean[0].text == text.replace("x²", mg.PLACEHOLDER)
+    assert mapping.stats.inline == 1
+    assert mapping.active
 
 
 def test_multiline_blocks():

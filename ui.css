@@ -277,3 +277,41 @@ table.t td.wrap{min-width:220px}
   .dial{width:min(100%,250px)}
   .foot{margin-top:18px;font-size:12px}
 }
+
+/* Institutional information stays below the compact analysis workspace. */
+.institutional-footer{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);color:#FFFFFF}
+.institutional-top{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.institutional-identity{flex:1 1 290px;min-width:0}
+.institutional-brand{display:flex;align-items:center;gap:12px;font-family:var(--f-display);font-size:22px;font-weight:700}
+.institutional-brand span{font-family:var(--f-ui);font-size:13px;font-weight:600;color:#FFFFFF}
+.institutional-identity p{font-size:13px;font-weight:600;line-height:1.7;margin:4px 0 0;max-width:42em}
+.institutional-contact{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+.institutional-link{display:flex;flex-direction:column;gap:3px;padding:9px 12px;border:1px solid var(--line);
+  border-radius:10px;background:rgba(255,255,255,.03);text-decoration:none !important;color:#FFFFFF !important}
+.institutional-link span{font-size:12px;font-weight:600}
+.institutional-link bdi{font-size:13px;font-weight:700;unicode-bidi:isolate}
+.institutional-link:hover{border-color:var(--lantern);background:rgba(255,194,71,.07)}
+.institutional-guidance{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.institutional-guidance details{min-width:0;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.02);align-self:start}
+.institutional-guidance summary{padding:10px 12px;font-size:13px;font-weight:700;cursor:pointer;list-style-position:inside}
+.institutional-guidance summary:hover{color:var(--lantern)}
+.institutional-guidance details[open] summary{border-bottom:1px solid var(--line)}
+.institutional-detail{padding:4px 12px 12px}
+.institutional-detail p{margin:8px 0 0;font-size:13px;font-weight:600;line-height:1.85}
+.institutional-bottom{display:flex;justify-content:space-between;gap:8px 20px;flex-wrap:wrap;margin-top:12px;padding-bottom:4px;
+  font-size:12px;font-weight:600;line-height:1.7}
+.institutional-bottom .font-credit{font-size:11px}
+@media(max-width:760px){
+  /* On phones a completed result precedes the input, so scrolling reveals the gauge. */
+  [data-testid="stHorizontalBlock"]:has(.st-key-result_board){flex-wrap:wrap !important}
+  [data-testid="stHorizontalBlock"]:has(.st-key-result_board) > [data-testid="stColumn"]{
+    flex:1 1 100% !important;width:100% !important;min-width:0 !important}
+  [data-testid="stHorizontalBlock"]:has(#nebras-result) > [data-testid="stColumn"]:has(.st-key-result_board){order:-1}
+  #nebras-result{scroll-margin-top:16px}
+  .institutional-guidance{grid-template-columns:1fr}
+  .institutional-contact{width:100%}
+  .institutional-link{flex:1 1 auto;min-width:0}
+  .institutional-brand{font-size:20px;gap:10px}
+  .institutional-bottom{display:block}
+  .institutional-bottom span{display:block;margin-top:3px}
+}
