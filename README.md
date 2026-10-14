@@ -107,7 +107,11 @@ A Streamlit (Arabic/RTL) front-end for the AI Text Inspector v2.1 engine, with p
 | الكلمات البشرية المتهمة خطأً | 8.4% | 2.6% |
 | متوسط الخطأ المطلق في المختلط | 16 نقطة | 13 نقطة |
 
+**v2.6 — الاستجابة للتعديل:** أُلغي رفع قرائن الفقرات بسبب قراءة المستند كله (كان يثبّت المؤشر عند 100 ولا يتأثر بإعادة الكتابة). وآثار أدوات الأنسنة وإعادة الصياغة (المسافات غير القياسية والعبارات المعذَّبة) تُرصد وتُذكر في التقرير معلومةً فقط ولا ترفع النسبة: استعمال الأداة يخفّض النسبة بقدر ما غيّر من الصياغة، كما في البرامج الأخرى. قاعدة «الإنسان يخطئ» باقية.
+
 **مسافات أدوات «الأنسنة» (v2.5.2):** مسافة من نوع غير عادي (مثل U+2002) مزروعة بين كلمتين إنجليزيتين. لوحة المفاتيح لا تكتبها، وقيس ذلك على 2254 ملفًا بشريًا فلم تظهر واحدة منها. إذا وُجد منها 10 فأكثر في المستند، تُحتسب في كل فقرة تحملها **قرينة متوسطة واحدة** (+1.0 لوغاريتم أرجحية) تُضاف إلى قرائن صياغتها، ولا تحسم الحكم وحدها. لذلك تنخفض نسبة النص المعالَج بأداة الأنسنة عن نسبته الأصلية، كما في البرامج التجارية، دون أن تهبط إلى الصفر. أما الحروف غير المرئية داخل الكلمات والحروف السيريلية الشبيهة باللاتينية فلا تُحتسب ولا يُنظَّف النص منها، لأنها تُستعمل أيضًا لإخفاء النسخ عن أجهزة كشف الاقتباس، فلا تدل على من كتب. يُقرأ الملف كما هو.
+
+**عبارات أدوات إعادة الصياغة (v2.5.5):** مصطلح علمي ثابت استبدلته أداة إعادة صياغة آلية بمرادفات حرفية، مثل «counterfeit consciousness» بدل artificial intelligence، و«irregular woodland» بدل random forest. وثّقها Cabanac وزملاؤه (2021). لم تظهر واحدة منها في 2254 ملفًا بشريًا، ولذلك تكفي عبارة واحدة لتكون قرينة على فقرتها، بالوزن المخفَّض نفسه (+1.0).
 
 **حق الفقرة في قرائنها:** الجيران يحسمون الفقرة التي لم تحسمها قرائنها فقط؛ الفقرة التي تميل قرائنها هي إلى البشري (−1.0 فأقل) لا تُنسب إلى التوليد بسبب ما حولها.
 
@@ -260,3 +264,7 @@ IBM Plex Sans Arabic وReem Kufi تحت ترخيص SIL OFL، ونصوص التر
 - **Balanced-triad rule (academic_signals.balanced_triad / rhetorical_triad)**: a match for "A, B and C" counts as a rhetorical triad only when it is short and parallel and carries no clause word or inner and/or; the loose regex's lead-in words are ignored and the "no serial comma" form is handled. LLM-style triads ("institutional, organizational, and cultural") still count.
 - **Photographs in the body (`photo_count`, `_photo_evidence`)**: distinct JPEG photographs (>= 20 KB) that the body actually references give a small human-side evidence of -0.1 log-odds each, capped at -0.4. It shows someone produced first-hand material; it does not prove who typed the sentences. No photos = no effect; withheld when the file names a generator. Fixed constants, not fitted to any file.
 - Tests added for both.
+
+
+### v2.7
+- مسافات أدوات «الأنسنة» (مثل U+2002 بين الكلمات الإنجليزية) تُنظَّف إلى مسافات عادية، وتُحتسب قرينةً متوسطة في الفقرات التي حملتها (SPACE_L = 1.0). الحروف المقنّعة (Cyrillic / zero-width) تبقى دون تنظيف كما كانت.

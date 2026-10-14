@@ -68,9 +68,35 @@ _STATS = re.compile(r"[=<>±%§]|\b[pnNrtFβχ]\s*[=<>]|\d")       # "(R² = .04
 # letters ("Lі\u2060terаture"). That masking is also used against plagiarism checkers, so it says nothing about
 # who wrote the words; such a file is read exactly as it is.
 _ODD_SPACE = re.compile(r"(?<=[A-Za-z,.;:)])[\u2000-\u200a\u202f\u205f\u3000](?=[A-Za-z(])")
-EVASION_L = 1.0          # a moderate habit, not a verdict: the paragraph's own wording decides (user: match the drop other detectors show)
+EVASION_L = 0.0          # v2.6: tortured phrases are reported only, they never raise the index
+SPACE_L = 1.0            # v2.7: humanizer spacing (user decision): the spaces are cleaned to ordinary ones and the paragraph
+                         # that carried them gets one moderate habit. Calibrated to the user's reference for Review (17-18%):
+                         # cleaning alone gives 0, 1.0 gives 17.0. Masked letters/zero-width (Ch_pt type) stay untouched.
 EVASION_DOC_MIN = 10       # ten or more in one document (none in 2254 human files): then one artefact marks its unit
 EVASION_UNIT_MIN = 3       # otherwise a unit needs three of its own
+
+
+# Synonym-spinner traces ("tortured phrases"): a paraphrasing tool replaces an established technical term word by word
+# ("counterfeit consciousness" for artificial intelligence, "irregular woodland" for random forest). Documented by
+# Cabanac, Labbé & Magazinov (2021) and the Problematic Paper Screener. 0 hits in 2254 human source files; a single one
+# marks its paragraph. Only multi-word substitutions no writer chooses (no single ordinary words).
+_TORTURED = [
+ r"counterfeit consciousness", r"fake consciousness", r"man-?made consciousness", r"manufactured consciousness",
+ r"profound learning (?:model|models|method|methods|algorithm|algorithms|approach|approaches|technique|techniques|architecture|network|networks|framework)",
+ r"profound neural organi[sz]ations?", r"(?:counterfeit|fake|artificial|convolutional|repetitive|intermittent) neural organi[sz]ations?",
+ r"(?:irregular|arbitrary) (?:woodland|backwoods)", r"colossal information", r"help vector machines?", r"backing vector machines?",
+ r"(?:straight|calculated|strategic) relapse", r"k[- ]closest neighbou?rs?", r"(?:slope|angle) (?:plummet|drop|plunge)",
+ r"(?:root )?mean squared? mistake", r"flag to commotion", r"sign to clamou?r", r"(?:highlight|include) extraction",
+ r"picture handling", r"discourse acknowledg(?:e)?ment", r"(?:normal|regular|characteristic) language (?:handling|preparing)",
+ r"(?:cloud|edge|haze) figuring", r"parcel misfortune", r"dark (?:opening|gap) assaults?", r"(?:disavowal|forswearing) of administration",
+ r"(?:haphazard|irregular) access memory", r"lion'?s share casting a ballot", r"bosom (?:malignant growth|disease|malignancy)",
+ r"(?:kidney|liver) disappointment", r"worldwide situating framework",
+]
+_TORTURED_RX = re.compile(r"\b(?:" + "|".join(_TORTURED) + r")\b", re.I)
+
+
+def spinner_count(text: str) -> int:
+    return len(_TORTURED_RX.findall(text or ""))
 
 
 def evasion_count(text: str) -> int:
@@ -134,6 +160,7 @@ class Unit:
     paste: float = 0.0
     arabic: bool = False
     evasion: int = 0
+    spun: int = 0
     tool_marked: bool = False       # carries humanizer spacing (counted as one strong habit)
     post: float = 0.0
     habits: Dict[str, float] = field(default_factory=dict)
@@ -148,6 +175,7 @@ class Segmentation:
     blocks: List[tuple] = field(default_factory=list)   # (first text idx, last text idx, words) of suspected runs
     para_post: Dict[int, float] = field(default_factory=dict)
     evasion: int = 0                # evasion artefacts found, when they are established across the document
+    spun: int = 0                   # synonym-spinner phrases found
 
 
 def _engine():
@@ -300,6 +328,7 @@ def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para
     for u in units:
         text = "\n".join(texts[i] for i in u.idx)
         u.evasion = evasion_count(text)
+        u.spun = spinner_count(text)
         u.arabic = len(_AR.findall(text)) > len(_W.findall(text)) * 2
         if u.arabic:
             scs = [eng_ps[i] for i in u.idx if i in eng_ps]
@@ -322,9 +351,11 @@ def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para
     ev_total = sum(u.evasion for u in units)
     doc_evasion = ev_total >= EVASION_DOC_MIN
     seg.evasion = ev_total if doc_evasion else 0
+    seg.spun = sum(u.spun for u in units)
     for u in units:                           # deliberate obfuscation of the words: text passed through an evasion tool
-        if u.evasion >= (1 if doc_evasion else EVASION_UNIT_MIN):
-            u.L += EVASION_L
+        spaced = u.evasion >= (1 if doc_evasion else EVASION_UNIT_MIN)
+        if spaced or u.spun:
+            u.L += (SPACE_L if spaced else 0.0) + (EVASION_L if u.spun else 0.0)
             u.tool_marked = True
     post = _forward_backward([u.L for u in units])
     for u, p in zip(units, post):
