@@ -112,7 +112,8 @@ def test_repeated_word_formatting_blocks_do_not_supply_human_credit_to_every_par
     rows = [("Literature Review", "center", 28, True)]
     rows += [(LLM_PARA, "center" if 4 <= i < 8 else "both", 24) for i in range(16)]
     r = b.analyze_uploaded_bytes("blocks.docx", formatted_docx(rows))
-    assert r.features["fmt_incons"][2] < 0
+    assert r.features["fmt_incons"][0] > 0  # formatting differences are still observed
+    assert r.features["fmt_incons"][2] == 0  # a repeated block is not human authorship evidence
     assert set(r.file_shifts.values()) == {0.0}
     assert r.score >= 65
 

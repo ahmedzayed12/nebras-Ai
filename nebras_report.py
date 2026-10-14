@@ -100,8 +100,7 @@ MIN_SENT_WORDS = 4   # a 1-3 word fragment is never shaded by paragraph membersh
 MIN_WORDS = 40       # engine: below 40 words it refuses to judge
 HIGHLIGHT_HEX = "8EE3F5"     # strong: directly flagged by sentence / paragraph heuristic
 SOFT_HIGHLIGHT_HEX = "DDF5FA"  # supplementary, visibly paler cyan (illustrative only)
-HUMAN_TRACE = {"repeated_word", "typo_en", "double_space", "space_before_punct", "no_space_after_punct",
-               "repeat_punct", "lower_start", "mixed_punct_script", "ar_orth"}
+HUMAN_TRACE = {"repeated_word", "typo_en", "repeat_punct", "lower_start", "mixed_punct_script", "ar_orth"}
 
 
 @dataclass

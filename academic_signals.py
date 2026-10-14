@@ -27,6 +27,7 @@ import math
 import re
 from dataclasses import dataclass, field
 from typing import List, Optional
+from matching_text import matching_text
 
 _W = re.compile(r"[A-Za-z][A-Za-z'\-]*")
 
@@ -171,7 +172,7 @@ def rhetorical_triad(s: str, topic=None) -> bool:
 
 
 def count_triads(text: str, topic=None) -> int:
-    return sum(1 for m in _TRI.findall(text) if rhetorical_triad(m, topic))
+    return sum(1 for m in _TRI.findall(matching_text(text)) if rhetorical_triad(m, topic))
 
 
 def measure(paragraphs, topic=None) -> dict:

@@ -70,6 +70,7 @@ _EQ_NUMBER = re.compile(r"\s*[\(\[]\s*\d+(?:\.\d+)*[a-z]?\s*[\)\]]\s*$")
 _PLAIN_FORMULA = re.compile(
     r"(?<![\w])[A-Za-z]\w{0,2}(?:_\{?[A-Za-z0-9,+\-]+\}?|\^\{?[A-Za-z0-9+\-]+\}?)"
     r"(?:\s*(?:=|≈|≠|≤|≥|<|>)\s*[-+(]?[A-Za-z0-9\\.]+(?:\s*[-+*/^×·]\s*[A-Za-z0-9\\.()_{}]+)*)?")
+_PLAIN_IDENTIFIER = re.compile(r"\b[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z][A-Za-z0-9]*)+\b")
 
 
 # Formulas typed as ordinary Unicode text (no LaTeX, no Word equation object), e.g.
@@ -242,8 +243,12 @@ def _spans(text: str) -> List[Tuple[int, int]]:
                 if re.fullmatch(r"[\d.,\s]+", inner):
                     continue
             found.append((m.start(), m.end()))
+    identifiers = [(m.start(), m.end()) for m in _PLAIN_IDENTIFIER.finditer(text)
+                   if any(len(part) > 2 for part in m.group().split("_"))]
     for rx in (_CMD_ARGS, _CMD_BARE, _SUPSUB, _PLAIN_FORMULA):
         for m in rx.finditer(text):
+            if rx in (_SUPSUB, _PLAIN_FORMULA) and any(a <= m.start() and m.end() <= b for a, b in identifiers):
+                continue  # case_id / image_path are field names, not LaTeX subscripts
             found.append((m.start(), m.end()))
     found.extend(_unicode_math_spans(text))
     if not found:

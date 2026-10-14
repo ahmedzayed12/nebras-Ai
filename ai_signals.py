@@ -23,6 +23,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Optional
+from matching_text import matching_text
 
 LAYER_MAX_WEIGHT = 0.35      # largest share the layer may take in the combined index
 HIGH, LOW = 55, 30           # same display bands the app already uses
@@ -136,7 +137,7 @@ _PUNCT_MAP = str.maketrans({"’": "'", "‘": "'", "`": "'", "´": "'", "“": 
 
 def _norm(s: str) -> str:
     s = s.translate(_PUNCT_MAP)
-    return _AR_DIAC.sub("", s).translate(_AR_MAP).lower()
+    return matching_text(_AR_DIAC.sub("", s).translate(_AR_MAP).lower())
 
 
 _TOK = re.compile(r"[a-z\u00e0-\u00f6\u00f8-\u024f]+(?:'[a-z]+)*"

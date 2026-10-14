@@ -156,6 +156,8 @@ def measure(report, paras=None, forensics=None, uniform_indent: bool = False, pr
         if f.para is None or f.para < 0:
             continue
         if k in TEXT_SLIPS:
+            if hasattr(report, "text_error_kinds") and k not in report.text_error_kinds:
+                continue  # spacing remains a quality finding, not authorship evidence
             if k == "leading_space" and uniform_indent:
                 continue
             t = texts[f.para] if 0 <= f.para < len(texts) else ""

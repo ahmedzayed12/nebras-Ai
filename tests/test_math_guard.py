@@ -57,6 +57,8 @@ def test_formula_only_paragraph_dropped(line):
     "The treatment used Ca(OH)₂ and NH₄⁺ with O₂ in the laboratory experiment.",
     "The temperature was 25 ℃ and the volume was 10 m³ during the experiment.",
     "The office uses NEBRAS℠ and record № 12 in official correspondence.",
+    "Each manifest row contains case_id, patient_code, study_date, image_path, and source_dataset for traceability.",
+    "The original report used the spelling de-identi_ed in this sentence about the image dataset.",
 ])
 def test_prose_never_touched(line):
     new, pmap, st = mg.sanitize_paragraph(line)
@@ -74,6 +76,20 @@ def test_real_unicode_math_still_excluded():
     assert new == "The researcher used § and § in the fitted model over the study period."
     assert stats.inline == 2
     assert [text[pmap[i]] for i, ch in enumerate(new) if ch != mg.PLACEHOLDER] == [ch for ch in new if ch != mg.PLACEHOLDER]
+
+
+def test_explicit_formula_with_named_subscript_is_still_excluded():
+    new, _, stats = mg.sanitize_paragraph("The researcher used n_total = 23 to check the sample count before completing the experiment.")
+    assert "n_total = 23" not in new and mg.PLACEHOLDER in new and stats.inline > 0
+
+
+def test_math_font_prose_survives_the_complete_word_cleaning_pipeline():
+    from tests.test_detection_layers import _docx, HUMAN_PARA
+    result = ba.analyze_uploaded_bytes("mathfont.docx", _docx([HUMAN_PARA] * 12,
+        run_props='<w:rFonts w:ascii="Cambria Math" w:hAnsi="Cambria Math"/>'))
+    assert HUMAN_PARA in result.texts
+    assert result.words >= 700
+    assert result.score < 52
 
 
 @pytest.mark.parametrize("text", [
@@ -132,12 +148,12 @@ def test_score_unchanged_by_equations_text():
     assert abs(base - raw) > 5          # proves the problem existed without the guard
 
 
-def test_no_math_keeps_engine_input_and_pooled_score():
+def test_no_math_keeps_engine_input_and_original_engine_score():
     t = _interleave(False)
     guarded = ba.analyze_pasted(t)
     raw = ba.get_engine().analyze_text(t)
     assert guarded.texts == raw.texts
-    assert guarded.score_pooled == raw.score
+    assert guarded.score_engine == raw.score
     assert guarded.score <= guarded.score_pooled
 
 

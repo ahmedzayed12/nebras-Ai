@@ -27,6 +27,7 @@ import math
 import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
+from matching_text import matching_text
 
 _W = re.compile(r"[A-Za-z][A-Za-z'\-]*")
 _SENT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"“(\[])")
@@ -87,7 +88,7 @@ _FRAME = re.compile(
 
 _FIG = re.compile(r"\d+(?:\.\d+)?\s*(?:±\s*\d+(?:\.\d+)?\s*)?(?:Mbps|Gbps|kbps|dB|dBm|nJ/bit|nJ|µW|mW|lx|days|%|ms|MHz|kHz|W|V|mA|s)\b")
 _REFLINE = re.compile(r"^\s*\[\d{1,3}\]\s*\S")
-_TYPO = re.compile(r"[ \t]{2,}|\s[,;:]|[,;:][A-Za-z]|\bteh\b|\brecieve\b|\bseperate\b|\boccured\b", re.I)
+_WORD_TYPO = re.compile(r"\b(?:teh|recieve|seperate|occured)\b", re.I)
 
 
 @dataclass
@@ -135,7 +136,7 @@ def _sentences(text: str) -> List[str]:
 
 def measure(paragraphs) -> dict:
     paras = [str(p) for p in paragraphs if str(p).strip()]
-    text = "\n".join(paras)
+    text = matching_text("\n".join(paras))
     words = len(_W.findall(text))
     sents = _sentences(text)
     ns = max(1, len(sents))
@@ -157,7 +158,7 @@ def measure(paragraphs) -> dict:
     figs = [re.sub(r"\s+", "", f) for f in _FIG.findall(text)]
     rep = {f for f in set(figs) if figs.count(f) >= 3}
     m["figecho"] = len(rep) / max(1, len(set(figs)))
-    m["typo"] = len(_TYPO.findall(text)) / k
+    m["typo"] = len(_WORD_TYPO.findall(text)) / k
     cv = _cv([len(s.split()) for s in sents]) if len(sents) > 8 else None
     m["sent_cv"] = cv if cv is not None else 0.0
     m["numeric_density"] = len(re.findall(r"\d+(?:\.\d+)?", text)) / k
@@ -207,7 +208,7 @@ def analyze(paragraphs) -> TechLayer:
             friction = 0.5
         elif m["typo"] > 12:
             friction = -1.0
-    sigs.append(TechSignal("friction", "نص بلا أي هفوة كتابية (مسافات/ترقيم)", 0.5, m["typo"], "لكل 1000 كلمة", friction))
+    sigs.append(TechSignal("friction", "أخطاء إملائية إنجليزية مرصودة", 0.5, m["typo"], "لكل 1000 كلمة", friction))
     total += 0.5 * friction
     score = 50.0 + 50.0 * math.tanh((total - SCORE_OFFSET) / SCORE_SCALE)
     # a single habit never lifts the index (a lone habit is how an ordinary author writes); two lift partly, three fully
@@ -220,6 +221,7 @@ def analyze(paragraphs) -> TechLayer:
 
 def para_score(text: str) -> Optional[float]:
     """0-100 paragraph indicator from the same habits (used only to rank which passages are shaded)."""
+    text = matching_text(text)
     n = len(_W.findall(text))
     if n < 25:
         return None

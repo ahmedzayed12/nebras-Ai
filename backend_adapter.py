@@ -243,6 +243,128 @@ def _rescore(report):
         report.score = 100.0 / (1.0 + math.exp(-float(report.z) * conf))
 
 
+def _spacing_insensitive_style(report, paras):
+    """Use the original style rules on a matching view, then restore source offsets."""
+    from dataclasses import replace
+    from matching_text import matching_text_map
+    eng = get_engine()
+    views = [matching_text_map(p.text) for p in paras]
+    if all(text == p.text for p, (text, _) in zip(paras, views)):
+        return
+    match_paras = [replace(p, text=text) for p, (text, _) in zip(paras, views)]
+
+    class MatchSink:
+        def __init__(self):
+            self.items = []
+
+        def add(self, kind, i, text, start, end, note=""):
+            positions = views[i][1]
+            original_start = positions[start]
+            original_end = positions[end - 1] + 1 if end > start else original_start
+            self.items.append(eng._mk(kind, i, paras[i].text, original_start, original_end, note))
+
+    sink = MatchSink()
+    sentences = {i: eng.split_sentences(p.text) for i, p in enumerate(match_paras)
+                 if p.role in eng.PROSE_ROLES and p.text.strip()}
+    counts, _ = eng.check_style_markers(match_paras, sink, sentences)
+    words = sum(len(eng.WORD_RE.findall(p.text)) for p in match_paras if p.role in eng.PROSE_ROLES)
+    kw = max(words, 1) / 1000.0
+    body_sentences = sum(1 for i, p in enumerate(match_paras) if p.role == "body"
+                         for a, b in sentences.get(i, []) if eng.WORD_RE.findall(p.text[a:b]))
+    tri_share = counts["tricolon_sents"] / body_sentences if body_sentences >= 8 else 0.0
+    tune = eng.TUNE
+    values = {
+        "ai_lexicon": eng._sat(counts["lex"] / kw, tune["lex_scale"]),
+        "ai_vocab": eng._sat((counts["voc_s"] + 0.25 * counts["voc_m"]) / kw, tune["vocab_scale"]),
+        "contrast": eng._sat(counts["contrast"] / kw, tune["contrast_scale"]),
+        "vague_attr": eng._sat(counts["vague"] / kw, tune["vague_scale"]),
+        "signpost": eng._sat(counts["signpost"] / kw, tune["signpost_scale"]),
+        "tricolon": eng._clamp((tri_share - tune["tricolon_lo"]) / (tune["tricolon_hi"] - tune["tricolon_lo"])),
+        "generic_phr": eng._clamp((counts["gen"] / kw - tune["gen_lo"]) / (tune["gen_hi"] - tune["gen_lo"])) if words >= 120 else 0.0,
+    }
+    feats = dict(report.features)
+    delta = 0.0
+    for key, value in values.items():
+        _, weight, previous = feats[key]
+        feats[key] = (value, weight, value * weight)
+        delta += value * weight - previous
+    report.features = feats
+    report.z += delta
+    report.findings = [f for f in report.findings if f.kind not in eng._PARA_W] + sink.items
+    report.complete_style_findings = True
+    report.ctx.update({"tricolon_share": tri_share, "lex": counts["lex"], "contrast": counts["contrast"],
+                       "vague": counts["vague"], "signpost": counts["signpost"], "gen_density": counts["gen"] / kw,
+                       "voc_density": (counts["voc_s"] + 0.25 * counts["voc_m"]) / kw})
+    _rescore(report)
+    # Replace existing feature reasons; no diagnostic section is added to the UI/PDF.
+    report.reasons = eng.build_reasons(report, report.ctx)
+    report.matching_style_counts = dict(counts)
+
+
+TEXT_SOURCE_ERRORS = {"typo_en", "ar_orth", "repeated_word", "lower_start", "unbalanced", "repeat_punct", "mixed_punct_script"}
+
+
+def _text_error_review(report, paras):
+    """Spacing is document hygiene, not independent evidence of human authorship.
+
+    Retain quality findings, but derive the existing human-error features from
+    language/typing findings in authored prose. Local traces stay local.
+    """
+    from collections import Counter, defaultdict
+    eng = get_engine()
+    stored = Counter(f.kind for f in report.findings if f.kind in TEXT_SOURCE_ERRORS)
+    saturated = {k for k, n in stored.items() if n >= eng.CAP_PER_KIND}
+    if saturated:
+        class ErrorSink:
+            def __init__(self):
+                self.items = []
+
+            def add(self, kind, i, text, start, end, note=""):
+                if kind in saturated:
+                    if kind == "lower_start":
+                        match = _re.search(r"([A-Za-z]+)\.\s*$", text[:start])
+                        if match and match.group(1).lower() in _ABBREV:
+                            return
+                    self.items.append(eng._mk(kind, i, text, start, end, note))
+
+        sink = ErrorSink()
+        for i, p in enumerate(paras):
+            if p.role in ("body", "list"):
+                eng.check_paragraph(i, p.text, p, sink)
+        report.findings = [f for f in report.findings if f.kind not in saturated] + sink.items
+    counts = defaultdict(Counter)
+    word_counts = {i: len(eng.WORD_RE.findall(p.text)) for i, p in enumerate(paras)
+                   if p.role in ("body", "list") and p.text.strip()}
+    for f in report.findings:
+        if f.para in word_counts and f.kind in TEXT_SOURCE_ERRORS:
+            counts[f.para][f.kind] += 1
+    words = sum(word_counts.values())
+    kw = max(words, 1) / 1000.0
+    total = sum(eng.KINDS[k][2] * count for cs in counts.values() for k, count in cs.items())
+    orth = sum(cs["ar_orth"] for cs in counts.values())
+    feats = dict(report.features)
+    values = {"err_density": eng._sat(total / kw, 5.0), "ortho": eng._sat(orth / kw, 5.0), "clean": 0.0}
+    delta = 0.0
+    for key, value in values.items():
+        _, weight, previous = feats[key]
+        feats[key] = (value, weight, value * weight)
+        delta += value * weight - previous
+    report.features = feats
+    report.z += delta
+    report.text_error_shifts = {}
+    for i, n in word_counts.items():
+        density = sum(eng.KINDS[k][2] * count for k, count in counts[i].items()) / (max(n, 1) / 1000.0)
+        ar_density = counts[i]["ar_orth"] / (max(n, 1) / 1000.0)
+        report.text_error_shifts[i] = (eng._sat(density, 5.0) * feats["err_density"][1]
+                                     + eng._sat(ar_density, 5.0) * feats["ortho"][1])
+    report.text_source_error_counts = dict(sum(counts.values(), Counter()))
+    report.text_error_kinds = TEXT_SOURCE_ERRORS
+    report.ctx["d_err"] = total / kw
+    report.stats["أخطاء مرجّحة لكل 1000 كلمة"] = round(total / kw, 1)
+    _rescore(report)
+    report.reasons = eng.build_reasons(report, report.ctx)
+
+
 import re as _re
 _APA_DECIMAL = _re.compile(r"[ \t\u00A0]\.\d")                       # "p < .001", "r = .34": a decimal without leading zero
 _BRACED_ITEM = _re.compile(r"[\{\[\(<][^\s\{\}\[\]\(\)<>]{1,14}[\}\]\)>]")   # "{h,c}", "(i,j)", "[x,y]": notation, not prose
@@ -623,7 +745,10 @@ def _file_evidence_to_paragraphs(report, paras=None) -> bool:
     cont = getattr(report, "container_eff", None)
     if cont is None:
         cont = sum(feats[k][2] for k in CONTAINER_KEYS if k in feats and feats[k][2] < 0)
-    other = sum(c for k, (v, w, c) in feats.items() if k in PROSE_ONLY_EXCLUDE and k not in CONTAINER_KEYS and c < 0)
+    local_text = getattr(report, "text_error_shifts", None)
+    local_keys = {"err_density", "ortho"} if local_text is not None else set()
+    other = sum(c for k, (v, w, c) in feats.items()
+                if k in PROSE_ONLY_EXCLUDE and k not in CONTAINER_KEYS and k not in local_keys and c < 0)
     shift = (min(0.0, cont) + other) * float(getattr(report, "confidence", 1.0) or 0.0)
     if paras is not None and getattr(report, "is_docx", False) and len(paras) == len(report.texts):
         import friction
@@ -633,32 +758,63 @@ def _file_evidence_to_paragraphs(report, paras=None) -> bool:
         runs = friction._paste_runs(paras)
         blocks.update(set().union(*runs.values()) if runs else set())
         fmt, convention = set(), set()
+        font_ranges = {}
         eng = get_engine()
         for f in report.findings:
             if not (0 <= f.para < len(paras)) or paras[f.para].role != "body":
                 continue
-            if (f.kind in friction.FORMAT_SLIPS | friction.ALWAYS_HUMAN_FORMAT
+            if f.kind in {"fmt_font", "fmt_size"}:
+                font_ranges.setdefault(f.para, []).append((f.start, f.end))
+            elif (f.kind in friction.FORMAT_SLIPS | friction.ALWAYS_HUMAN_FORMAT
                     and f.para not in blocks and not friction._is_heading_like(paras[f.para])):
                 fmt.add(f.para)
             if eng.KINDS.get(f.kind, ("", "", 0))[1] == "convention":
                 convention.add(f.para)
+        # A small symbol or superscript in another font/size does not mean that
+        # the author manually reformatted the surrounding paragraph.
+        for i, ranges in font_ranges.items():
+            end, covered = -1, 0
+            for a, b in sorted(ranges):
+                covered += max(0, b - max(a, end))
+                end = max(end, b)
+            if (covered >= 0.5 * len(paras[i].text) and i not in blocks
+                    and not friction._is_heading_like(paras[i])):
+                fmt.add(i)
         raw = sum(feats[k][2] for k in CONTAINER_KEYS if k in feats and feats[k][2] < 0)
         scale = min(1.0, max(0.0, cont / raw)) if raw < 0 else 0.0
         contribution = lambda key: min(0.0, feats.get(key, (0, 0, 0))[2]) * scale
         conf = float(getattr(report, "confidence", 1.0) or 0.0)
-        shifts = {i: conf * (other + contribution("meta_human")
+        container_shifts = {i: contribution("meta_human")
                             + (contribution("fmt_incons") if i in fmt else 0.0)
-                            + (contribution("mixed_conv") if i in convention else 0.0))
+                            + (contribution("mixed_conv") if i in convention else 0.0)
+                  for i, _, _ in report.para_scores}
+        shifts = {i: conf * (other + container_shifts[i] + (local_text or {}).get(i, 0.0))
                   for i, _, _ in report.para_scores}
         report.file_shifts = shifts
         report.file_shift_uniform = len(set(shifts.values())) <= 1
         words = sum(n for _, _, n in report.para_scores)
         report.file_shift = sum(n * shifts[i] for i, _, n in report.para_scores) / max(words, 1)
-        if not any(d < -0.05 for d in shifts.values()):
-            return False
+        # Use the same eligible locations for the pooled Word evidence. The old
+        # pooled score still charged every paragraph for one local difference,
+        # then vetoed the corrected map through min(pooled, local).
+        if words:
+            effective = sum(n * container_shifts[i] for i, _, n in report.para_scores) / words
+            delta = effective - min(0.0, cont)
+            if delta > 1e-9:
+                report.z += delta
+                p = min(1 - 1e-12, max(1e-12, report.score / 100.0))
+                report.score = 100.0 / (1.0 + math.exp(-(math.log(p / (1 - p)) + delta * conf)))
+                report.container_eff = effective
+                for key, locations in (("meta_human", None), ("fmt_incons", fmt), ("mixed_conv", convention)):
+                    if key in feats:
+                        v, w, _ = feats[key]
+                        eligible = 1.0 if locations is None else sum(n for i, _, n in report.para_scores if i in locations) / words
+                        report.features[key] = (v, w, contribution(key) * eligible)
+                report.reasons = eng.build_reasons(report, report.ctx)
     else:
-        shifts = {i: shift for i, _, _ in report.para_scores}
-    if shift > -0.05 or not report.para_scores:
+        conf = float(getattr(report, "confidence", 1.0) or 0.0)
+        shifts = {i: shift + conf * (local_text or {}).get(i, 0.0) for i, _, _ in report.para_scores}
+    if not report.para_scores or not any(d < -0.05 for d in shifts.values()):
         return False
     out = []
     for i, sc, n in report.para_scores:
@@ -897,7 +1053,11 @@ def _enhance(report):
                          "والباقي بقدر اتفاق طبقة النثر الأكاديمي المستقلة معها (%d بصمات أسلوبية، اتفاق %.0f%%)." % (100 * note[0], note[1], 100 * note[3]))
             _generator_to_paragraphs(report, note[2])
     _score_stage(report, "metadata", "ضبط أثر بيانات الملف")
+    _spacing_insensitive_style(report, paras)
+    _score_stage(report, "matching_view", "مطابقة العبارات مع حفظ النص الأصلي")
     _notation_neutral(report)
+    _text_error_review(report, paras)
+    _score_stage(report, "text_errors", "قرائن الأخطاء النصية الموضعية")
     _lists_neutral(report)
     if getattr(report, "is_docx", False) and _photo_evidence(report) < 0:
         n_, d_ = report.photo_note

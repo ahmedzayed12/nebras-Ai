@@ -89,7 +89,8 @@ def _is_code(p) -> bool:
 
 
 def _is_equation(p) -> bool:
-    return bool(p.text.strip()) and _share(p, _MATH_FONTS) >= 0.5
+    from math_guard import is_display_math_line
+    return bool(p.text.strip()) and _share(p, _MATH_FONTS) >= 0.5 and is_display_math_line(p.text)
 
 
 def _front_matter_ids(paras) -> set:
