@@ -179,15 +179,16 @@ def footer():
 
 # ----------------------------------------------------------------- visual components
 def _grad(t: float) -> str:
-    """UI indicator colour by score only: green -> orange -> red."""
-    stops = [(0.0, (34, 197, 94)), (0.5, (249, 158, 11)),
-             (0.65, (255, 75, 75)), (1.0, (229, 37, 37))]
+    """Continuous gauge scale: human green -> orange -> deep red."""
+    stops = [(0.0, (34, 197, 94)), (0.4, (245, 158, 11)),
+             (0.62, (234, 88, 12)), (0.8, (220, 38, 38)),
+             (1.0, (185, 28, 28))]
     t = max(0.0, min(1.0, t))
     for (t0, c0), (t1, c1) in zip(stops, stops[1:]):
         if t <= t1:
             k = (t - t0) / (t1 - t0)
             return "#%02X%02X%02X" % tuple(round(a + (b - a) * k) for a, b in zip(c0, c1))
-    return "#E52525"
+    return "#B91C1C"
 
 
 def _dial_soft_color(color: str) -> str:
@@ -204,21 +205,20 @@ def dial_svg(score=None, strong=None, plan_ok=True) -> str:
     cx, cy, r1, r2 = 160, 160, 116, 148
     n_lit = 0 if score is None else int(round(max(0, min(100, score))))
     n_strong = n_lit if strong is None else max(0, min(n_lit, int(round(strong))))
-    dial_color = _grad(n_lit / 100)
-    soft_color = _dial_soft_color(dial_color)
     ticks = []
     for i in range(100):
         ang = math.radians(45 - i / 99 * 270)
         x1, y1 = cx + r1 * math.cos(ang), cy + r1 * math.sin(ang)
         x2, y2 = cx + r2 * math.cos(ang), cy + r2 * math.sin(ang)
+        tick_color = _grad(i / 99)
         if score is None:
             cls, style = "tk idle", f"--i:{i}"
         elif i < n_strong:
             head = " head" if i == n_lit - 1 else ""
-            cls, style = f"tk on{head}", f"--i:{i};color:{dial_color}"
+            cls, style = f"tk on{head}", f"--i:{i};color:{tick_color}"
         elif i < n_lit:
             head = " head" if i == n_lit - 1 else ""
-            cls, style = f"tk on weak{head}", f"--i:{i};color:{soft_color}"
+            cls, style = f"tk on weak{head}", f"--i:{i};color:{_dial_soft_color(tick_color)}"
         else:
             cls, style = "tk", ""
         ticks.append(f'<line class="{cls}" style="{style}" x1="{x1:.2f}" y1="{y1:.2f}" x2="{x2:.2f}" y2="{y2:.2f}"/>')
