@@ -14,10 +14,10 @@ from __future__ import annotations
 import html
 from pathlib import Path
 
+import colorsys
 import math
 import streamlit as st
 import streamlit.components.v1 as components
-from turnstile_gate import require_human, render_turnstile
 
 from backend_adapter import (
     analyze_batch_inputs, analyze_pasted, analyze_uploaded_bytes, batch_csv_bytes, normalize_upload_name,
@@ -29,7 +29,7 @@ st.set_page_config(
     page_icon="🔎", layout="wide", initial_sidebar_state="collapsed",
 )
 
-C = {"ai": "#FF4B4B", "human": "#35E0B4", "warn": "#FFC247"}
+C = {"ai": "#FF4D8D", "human": "#35E0B4", "warn": "#FFC247"}
 # Display-only bands, the same cut-offs the original UI used for paragraph colours.
 BAND_HIGH, BAND_MID = 55, 30
 MIN_WORDS = 300
@@ -114,90 +114,48 @@ def masthead():
           <span class="brand-name">NEBR<span class="brand-accent">A</span>S</span>
           <span class="brand-sub">AI DETECTOR</span>
         </h1>
-        <p class="lede">نبراس لتحليل النصوص العربية والإنجليزية؛
-        مؤشر واضح يدعم المراجعة البشرية.</p>
+        <p class="lede">الصق نصًا أو ارفع ملفًا لتعرف مدى احتمال أن يكون مكتوبًا بالذكاء الاصطناعي،
+        وأي فقرات النص أكثر اشتباهًا.</p>
       </div>
-    </header>""".replace("\n", " "))
+    </header>""")
 
 
 def footer():
     md("""
-    <footer class="institutional-footer" aria-label="معلومات نبراس والتواصل">
-      <div class="institutional-top">
-        <div class="institutional-identity">
-          <strong class="institutional-brand">نبراس<span>تحليل النصوص بمسؤولية</span></strong>
-          <p>قرائن تساعد على المراجعة، وليست إثباتًا لمصدر النص أو اتهامًا لكاتبه.</p>
-        </div>
-        <nav class="institutional-contact" aria-label="التواصل والدعم">
-          <a href="mailto:nebrascontactus@gmail.com" class="institutional-link">
-            <span>البريد والتواصل</span><bdi dir="ltr">nebrascontactus@gmail.com</bdi>
-          </a>
-          <a href="https://wa.me/201100010381" target="_blank" rel="noopener noreferrer" class="institutional-link">
-            <span>واتساب للدعم</span><bdi dir="ltr">+201100010381</bdi>
-          </a>
-        </nav>
-      </div>
-      <div class="institutional-guidance">
-        <details>
-          <summary>عن نبراس وطريقة الاستخدام</summary>
-          <div class="institutional-detail">
-            <p>نبراس خدمة تحليل تقدّر ميل النص العربي أو الإنجليزي إلى أسلوب مولّد بالذكاء الاصطناعي،
-            وتقدّم مؤشرًا وخريطة للفقرات المؤثرة وتقرير PDF.</p>
-            <p>الصق النص أو ارفع ملف Word أو PDF، وأكمل التحقق البشري، ثم اضغط زر الفحص.
-            ملف Word الأصلي يحافظ على قرائن التنسيق التي قد تفقدها نسخة PDF.</p>
-          </div>
-        </details>
-        <details>
-          <summary>قراءة النتائج والاستخدام المسؤول</summary>
-          <div class="institutional-detail">
-            <p>المؤشر تقدير استدلالي قد يخطئ في الاتجاهين. انخفاضه يعني ضعف القرائن المرصودة،
-            وارتفاعه يستدعي مراجعة بشرية؛ كلاهما لا يثبت من كتب النص.</p>
-            <p>التظليل يحدد جملًا أو فقرات تحمل قرائن مؤثرة في التقدير، ولا يثبت مصدرها.
-            النصوص القصيرة والشعرية والأدبية والتقنية الكثيفة تستدعي حذرًا إضافيًا في التفسير.</p>
-            <p>لا تعتمد على النتيجة وحدها في قرار أكاديمي أو تأديبي أو وظيفي أو قانوني.
-            راجع المسوّدات، وأتح للكاتب حق الرد، وحلّل فقط المستندات التي تملك حق تحليلها.</p>
-          </div>
-        </details>
-        <details>
-          <summary>الخصوصية وحقوق المحتوى</summary>
-          <div class="institutional-detail">
-            <p>تعمل خوارزميات الفحص على خادم التطبيق دون إرسال النص إلى واجهات نماذج خارجية.
-            تُستخدم ملفات مؤقتة أثناء المعالجة، وقد يبقى النص أو الملف والتقرير في ذاكرة جلسة العمل.</p>
-            <p>يستخدم الموقع Cloudflare للتحقق البشري وإحصاءات الزيارات.
-            تجنّب رفع بيانات شديدة الحساسية أو السرية إلى النسخة المستضافة على سحابة عامة.</p>
-            <p>مستنداتك تبقى ملكًا لك. للاستفسار عن الخصوصية أو للإبلاغ عن خلل أو ثغرة،
-            استخدم البريد أو واتساب الموضّحين أعلاه.</p>
-          </div>
-        </details>
-      </div>
-      <div class="institutional-bottom">
-        <span>© 2026 نبراس. جميع الحقوق محفوظة.</span>
-        <span class="font-credit">الخطوط: IBM Plex Sans Arabic وReem Kufi — ترخيص SIL OFL.</span>
-      </div>
-    </footer>""".replace("\n", " "))
+    <footer class="foot">
+      <p>المؤشر تقدير احتمالي مبني على قرائن أسلوبية، وليس إثباتًا لمن كتب النص. لا تستخدمه وحده
+      في اتهام أحد أو في قرار عالي الأثر. تحقّق من أداء الكاشف باستقلال قبل الاعتماد عليه.</p>
+    </footer>""")
 
 
 # ----------------------------------------------------------------- visual components
 def _grad(t: float) -> str:
-    """Continuous gauge scale: human green -> orange -> deep red."""
-    stops = [(0.0, (34, 197, 94)), (0.4, (245, 158, 11)),
-             (0.62, (234, 88, 12)), (0.8, (220, 38, 38)),
-             (1.0, (185, 28, 28))]
+    """UI indicator colour by score only: green -> orange -> red."""
+    stops = [(0.0, (34, 197, 94)), (0.5, (249, 158, 11)), (1.0, (239, 68, 68))]
     t = max(0.0, min(1.0, t))
     for (t0, c0), (t1, c1) in zip(stops, stops[1:]):
         if t <= t1:
             k = (t - t0) / (t1 - t0)
             return "#%02X%02X%02X" % tuple(round(a + (b - a) * k) for a, b in zip(c0, c1))
-    return "#B91C1C"
+    return "#EF4444"
 
 
 def _dial_soft_color(color: str) -> str:
-    """Retain the score's hue; CSS distinguishes partial evidence by opacity.
+    """Lighter shade of the exact same UI score colour (supplementary ticks only)."""
+    rgb = (int(color[i:i + 2], 16) for i in (1, 3, 5))
+    return "#%02X%02X%02X" % tuple(round(v * .45 + 255 * .55) for v in rgb)
 
-    Mixing red with white made most of a high-scoring dial look pink when the
-    located sentence coverage was lower than the overall index.
-    """
-    return color
+
+def _glow(hexcolor: str) -> str:
+    """Lift the engine's verdict colour so it reads on the dark canvas (display only)."""
+    try:
+        h = hexcolor.lstrip("#")
+        r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+        hh, ll, ss = colorsys.rgb_to_hls(r, g, b)
+        r, g, b = colorsys.hls_to_rgb(hh, max(ll, 0.64), max(ss, 0.72))
+        return "#%02X%02X%02X" % (round(r * 255), round(g * 255), round(b * 255))
+    except Exception:
+        return "#FFC247"
 
 
 def dial_svg(score=None, strong=None, plan_ok=True) -> str:
@@ -205,20 +163,21 @@ def dial_svg(score=None, strong=None, plan_ok=True) -> str:
     cx, cy, r1, r2 = 160, 160, 116, 148
     n_lit = 0 if score is None else int(round(max(0, min(100, score))))
     n_strong = n_lit if strong is None else max(0, min(n_lit, int(round(strong))))
+    dial_color = _grad(n_lit / 100)
+    soft_color = _dial_soft_color(dial_color)
     ticks = []
     for i in range(100):
         ang = math.radians(45 - i / 99 * 270)
         x1, y1 = cx + r1 * math.cos(ang), cy + r1 * math.sin(ang)
         x2, y2 = cx + r2 * math.cos(ang), cy + r2 * math.sin(ang)
-        tick_color = _grad(i / 99)
         if score is None:
             cls, style = "tk idle", f"--i:{i}"
         elif i < n_strong:
             head = " head" if i == n_lit - 1 else ""
-            cls, style = f"tk on{head}", f"--i:{i};color:{tick_color}"
+            cls, style = f"tk on{head}", f"--i:{i};color:{dial_color}"
         elif i < n_lit:
             head = " head" if i == n_lit - 1 else ""
-            cls, style = f"tk on weak{head}", f"--i:{i};color:{_dial_soft_color(tick_color)}"
+            cls, style = f"tk on weak{head}", f"--i:{i};color:{soft_color}"
         else:
             cls, style = "tk", ""
         ticks.append(f'<line class="{cls}" style="{style}" x1="{x1:.2f}" y1="{y1:.2f}" x2="{x2:.2f}" y2="{y2:.2f}"/>')
@@ -260,6 +219,8 @@ def _suspect_share(rep) -> str:
     deck = getattr(rep, "deck", None)
     if deck is not None and deck.is_deck and deck.suspect_share is not None:
         return "%.0f%% من الشرائح" % (100.0 * deck.suspect_share)
+    if getattr(rep, "segmentation", None) is not None:      # v2.4: the index IS the share of generated text
+        return "%.0f%%" % rep.score
     ps = list(getattr(rep, "para_scores", []) or [])
     tot = sum(n for _, _, n in ps)
     return "%.0f%%" % (100.0 * sum(n for _, sc, n in ps if sc >= 55) / tot) if tot >= 150 else "—"
@@ -271,15 +232,36 @@ def dial_panel(rep=None, plan=None):
         <div class="ends"><span>أسلوب بشري</span><span>أسلوب مولَّد</span></div>
         <div class="verdict-pill idle">ضع نصًا ثم اضغط «حلّل»</div></section>""")
         return
-    # Result panel = the gauge and the number inside it, nothing else (no verdict pill, no legend, no side figures).
-    # The one exception is a text too short to judge: then a single line says so instead of showing a meaningless gauge.
-    vc = _grad(rep.score / 100.0)
+    vc = _glow(rep.color)
+    dial_color = _grad(max(0.0, min(100.0, rep.score)) / 100)
+    soft_color = _dial_soft_color(dial_color)
     if plan is not None:
-        dial = dial_svg(rep.score, plan.percent if plan.sufficient else 0.0, plan.sufficient)
-        short = "" if plan.sufficient else '<p class="note">النص قصير جدًا؛ لا توجد نتيجة صالحة للعرض.</p>'
+        pct = plan.percent if plan.sufficient else 0.0
+        soft = 100 * plan.soft_words / plan.qualifying_words if plan.sufficient and plan.qualifying_words else 0.0
+        dial = dial_svg(rep.score, pct, plan.sufficient)
+        if plan.sufficient:
+            if plan.soft_words:
+                legend = (f'<div class="chips" style="justify-content:center;margin:6px 0 2px">'
+                          f'<span class="chip"><i style="background:{dial_color}"></i>تظليل أساسي '
+                          f'<b class="num">{pct:.0f}%</b></span>'
+                          f'<span class="chip"><i style="background:{soft_color};opacity:.65"></i>تظليل تكميلي فاتح '
+                          f'<b class="num">+{soft:.0f}%</b></span></div>'
+                          '<p class="note">اللون الفاتح امتداد بصري لمؤشر المحرك العام، وليس كشفًا مستقلًا للجمل.</p>')
+            else:
+                legend = ""
+        else:
+            legend = '<p class="note">النص قصير جدًا؛ لا توجد نتيجة صالحة للعرض.</p>' 
     else:
-        dial, short = dial_svg(rep.score), ""
-    md(f"""<section id="nebras-result" class="panel dial-panel" style="--halo:{vc}33" aria-label="لوحة النتيجة">{dial}{short}</section>""")
+        dial, legend = dial_svg(rep.score), ""
+    md(f"""<section class="panel dial-panel" style="--halo:{vc}33" aria-label="لوحة النتيجة">{dial}
+      {legend}
+      <div class="verdict-pill" style="--vc:{vc}"><i></i><span>{esc(rep.verdict)}</span></div>
+      <dl class="facts">
+        <div><dt title="مثل نسبة Turnitin/GPTZero: حصة كلمات المتن الواقعة في فقرات درجتها ≥ 55">نسبة النص المشتبه به</dt><dd class="num">{_suspect_share(rep)}</dd></div>
+        <div><dt>الثقة بالحكم</dt><dd class="num">{rep.confidence*100:.0f}%</dd></div>
+        <div><dt>الكلمات</dt><dd class="num">{rep.words:,}</dd></div>
+        <div><dt>الجمل</dt><dd class="num">{rep.sentences:,}</dd></div>
+      </dl></section>""")
 
 
 def math_notice(rep):
@@ -378,7 +360,8 @@ def report_download_panel(rep, source: dict, key: str):
         stem = Path(filename_only(source.get("filename") or "text")).stem or "text"
         st.download_button("⬇ تحميل التقرير (PDF)", data=cache[ck], type="primary", key=f"dl_{key}",
                            file_name=f"Nebras_AI_Report_{stem}.pdf", mime="application/pdf")
-        md('<p class="note">النسبة الرئيسية في التقرير من مؤشر المحرك العام مباشرة؛ التظليل القوي للمواضع المرصودة، والفاتح تكميلي بصري لا يُثبت مصدر جملة بعينها.</p>')
+        if getattr(rep, "segmentation", None) is None:
+            md('<p class="note">النسبة الرئيسية في التقرير من مؤشر المحرك العام مباشرة؛ التظليل القوي للمواضع المرصودة، والفاتح تكميلي بصري لا يُثبت مصدر جملة بعينها.</p>')
 
 
 # ----------------------------------------------------------------- result
@@ -451,19 +434,8 @@ def reset_results():
     # empty widget, and drop cached results. Same effect as a page reload, but deterministic.
     st.session_state["desk_nonce"] = _nonce() + 1
     for key in ("current_report", "batch_reports", "editor_origin", "report_source",
-                "batch_sources", "original_file_text", "plan_cache", "pdf_cache", "scroll_to_result"):
+                "batch_sources", "original_file_text", "plan_cache", "pdf_cache"):
         st.session_state.pop(key, None)
-
-
-def analysis_action(label, key):
-    """Keep the check beside the action; fill its slot after token consumption."""
-    with st.container(key="analysis_actions"):
-        challenge, submit = st.columns([1.65, 1], gap="small", vertical_alignment="center")
-        with challenge:
-            captcha_slot = st.container()
-        with submit:
-            pressed = st.button(label, type="primary", key=key, use_container_width=True)
-    return pressed, captcha_slot
 
 
 def input_desk():
@@ -472,14 +444,14 @@ def input_desk():
                    or st.session_state.get("batch_reports") is not None)
     selection = st.radio("طريقة الإدخال", [MODE_TEXT, MODE_FILE, MODE_BATCH],
                          horizontal=True, key=f"input_mode_{n}")
+    md('<div style="height:10px"></div>')
     if selection == MODE_TEXT:
         text_key = f"pasted_input_{n}"
-        st.text_area("النص", height=130 if has_results else 170, key=text_key,
-                     placeholder="الصق النص هنا لبدء الفحص — 300 كلمة على الأقل.")
+        st.text_area("النص", height=130 if has_results else 290, key=text_key,
+                     placeholder="الصق النص العربي أو الإنجليزي هنا (300 كلمة على الأقل). الفحص يطابق المحرك الأصلي.")
         _words_now = len(clean_for_engine(st.session_state.get(text_key, "")).split())
-        md(f'<p class="word-count">عدد الكلمات: {_words_now} / الحد الأدنى {MIN_WORDS} كلمة.</p>')
-        pressed, captcha_slot = analysis_action("حلّل النص", f"analyze_text_{n}")
-        if pressed:
+        st.caption(f"عدد الكلمات: {_words_now} / الحد الأدنى {MIN_WORDS} كلمة.")
+        if st.button("حلّل النص", type="primary", key=f"analyze_text_{n}"):
             s = st.session_state.get(text_key, "")
             src = clean_for_engine(s)
             words = len(src.split())
@@ -487,27 +459,26 @@ def input_desk():
                 st.warning("أدخل نصًا أولًا.")
             elif words < MIN_WORDS:
                 st.warning(f"النص يحتوي {words} كلمة فقط. لا يُقبل التحليل أقل من {MIN_WORDS} كلمة — أطِل النص ثم أعد المحاولة.")
-            elif require_human():
+            else:
                 try:
                     st.session_state["current_report"] = analyze_pasted(src)
                     st.session_state["batch_reports"] = None
                     st.session_state["editor_origin"] = None
                     st.session_state["report_source"] = {"text": src}
-                    st.session_state["scroll_to_result"] = True
                 except Exception as ex:
                     st.error(str(ex))
     elif selection == MODE_FILE:
         # No `type=` filter: Android/iOS pickers grey out files when given a list of extensions (and drop files
         # that arrive without one). Unsupported types are rejected with a clear message below instead.
         uploaded = st.file_uploader("ملف PDF أو Word أو نص", key=f"one_file_{n}")
-        pressed, captcha_slot = analysis_action("حلّل الملف", f"analyze_file_{n}")
-        if pressed:
+        md('<p class="note">ملفات PDF النصية تُقرأ مباشرة، والمصوّرة عبر OCR محلي (يحتاج Tesseract مثبتًا). ملفات Word تحتفظ بقرائن تنسيقها.</p>')
+        if st.button("حلّل الملف", type="primary", key=f"analyze_file_{n}"):
             if uploaded is None:
                 st.warning("اختر ملفًا أولًا.")
-            elif require_human():
+            else:
                 try:
                     data = uploaded.getvalue()
-                    uname = normalize_upload_name(uploaded.name, getattr(uploaded, "type", ""), data)
+                    uname = normalize_upload_name(uploaded.name, getattr(uploaded, "type", ""))
                     report = analyze_uploaded_bytes(uname, data)
                     st.session_state["current_report"] = report
                     st.session_state["batch_reports"] = None
@@ -515,7 +486,6 @@ def input_desk():
                     st.session_state["report_source"] = {"filename": uname, "data": data}
                     st.session_state["editable_text"] = "\n".join(report.texts)
                     st.session_state["original_file_text"] = "\n".join(report.texts)
-                    st.session_state["scroll_to_result"] = True
                 except Exception as ex:
                     st.error(str(ex))
         origin = st.session_state.get("editor_origin")
@@ -529,7 +499,7 @@ def input_desk():
                     text = st.session_state.get(edit_key, "")
                     if not text.strip():
                         st.warning("النص فارغ.")
-                    elif require_human():
+                    else:
                         try:
                             if text == st.session_state.get("original_file_text", ""):
                                 r = analyze_uploaded_bytes(origin[0], origin[1])
@@ -540,37 +510,28 @@ def input_desk():
                                 st.session_state["report_source"] = {"text": src}
                             st.session_state["current_report"] = r
                             st.session_state["batch_reports"] = None
-                            st.session_state["scroll_to_result"] = True
                         except Exception as ex:
                             st.error(str(ex))
     else:
         multiple = st.file_uploader("ملفات متعددة أو أرشيف ZIP", accept_multiple_files=True,
                                     key=f"multi_files_{n}")
         md('<p class="note">ارفع أرشيف ZIP لمجلد كامل. يُحلَّل كل ملف بنفس طريقة الملف المنفرد.</p>')
-        pressed, captcha_slot = analysis_action("حلّل الدفعة", f"analyze_batch_{n}")
-        if pressed:
+        if st.button("حلّل الدفعة", type="primary", key=f"analyze_batch_{n}"):
             if not multiple:
                 st.warning("ارفع ملفًا واحدًا على الأقل.")
-            elif require_human():
+            else:
                 try:
-                    files = []
-                    for x in multiple:
-                        _d = x.getvalue()
-                        files.append((normalize_upload_name(x.name, getattr(x, 'type', ''), _d), _d))
+                    files = [(normalize_upload_name(x.name, getattr(x, 'type', '')), x.getvalue()) for x in multiple]
                     results = analyze_batch_inputs(files)
                     if results:
                         st.session_state["batch_sources"] = {lbl: d for lbl, d in expand_uploaded_inputs(files)}
                         st.session_state["batch_reports"] = results
                         st.session_state["current_report"] = None
                         st.session_state["editor_origin"] = None
-                        st.session_state["scroll_to_result"] = True
                     else:
                         st.warning("لم يتضمن الرفع ملفات مدعومة.")
                 except Exception as ex:
                     st.error(str(ex))
-
-    with captcha_slot:
-        render_turnstile()
 
 
 def cloudflare_web_analytics():
@@ -594,31 +555,6 @@ def cloudflare_web_analytics():
     )
 
 
-def reveal_mobile_result():
-    """Move to a newly completed result once; other widget reruns keep their position."""
-    if not st.session_state.pop("scroll_to_result", False):
-        return
-    components.html("""
-        <script>
-        (() => {
-            const host = window.parent;
-            if (!host.matchMedia('(max-width:760px)').matches) return;
-            let attempts = 0;
-            const reveal = () => {
-                const target = host.document.getElementById('nebras-result');
-                if (target && target.getBoundingClientRect().height > 0) {
-                    target.scrollIntoView({block:'start', behavior:
-                        host.matchMedia('(prefers-reduced-motion:reduce)').matches ? 'auto' : 'smooth'});
-                } else if (++attempts < 120) {
-                    host.requestAnimationFrame(reveal);
-                }
-            };
-            host.requestAnimationFrame(reveal);
-        })();
-        </script>
-        """, height=0)
-
-
 def main():
     md(f"<style>{_css()}</style>")
     cloudflare_web_analytics()
@@ -630,9 +566,9 @@ def main():
     masthead()
     batch = st.session_state.get("batch_reports")
     rep = st.session_state.get("current_report")
-    desk, board = st.columns([1.35, 1], gap="medium")
+    desk, board = st.columns([1.15, 1], gap="large")
     with desk:
-        with st.container(border=True, key="input_panel"):
+        with st.container(border=True):
             input_desk()
             batch = st.session_state.get("batch_reports")
             rep = st.session_state.get("current_report")
@@ -641,21 +577,19 @@ def main():
                 if rep is not None and batch is None:
                     md(f'<p class="note" style="margin:6px 0 0">المصدر: <bdi>{esc(rep.source)}</bdi></p>')
     with board:
-        with st.container(key="result_board"):
-            if batch is not None:
-                md(f"""<section id="nebras-result" class="panel dial-panel" aria-label="لوحة الدفعة">{dial_svg(None).replace('بانتظار النص','دفعة')}
-                <div class="verdict-pill idle">تم تحليل {sum(1 for _, r in batch if not isinstance(r, Exception))} من {len(batch)} ملفًا</div></section>""")
-            else:
-                dial_panel(rep, shaded_plan(rep, st.session_state.get("report_source")) if rep is not None else None)
-                if rep is not None:
-                    math_notice(rep)
-                    report_download_panel(rep, st.session_state.get("report_source"), "single")
+        if batch is not None:
+            md(f"""<section class="panel dial-panel" aria-label="لوحة الدفعة">{dial_svg(None).replace('بانتظار النص','دفعة')}
+            <div class="verdict-pill idle">تم تحليل {sum(1 for _, r in batch if not isinstance(r, Exception))} من {len(batch)} ملفًا</div></section>""")
+        else:
+            dial_panel(rep, shaded_plan(rep, st.session_state.get("report_source")) if rep is not None else None)
+            if rep is not None:
+                math_notice(rep)
+                report_download_panel(rep, st.session_state.get("report_source"), "single")
     if batch is not None:
         batch_dashboard(batch)
     elif rep is not None:
         report_dashboard(rep)
     footer()
-    reveal_mobile_result()
 
 
 if __name__ == "__main__":
