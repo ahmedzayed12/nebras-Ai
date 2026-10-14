@@ -928,7 +928,11 @@ def _cover(doc, rep, plan, meta, page_total, *, page=None):
          '<div style="font-size:46pt;font-weight:bold;color:#%02X%02X%02X;line-height:1">%s</div>'
          '<div class="lbl">Overall AI style index (engine)</div>'
          % (int(col[0] * 255), int(col[1] * 255), int(col[2] * 255), _esc(percent_label(plan))))
-    if plan.sufficient:
+    if plan.sufficient and getattr(rep, "segmentation", None) is not None:
+        ar = "التظليل يطابق النسبة؛ كل فقرة مظللة نسبها المحرك إلى النص المولَّد."
+        stat = ("<b>%d</b> of <b>%d</b> eligible words shaded"
+                % (plan.total_words, plan.qualifying_words))
+    elif plan.sufficient:
         ar = "النتيجة النهائية من مؤشر المحرك العام."
         stat = ("<b>%d</b> of <b>%d</b> eligible words highlighted (strong + probable)"
                 % (plan.total_words, plan.qualifying_words))
@@ -1172,10 +1176,63 @@ def _content_box(page):
     return box
 
 
+def plan_from_segmentation(rep, paras) -> Plan | None:
+    """v2.5: shading = the document index, attributed paragraph by paragraph by the engines.
+
+    Each prose unit carries its own probability of being generated, computed from its own wording, its own slips /
+    paste traces and its neighbours (segment_signals). The index is the share of prose words in the units whose
+    probability is 0.5 or more, and exactly those paragraphs are shaded, whole. No supplementary / illustrative tint:
+    every shaded word belongs to a paragraph the engines attribute to generation, so shading == index."""
+    seg = getattr(rep, "segmentation", None)
+    if seg is None or not seg.units:
+        return None
+    eng = ba.get_engine()
+    plan = Plan()
+    units = []
+    for k, u in enumerate(seg.units):
+        idx = [i for i in u.idx if 0 <= i < len(paras) and paras[i].text.strip()]
+        if not idx:
+            continue
+        w = 0
+        for i in idx:
+            n = len(eng.WORD_RE.findall(paras[i].text))
+            plan.per_para[i] = (n, 0)
+            w += n
+        units.append((u.post, k, idx, w))
+    plan.qualifying_words = sum(x[3] for x in units)
+    plan.qualifying_sentences = sum(len(eng.split_sentences(paras[i].text)) for x in units for i in x[2])
+    if plan.qualifying_words < MIN_WORDS:
+        plan.sufficient = False
+        return plan
+    plan.engine_index = max(0.0, min(100.0, float(rep.score)))
+    import segment_signals as sg
+    chosen = []                                            # ("strong", probability, para, start, end): whole sentences
+    for post, _k, idx, _w in units:
+        if post < sg.SUSPECT:
+            continue
+        for i in idx:
+            text = paras[i].text
+            chosen += [("strong", post, i, a, b) for a, b in eng.split_sentences(text)
+                       if eng.WORD_RE.search(text[a:b])]
+    plan.target_words = sum(len(eng.WORD_RE.findall(paras[i].text[a:b])) for _l, _p, i, a, b in chosen)
+    plan.units = chosen
+    _materialise(plan, chosen,
+                 lambda i, a, b: len(eng.WORD_RE.findall(paras[i].text[a:b])),
+                 lambda i, a, b: sum(a <= x and y <= b for x, y in eng.split_sentences(paras[i].text)))
+    return plan
+
+
+def make_plan(rep, paras, prov=None) -> Plan:
+    plan = plan_from_segmentation(rep, paras)
+    if plan is not None:
+        return plan
+    return balance_to_engine_index(rep, paras, plan_highlights(rep, paras, prov))
+
+
 def compute_plan(rep, *, filename=None, data=None, text=None) -> Plan:
     """Same plan the PDF uses, without any conversion; lets the UI show the identical percentage."""
     paras, kind, mm = _paras_for(rep, filename, data, text)
-    return balance_to_engine_index(rep, paras, plan_highlights(rep, paras, _prov_for(kind, data, mm)))
+    return make_plan(rep, paras, _prov_for(kind, data, mm))
 
 
 def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGHT_HEX) -> bytes:
@@ -1184,7 +1241,7 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
     if text is None and (filename is None or data is None):
         raise ValueError("يلزم الملف الأصلي أو النص الأصلي لإنشاء التقرير.")
     paras, kind, mm = _paras_for(rep, filename, data, text)
-    plan = balance_to_engine_index(rep, paras, plan_highlights(rep, paras, _prov_for(kind, data, mm)))
+    plan = make_plan(rep, paras, _prov_for(kind, data, mm))
     orig_texts, shade = _source_shading(rep, paras, plan, mm)   # ranges expressed on the SOURCE paragraphs
 
     if text is not None:

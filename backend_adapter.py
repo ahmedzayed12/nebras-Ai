@@ -1163,6 +1163,19 @@ def _enhance(report):
     _score_stage(report, "academic", "طبقة النثر الأكاديمي")
     _local_style_review(report, paras)
     _score_stage(report, "local_style", "مراجعة الأنماط العربية والإنجليزية المحلية")
+    # v2.5: paragraph-level reading of the document (segment_signals). It is computed here, from the evidence gathered so
+    # far; the v2.3 steps below still run (their diagnostics stay on the report), and the segmentation then sets the index.
+    report.segmentation = None
+    seg = None
+    seg_before = float(report.score)
+    if not deck_mode:
+        try:
+            seg = _segment(report, topic, pa)
+        except Exception:
+            seg = None
+    use_seg = (seg is not None and seg.units and seg.words >= SEG_MIN_WORDS and
+               sum(u.words for u in seg.units if not u.arabic) >= SEG_MIN_ENGLISH * seg.words)
+
     # Paragraph map = wording evidence only. The evidence about the FILE (human editing history, hand formatting,
     # typing slips) applies to every paragraph of that file exactly as it applies to the document score, so it is
     # added to each paragraph's log-odds (human evidence only, never raising). Without this the map and the
@@ -1198,6 +1211,20 @@ def _enhance(report):
     if not deck_mode and _anchor_map_to_index(report):
         shifted = True
 
+    if use_seg:
+        report.score = seg_before
+        _apply_segmentation(report, seg, lines)
+        _score_stage(report, "segmentation", "قراءة المستند فقرةً فقرة")
+        if getattr(report, "from_pdf", False):
+            lines.insert(0, "■ PDF: ملف PDF يحمل النص النهائي وحده - بلا تاريخ تحرير ولا تنسيق يدوي ولا هفوات كتابة - فالتقدير من الصياغة وحدها (النص وحده).")
+        report.verdict, report.color = (_pdf_verdict(report, eng) if getattr(report, "from_pdf", False)
+                                        else eng.make_verdict(report.score, report.words))
+        report.reasons = [r for r in report.reasons if not str(r).startswith("⚠ مستند مختلط محتمل")] + lines
+        ff = getattr(report, "format_forensics", None)
+        if ff is not None:
+            report.reasons = list(report.reasons) + ff.lines()
+        return report
+
     if shifted:      # the engine's own "mixed document" line was computed before the file evidence reached the map
         report.reasons = [r for r in report.reasons if not str(r).startswith("⚠ مستند مختلط محتمل")]
         _tot = sum(n for _, _, n in report.para_scores)
@@ -1222,6 +1249,92 @@ def _enhance(report):
         report.reasons = list(report.reasons) + ff.lines()
     return report
 
+
+# ------------------------------------------------------------------------------------------------------------------
+# v2.5  paragraph-level segmentation (segment_signals)
+# ------------------------------------------------------------------------------------------------------------------
+SEG_MIN_WORDS = 150
+SEG_META_GEN = 0.6          # programmatic generator in the file metadata -> applies to every paragraph of the file
+SEG_FRICTION_MAX = 1.2      # log-odds added to suspected paragraphs when the suspected text is slip-free
+SEG_FRICTION_MIN_WORDS = 800
+# When the whole-document reading of the earlier stages is itself far above anything measured on human files
+# (bench maximum 66), every paragraph's prior is raised in proportion (0 at SEG_DOC_GATE, SEG_DOC_LOGIT at 100).
+# Paragraphs that are clearly human stay human; only the undecided ones follow the document.
+SEG_DOC_GATE, SEG_DOC_LOGIT = 80.0, 2.0
+SEG_MIN_ENGLISH = 0.6       # the paragraph habits are English habits: Arabic documents keep the v2.3 document reading
+
+
+def _roles_for(report):
+    paras = getattr(report, "doc_paras", None)
+    texts = list(report.texts)
+    if paras is not None and len(paras) == len(texts):
+        return [getattr(p, "role", "body") for p in paras], paras
+    eng = get_engine()
+    ps = [eng.Para(text=t) for t in texts]
+    eng.assign_roles(ps, False)
+    return [p.role for p in ps], None
+
+
+def _segment(report, topic, pa):
+    import segment_signals as sg
+    roles, paras = _roles_for(report)
+    docx = bool(getattr(report, "is_docx", False)) and not getattr(report, "from_pdf", False)
+    pasted = set()
+    if docx and paras is not None:
+        try:
+            import friction
+            runs = friction._paste_runs(paras)
+            pasted = set().union(*runs.values()) if runs else set()
+            ff = getattr(report, "format_forensics", None)
+            pasted |= friction._block_index_set(ff)
+        except Exception:
+            pass
+    feats = getattr(report, "features", None) or {}
+    g = 0.0
+    if "meta_gen" in feats and feats["meta_gen"][2] > 0:
+        g += SEG_META_GEN * feats["meta_gen"][2]
+    traces = dict(getattr(pa, "trace_texts", {}) or {}) if pa is not None else {}
+    if pa is not None and pa.total >= PASTE_MIN and not traces:
+        g += 0.3 * min(PASTE_MAX_LOGIT, PASTE_LOGIT * pa.total)     # file-wide paste trace (e.g. typed-space indents)
+    seg = sg.segment(report.texts, roles, report.findings, report.para_scores, topic or frozenset(), docx=docx,
+                     paste_texts=traces, pasted_idx=frozenset(pasted), global_logit=g)
+    # "A human always slips" (Word files): a long suspected text without a single slip confirms the suspicion.
+    if docx and seg.units:
+        import friction
+        sus = [u for u in seg.units if u.post >= sg.SUSPECT]
+        sw = sum(u.words for u in sus)
+        if sw >= SEG_FRICTION_MIN_WORDS:
+            rate = sum(u.slips for u in sus) / (sw / 1000.0)
+            f = friction.floor_for(rate)
+            if f > 50.0:
+                sg.strengthen_clean_suspects(seg, SEG_FRICTION_MAX * (f - 50.0) / 40.0)
+    return seg
+
+
+def _apply_segmentation(report, seg, lines):
+    """The index = the share of prose words in the paragraphs the engines attribute to generation (probability >= 0.5).
+    The paragraph map and the PDF shading are built from exactly the same paragraphs, so they always equal the index."""
+    import segment_signals as sg
+    eng = get_engine()
+    before = float(report.score)
+    report.segmentation = seg
+    report.score_document = before          # whole-document reading of the earlier stages (kept for diagnosis)
+    if before > SEG_DOC_GATE:
+        sg.raise_prior(seg, SEG_DOC_LOGIT * min(1.0, (before - SEG_DOC_GATE) / (100.0 - SEG_DOC_GATE)))
+    words_of = {i: len(eng.WORD_RE.findall(report.texts[i] or "")) for u in seg.units for i in u.idx}
+    tot = sum(words_of.values()) or 1
+    hit = sum(words_of[i] for u in seg.units if u.post >= sg.SUSPECT for i in u.idx)
+    report.ai_share = hit / tot
+    report.ai_share_expected = seg.share
+    report.score = round(100.0 * hit / tot, 1)
+    report.para_scores = [(i, round(100.0 * seg.para_post[i], 0), words_of[i]) for i in sorted(seg.para_post)]
+    report.reasons = [r for r in report.reasons if not str(r).startswith("⚠ مستند مختلط محتمل")]
+    if seg.blocks:
+        spans = "، ".join(("الفقرة %d" % (a + 1)) if a == b else ("الفقرات %d–%d" % (a + 1, b + 1)) for a, b, _ in seg.blocks[:8])
+        lines.append("◆ قراءة المستند فقرةً فقرة: %.0f%% من كلمات المتن في فقرات تحمل عادات النص المولَّد، في %d كتلة (%s)."
+                     % (report.score, len(seg.blocks), spans))
+    else:
+        lines.append("◆ قراءة المستند فقرةً فقرة: لا توجد فقرة تحمل عادات النص المولَّد.")
 
 def analyze_text_guarded(text: str, source: str = "نص ملصق", deck=None, from_pdf: bool = False):
     """Text route (paste / TXT / MD / PDF text): equations out, then the unchanged engine."""

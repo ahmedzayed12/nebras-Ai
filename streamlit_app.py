@@ -260,6 +260,8 @@ def _suspect_share(rep) -> str:
     deck = getattr(rep, "deck", None)
     if deck is not None and deck.is_deck and deck.suspect_share is not None:
         return "%.0f%% من الشرائح" % (100.0 * deck.suspect_share)
+    if getattr(rep, "segmentation", None) is not None:      # v2.5: the index IS the share of generated text
+        return "%.0f%%" % rep.score
     ps = list(getattr(rep, "para_scores", []) or [])
     tot = sum(n for _, _, n in ps)
     return "%.0f%%" % (100.0 * sum(n for _, sc, n in ps if sc >= 55) / tot) if tot >= 150 else "—"
@@ -378,7 +380,8 @@ def report_download_panel(rep, source: dict, key: str):
         stem = Path(filename_only(source.get("filename") or "text")).stem or "text"
         st.download_button("⬇ تحميل التقرير (PDF)", data=cache[ck], type="primary", key=f"dl_{key}",
                            file_name=f"Nebras_AI_Report_{stem}.pdf", mime="application/pdf")
-        md('<p class="note">النسبة الرئيسية في التقرير من مؤشر المحرك العام مباشرة؛ التظليل القوي للمواضع المرصودة، والفاتح تكميلي بصري لا يُثبت مصدر جملة بعينها.</p>')
+        if getattr(rep, "segmentation", None) is None:
+            md('<p class="note">النسبة الرئيسية في التقرير من مؤشر المحرك العام مباشرة؛ التظليل القوي للمواضع المرصودة، والفاتح تكميلي بصري لا يُثبت مصدر جملة بعينها.</p>')
 
 
 # ----------------------------------------------------------------- result

@@ -143,6 +143,7 @@ class PasteArtifacts:
     total: float = 0.0
     evidence: List[str] = field(default_factory=list)
     parts: dict = field(default_factory=dict)      # trace -> its raw contribution (weight x strength), so a caller can scale them
+    trace_texts: dict = field(default_factory=dict)   # paragraph text key -> strength of the chat-UI trace it carries
 
 
 WEIGHTS = {"chat_color": 1.2, "chat_shade": 0.8, "chat_font": 1.0, "autospacing": 0.5,
@@ -203,12 +204,22 @@ def paste_artifacts(content: bytes, ff: "FormatForensics" = None) -> PasteArtifa
             pa.parts[k] = w * z
             pa.evidence.append("   +%.1f  %s (%.0f%% من فقرات المتن)" % (w * z, LABELS[k], 100 * v))
     pa.total = tot
+    # per-paragraph traces (a pasted chat answer inside a human file carries them only on its own paragraphs)
+    for px, txt in rows:
+        w = (1.0 if _CHAT_COLOR.search(px) else 0.0) + (0.7 if _CHAT_SHADE.search(px) else 0.0) \
+            + (0.8 if _CHAT_FONT.search(px) else 0.0) + (0.4 if _AUTOSPACE.search(px) else 0.0)
+        if w > 0:
+            pa.trace_texts[trace_key(txt)] = min(1.0, w)
     if ff is not None:
         try:
             ff.context = human_work_traces(content)
         except Exception:
             ff.context = []
     return pa
+
+
+def trace_key(t: str) -> str:
+    return re.sub(r"\s+", " ", (t or "")).strip()[:120]
 
 
 # =============================================================================
