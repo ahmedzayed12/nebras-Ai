@@ -95,3 +95,15 @@ def test_neighbours_never_attribute_a_paragraph_whose_own_evidence_is_human():
     sg.own_evidence_veto(seg)
     assert seg.units[1].post < sg.SUSPECT and seg.units[0].post >= sg.SUSPECT
     assert abs(seg.suspect_share - 2 / 3) < 1e-9
+
+
+def test_humanizer_spacing_marks_its_paragraphs_and_masked_letters_are_ignored():
+    odd = LLM_PARA.replace("framework to", "framework\u2002to").replace("examine how", "examine\u2002how")
+    assert sg.evasion_count(odd) == 2
+    masked = "Thі\u2060s chаp\u2060ter pr\u2060esents the review"     # joiners / look-alike letters: not counted, not cleaned
+    assert sg.evasion_count(masked) == 0
+    paras = [HUMAN_PARA, HUMAN_B] * 4 + [odd.replace("These", "These\u2002")] * 6
+    r = b.analyze_uploaded_bytes("ev.docx", _docx(paras))
+    assert r.segmentation.evasion >= 10
+    marked = [u for u in r.segmentation.units if u.tool_marked]
+    assert marked and all(u.post >= sg.SUSPECT for u in marked)
