@@ -41,7 +41,10 @@ def test_late_paragraphs_keep_the_same_evidence_as_identical_early_ones():
     assert any(after > before for before, after in r.style_storage_recovered.values())
     assert len(r.wording_map) == 220
     assert len({sc for _, sc, _ in r.wording_map}) == 1
-    assert len({sc for _, sc, _ in r.para_scores}) == 1
+    # v2.6: the paragraph map is a sequence reading; identical paragraphs get the same attribution, and the first one
+    # (one neighbour fewer) may differ by at most one point
+    scores = [sc for _, sc, _ in r.para_scores]
+    assert min(scores) >= 55 and max(scores) - min(scores) <= 1
     assert eng.CAP_PER_KIND == 400  # do not mutate the protected engine
 
 

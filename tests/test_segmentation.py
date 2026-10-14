@@ -107,3 +107,22 @@ def test_humanizer_spacing_marks_its_paragraphs_and_masked_letters_are_ignored()
     assert r.segmentation.evasion >= 10
     marked = [u for u in r.segmentation.units if u.tool_marked]
     assert marked and all(u.post >= sg.SUSPECT for u in marked)
+
+
+def test_humanizer_spacing_counts_as_one_moderate_habit_after_cleaning():
+    """v2.7: the spaces are read as ordinary spaces; the paragraph that carried them gets exactly SPACE_L, no more."""
+    spaced = HUMAN_PARA.replace(" ", "\u2002", 12)
+    clean = sg.segment([HUMAN_PARA] * 4, ["body"] * 4, docx=True)
+    marked = sg.segment([spaced] * 4, ["body"] * 4, docx=True)
+    assert marked.evasion >= 10 and all(u.tool_marked for u in marked.units)
+    for a, c in zip(marked.units, clean.units):
+        assert abs((a.L - c.L) - sg.SPACE_L) < 1e-6
+
+
+def test_spinner_phrases_mark_their_paragraph():
+    spun = ("The proposed model combines counterfeit consciousness with an irregular woodland classifier and reports "
+            "the mean square mistake on each fold, which shows a clear improvement over the baseline methods.")
+    assert sg.spinner_count(spun) == 3
+    assert sg.spinner_count("A profound learning experience for the students in the village school.") == 0
+    seg = sg.segment([spun] * 3, ["body"] * 3, docx=True)
+    assert seg.spun == 9 and all(u.tool_marked for u in seg.units)
