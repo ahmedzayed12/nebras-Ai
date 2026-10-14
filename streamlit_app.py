@@ -14,7 +14,6 @@ from __future__ import annotations
 import html
 from pathlib import Path
 
-import colorsys
 import math
 import streamlit as st
 import streamlit.components.v1 as components
@@ -30,7 +29,7 @@ st.set_page_config(
     page_icon="🔎", layout="wide", initial_sidebar_state="collapsed",
 )
 
-C = {"ai": "#FF4D8D", "human": "#35E0B4", "warn": "#FFC247"}
+C = {"ai": "#FF4B4B", "human": "#35E0B4", "warn": "#FFC247"}
 # Display-only bands, the same cut-offs the original UI used for paragraph colours.
 BAND_HIGH, BAND_MID = 55, 30
 MIN_WORDS = 300
@@ -181,31 +180,23 @@ def footer():
 # ----------------------------------------------------------------- visual components
 def _grad(t: float) -> str:
     """UI indicator colour by score only: green -> orange -> red."""
-    stops = [(0.0, (34, 197, 94)), (0.5, (249, 158, 11)), (1.0, (239, 68, 68))]
+    stops = [(0.0, (34, 197, 94)), (0.5, (249, 158, 11)),
+             (0.65, (255, 75, 75)), (1.0, (229, 37, 37))]
     t = max(0.0, min(1.0, t))
     for (t0, c0), (t1, c1) in zip(stops, stops[1:]):
         if t <= t1:
             k = (t - t0) / (t1 - t0)
             return "#%02X%02X%02X" % tuple(round(a + (b - a) * k) for a, b in zip(c0, c1))
-    return "#EF4444"
+    return "#E52525"
 
 
 def _dial_soft_color(color: str) -> str:
-    """Lighter shade of the exact same UI score colour (supplementary ticks only)."""
-    rgb = (int(color[i:i + 2], 16) for i in (1, 3, 5))
-    return "#%02X%02X%02X" % tuple(round(v * .45 + 255 * .55) for v in rgb)
+    """Retain the score's hue; CSS distinguishes partial evidence by opacity.
 
-
-def _glow(hexcolor: str) -> str:
-    """Lift the engine's verdict colour so it reads on the dark canvas (display only)."""
-    try:
-        h = hexcolor.lstrip("#")
-        r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
-        hh, ll, ss = colorsys.rgb_to_hls(r, g, b)
-        r, g, b = colorsys.hls_to_rgb(hh, max(ll, 0.64), max(ss, 0.72))
-        return "#%02X%02X%02X" % (round(r * 255), round(g * 255), round(b * 255))
-    except Exception:
-        return "#FFC247"
+    Mixing red with white made most of a high-scoring dial look pink when the
+    located sentence coverage was lower than the overall index.
+    """
+    return color
 
 
 def dial_svg(score=None, strong=None, plan_ok=True) -> str:
@@ -282,7 +273,7 @@ def dial_panel(rep=None, plan=None):
         return
     # Result panel = the gauge and the number inside it, nothing else (no verdict pill, no legend, no side figures).
     # The one exception is a text too short to judge: then a single line says so instead of showing a meaningless gauge.
-    vc = _glow(rep.color)
+    vc = _grad(rep.score / 100.0)
     if plan is not None:
         dial = dial_svg(rep.score, plan.percent if plan.sufficient else 0.0, plan.sufficient)
         short = "" if plan.sufficient else '<p class="note">النص قصير جدًا؛ لا توجد نتيجة صالحة للعرض.</p>'

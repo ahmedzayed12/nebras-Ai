@@ -16,7 +16,7 @@
   --night:#0C1322; --night-2:#131D30; --night-3:#1C2941;
   --ivory:#FFFFFF; --mist:#EEF2F8; --dim:#D6DEEC;
   --lantern:#FFC247; --lantern-soft:rgba(255,194,71,.16);
-  --ai:#FF4D8D; --human:#35E0B4;
+  --ai:#FF4B4B; --human:#35E0B4;
   --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.06);
   --panel:linear-gradient(180deg,rgba(255,255,255,.065),rgba(255,255,255,.02));
   --f-ui:'Plex AR','IBM Plex Sans Arabic','Segoe UI',Tahoma,sans-serif;
@@ -120,7 +120,7 @@ div[data-baseweb="popover"] li,div[data-baseweb="popover"] li *{direction:rtl;te
 .dial .tk{stroke-width:3.4;stroke-linecap:round;stroke:rgba(255,255,255,.13)}
 .dial .tk.on{stroke:currentColor;filter:drop-shadow(0 0 5px currentColor);
   animation:ignite .5s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * 9ms + 120ms)}
-.dial .tk.weak{opacity:.76;filter:none}
+.dial .tk.weak{opacity:.76;filter:none;animation-name:ignite-soft}
 .dial .tk.head{stroke-width:5.2;filter:drop-shadow(0 0 10px currentColor)}
 .dial .tk.idle{animation:scan 1.6s ease-out both;animation-delay:calc(var(--i) * 12ms)}
 .dial .ring{fill:none;stroke:rgba(255,255,255,.08);stroke-width:1}
@@ -128,6 +128,7 @@ div[data-baseweb="popover"] li,div[data-baseweb="popover"] li *{direction:rtl;te
 .dial .of{font-size:17px;fill:var(--mist)}
 .dial .hint{font-size:17px;fill:var(--mist)}
 @keyframes ignite{from{opacity:0;stroke:rgba(255,255,255,.13)}to{opacity:1}}
+@keyframes ignite-soft{from{opacity:0;stroke:rgba(255,255,255,.13)}to{opacity:.76}}
 @keyframes scan{0%{stroke:rgba(255,255,255,.13)}40%{stroke:rgba(255,194,71,.8)}100%{stroke:rgba(255,255,255,.13)}}
 .verdict-pill{display:inline-flex;align-items:center;gap:10px;margin-top:6px;padding:9px 20px;border-radius:999px;
   border:1px solid var(--vc);background:color-mix(in srgb,var(--vc) 12%,transparent);
