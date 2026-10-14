@@ -509,6 +509,61 @@ PASTE_MAX_LOGIT = 3.0
 PASTE_MIN = 0.8
 
 
+# Paste layer, scaled by what the wording says. Fixed a-priori constants: below 10% of the text reading as LLM prose is noise
+# (ordinary human prose has a few such paragraphs); at 50% or more, half the document is LLM prose and the formatting traces are
+# fully corroborated. Direct chat-window fingerprints keep at least half their weight whatever the wording says.
+WORDING_HOT_SCORE = 50
+WORDING_NOISE, WORDING_FULL = 0.10, 0.50
+PASTE_DIRECT_FLOOR = 0.5
+
+
+def wording_share(report) -> float:
+    """0..1: how much of the text reads as LLM prose, judged by the independent academic-prose layer (never by the engine's own
+    paragraph scores, which run high on ordinary human prose). Two parts multiplied: the share of words sitting in paragraphs
+    that layer scores >= 50 (continuous, so rewriting part of a document lowers it part of the way), and the layer's own
+    convergence strength (0 when fewer than two independent habits converge on the document as a whole)."""
+    acad, layer, topic = _academic_for(report)
+    if acad is None or layer is None:
+        return 0.0
+    strength = float(getattr(layer, "strength", 0.0) or 0.0)
+    if strength <= 0:
+        return 0.0
+    ps = list(getattr(report, "wording_map", None) or [])
+    texts = list(getattr(report, "texts", None) or [])
+    tot = hot = 0.0
+    for i, _, n in ps:
+        if not (0 <= i < len(texts)):
+            continue
+        t = acad.para_score(texts[i], topic=topic)
+        if t is None:
+            continue
+        tot += n
+        if t >= WORDING_HOT_SCORE:
+            hot += n
+    if tot <= 0:
+        return 0.0
+    return strength * max(0.0, min(1.0, (hot / tot - WORDING_NOISE) / (WORDING_FULL - WORDING_NOISE)))
+
+
+def _paste_effective(report, pa):
+    """(effective total, wording share, [lines], raw total). Each trace counts in proportion to how much it says about the
+    words: direct fingerprints at least half, text-level marks fully, paragraph formatting only as far as the wording agrees."""
+    parts = getattr(pa, "parts", None)
+    if not parts:
+        return float(pa.total), 1.0, list(pa.evidence), float(pa.total)
+    import format_forensics as _ff
+    share = wording_share(report)
+    eff, rows = 0.0, []
+    for k, v in parts.items():
+        kind = _ff.KIND.get(k, "format")
+        f = 1.0 if kind == "text" else max(PASTE_DIRECT_FLOOR, share) if kind == "direct" else share
+        eff += v * f
+        rows.append((k, v, f))
+    lines = ["   +%.1f  %s%s" % (v * f, _ff.LABELS[k], "" if f >= 0.995 else " (تُحتسب بنسبة %.0f%% لأن الصياغة تتفق معها بهذا القدر)" % (100 * f))
+             for k, v, f in rows if v * f >= 0.05]
+    return eff, share, lines, float(pa.total)
+
+
 def _recalibrate_container(report, strength: float = 1.0):
     """Relax the human-trace (container) evidence toward CONTAINER_CAP in PROPORTION to how strongly the independent
     wording evidence converges (strength 0..1). Full convergence (3 habits) = the full cap, as before; two habits
@@ -622,6 +677,7 @@ def _enhance(report):
     scores (which drive the PDF shading) are updated together so every report shows the same percentage."""
     eng = get_engine()
     report.score_engine = float(report.score)
+    report.wording_map = list(getattr(report, "para_scores", None) or [])
     report.tech = None
     report.academic = None
     lines = []
@@ -675,15 +731,19 @@ def _enhance(report):
                              ("CV=%.2f" % x.value) if x.key == "desc_cv" else "%.0f%% من الشرائح" % (100 * x.value)))
         prose_fired = prose_fired or deck.confidence > 0
     pa = getattr(report, "paste", None)
-    paste_fired = pa is not None and pa.total >= PASTE_MIN
+    paste_eff, paste_share, paste_lines, paste_raw = _paste_effective(report, pa) if pa is not None else (0.0, 0.0, [], 0.0)
+    paste_fired = pa is not None and paste_eff >= PASTE_MIN
     if paste_fired:
         before = float(report.score)
-        report.z = float(report.z) + min(PASTE_MAX_LOGIT, PASTE_LOGIT * pa.total)
+        report.z = float(report.z) + min(PASTE_MAX_LOGIT, PASTE_LOGIT * paste_eff)
         conf = float(getattr(report, "confidence", 1.0) or 0.0)
         report.score = 100.0 / (1.0 + math.exp(-report.z * conf)) if conf else report.score
         lines.append("▲ آثار نسخ/لصق في تنسيق ملف Word (طبقة مستقلة) رفعت المؤشر من %.0f إلى %.0f:" % (before, report.score))
-        lines += list(pa.evidence)
-    strength = 1.0 if (paste_fired or (deck_mode and deck.confidence > 0)) else float(getattr(acad_layer, "strength", 0.0) or 0.0)
+        lines += paste_lines
+    elif pa is not None and paste_raw >= PASTE_MIN:
+        lines.append("■ في الملف آثار تنسيق نُسخ من ويب (%d أثرًا)، لكن %.0f%% فقط من النص تتفق صياغته معها، فلم تُحتسب. "
+                     "التنسيق يبقى في الملف بعد إعادة كتابة الكلمات، فلا يُعتدّ به وحده دليلًا على النص." % (len(getattr(pa, "parts", {}) or pa.evidence), 100 * paste_share))
+    strength = 1.0 if (deck_mode and deck.confidence > 0) else max(float(getattr(acad_layer, "strength", 0.0) or 0.0), paste_share if paste_fired else 0.0)
     if (prose_fired or paste_fired) and _recalibrate_container(report, strength):
         lines.append("◆ معايرة آثار الملف: آثار التحرير/التنسيق/الاقتباس في ملف Word تدل على أن إنسانًا تعامل مع الملف، "
                      "لا على أنه كتب النص؛ فخُفِّف أثرها المجتمع من %.1f إلى %.1f بنسبة تقارب القرائن الأسلوبية المستقلة %.0f%% (المؤشر %.0f ← %.0f)."
