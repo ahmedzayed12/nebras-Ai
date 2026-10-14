@@ -78,11 +78,15 @@ def test_one_pasted_word_does_not_mark_a_paragraph():
     assert prov[0].direct == 0.0
 
 
-def test_pasted_block_is_located_as_whole_paragraphs_only():
+def test_pasted_block_is_located_as_supported_whole_sentences():
     data = _docx([_p(t) for t in HUMAN[:3]] + [_p(t, CHAT, UI, "00BB0002") for t in AI] + [_p(HUMAN[3], rsid="00AA0003")])
     _rep, paras, plan = _plan(data)
     for i in (3, 4, 5):
-        assert _cover(plan, paras, i)[0] > 0.98            # first sentence start .. last sentence end
+        assert _cover(plan, paras, i)[0] > 0
+        spans = ba.get_engine().split_sentences(paras[i].text)
+        for a, b in plan.flags[i]:
+            assert a in {x for x, _ in spans}
+            assert b in {y for _, y in spans}
     for i in (0, 1, 2, 6):
         assert _cover(plan, paras, i) == (0.0, 0.0)        # human paragraphs untouched, not even the pale tint
 

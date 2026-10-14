@@ -150,12 +150,20 @@ def balanced_triad(s: str) -> bool:
     return True
 
 
-def rhetorical_triad(s: str) -> bool:
-    return balanced_triad(s) and not technical_list(s)
+def rhetorical_triad(s: str, topic=None) -> bool:
+    if not balanced_triad(s) or technical_list(s):
+        return False
+    if topic:
+        items = [x.strip() for x in re.split(r",\s+(?:and|or|&)\s+|,\s+|\s+(?:and|or|&)\s+", s) if x.strip()]
+        # Two items naming the document's subject describe its domain rather
+        # than a rhetorical habit. A generic triad elsewhere still counts.
+        if sum(any(_stem(w) in topic for w in _W.findall(item)) for item in items) >= 2:
+            return False
+    return True
 
 
-def count_triads(text: str) -> int:
-    return sum(1 for m in _TRI.findall(text) if rhetorical_triad(m))
+def count_triads(text: str, topic=None) -> int:
+    return sum(1 for m in _TRI.findall(text) if rhetorical_triad(m, topic))
 
 
 def measure(paragraphs, topic=None) -> dict:
@@ -167,7 +175,7 @@ def measure(paragraphs, topic=None) -> dict:
     return {
         "words": n,
         "lex": _lex_hits(text, topic) / k,
-        "tri": count_triads(text) / k,
+        "tri": count_triads(text, topic) / k,
         "long_w": 100.0 * sum(1 for w in words if len(w) >= 10) / max(1, n),
         "first": len(_FIRST.findall(text)) / k,
     }
@@ -213,7 +221,7 @@ def para_score(text: str, topic=None) -> Optional[float]:
         return None
     k = n / 1000.0
     lex = _lex_hits(text, topic) / k
-    tri = count_triads(text) / k
+    tri = count_triads(text, topic) / k
     lw = 100.0 * sum(1 for w in words if len(w) >= 10) / n
     x = max(0.0, (lex - 8.0) / 6.0) * 1.4 + max(0.0, (tri - 3.8) / 6.2) * 0.6 + max(0.0, (lw - 13.8) / 3.2) * 0.8
     return round(100.0 * (1 - math.exp(-x / 1.2)), 0)

@@ -247,8 +247,6 @@ def _source_shading(rep, paras, plan: "Plan", mm):
 P_STRONG = 0.55        # combined probability that makes a paragraph a located (strong) passage
 P_SOFT = 0.30          # probable passage: partial evidence, shown in the paler tint
 MIN_WORDING = 12       # a paragraph the wording scores below this is never shaded because of its file traces
-PARA_WHOLE = 0.60      # when this share of a paragraph's words is flagged, the whole paragraph is one passage
-SENT_GAP = 1           # a single unflagged sentence between two flagged ones belongs to the same passage
 INDEX_SLACK = 10.0     # shaded words may exceed the index share by at most this many points (whole-unit granularity)
 
 
@@ -270,33 +268,36 @@ def _technical_list(text, a, b) -> bool:
 
 
 def plan_highlights(rep, paras, prov=None) -> Plan:
-    """Locate AI passages from three independent kinds of evidence and express them as whole sentences/paragraphs.
+    """Shade complete sentences with retained, contributing wording findings.
 
-    1. wording     - the engine's paragraph score and its sentence-level findings (unchanged, as before);
-    2. file traces - `provenance` (Word XML): chat font / colour / shade / Autospacing on the paragraph itself.
-                     They are added to the paragraph's log-odds, only upward, only when the wording is not clearly
-                     human (>= MIN_WORDING), and only when a trace covers most of the paragraph;
-    3. block shape - paragraphs that carry the same pasted fingerprint form one block: short or unscored members
-                     between/next to located paragraphs belong to it, and its edges snap to the neighbouring
-                     paragraphs written in the same editing session (soft tint only).
-    A paragraph located as a unit is shaded from its first to its last sentence. Otherwise the old rule applies
-    (sentences with direct engine evidence, or all sentences of a >= 55 paragraph), with gaps of one sentence closed.
+    Paragraph scores and Word provenance corroborate local wording evidence;
+    neither can create shading on its own. Neighbouring sentences and rsid
+    siblings are never filled automatically. Adjacent supported sentences can
+    form a complete paragraph. Formatting and punctuation alone do not locate
+    authorship. Source character offsets remain unchanged.
     """
     eng = ba.get_engine()
     W = eng._PARA_W
     prov = prov or {}
     pscore = {i: sc for i, sc, _n in rep.para_scores}
+    feature_for = {"ai_phrase": "ai_lexicon", "ai_vocab": "ai_vocab",
+                   "ai_contrast": "contrast", "ai_vague": "vague_attr",
+                   "ai_signpost": "signpost", "ai_tricolon": "tricolon",
+                   "ai_generic": "generic_phr"}
     ev, trace = defaultdict(list), defaultdict(list)
     for f in rep.findings:
-        if f.para < 0:
+        if not (0 <= f.para < len(paras)):
             continue
-        if f.kind in W:
+        if f.kind in feature_for and rep.features.get(feature_for[f.kind], (0, 0, 0))[2] > 0:
             if f.kind == "ai_tricolon" and _technical_list(paras[f.para].text, f.start, f.end):
                 continue        # MQTT, CoAP, and Zigbee / 128, 64, and 32: an enumeration the subject forces
             weight = W[f.kind] * (0.25 if "ضعيفة" in (f.note or "") else 1.0)
             ev[f.para].append((f.start, weight))
         elif f.kind in HUMAN_TRACE:
             trace[f.para].append(f.start)
+    for i, spans in getattr(rep, "style_spans", {}).items():
+        if 0 <= i < len(paras):
+            ev[i].extend((a, STRONG) for a, _b in spans)
 
     plan = Plan()
     body = [i for i, p in enumerate(paras) if p.role in ("body", "list")]
@@ -317,41 +318,8 @@ def plan_highlights(rep, paras, prov=None) -> Plan:
         elif p >= P_SOFT:
             level[i] = ("soft", 100.0 * p, "file+wording")
 
-    # ---- 2. blocks of one pasted fingerprint (skipping headings / empty lines between members)
-    order = [i for i in body if prov.get(i) is not None and prov[i].has_ui_fingerprint]
-    blocks, cur = [], []
-    for i in order:
-        if cur and (prov[i].sig != prov[cur[-1]].sig or any(
-                paras[k].role in ("body", "list") and not (prov.get(k) and prov[k].sig == prov[i].sig)
-                for k in range(cur[-1] + 1, i))):
-            blocks.append(cur)
-            cur = []
-        cur.append(i)
-    if cur:
-        blocks.append(cur)
-    for blk in blocks:
-        anchors = [i for i in blk if level.get(i, ("", 0))[0] == "strong" or
-                   (pscore.get(i) is not None and pscore[i] >= HIGH)]
-        if not anchors:
-            continue
-        for i in blk:
-            sc = pscore.get(i)
-            if level.get(i, ("", 0))[0] == "strong":
-                continue
-            if sc is None:                                    # short member of a located block
-                level[i] = ("strong", 70.0, "block")
-            elif i not in level:        # same pasted fingerprint, wording too mild to decide alone: probable
-                level[i] = ("soft", 45.0 if sc >= MIN_WORDING else 35.0, "block")
-        # edges: the neighbouring body paragraph written in the same editing session as the block's edge
-        for edge, step in ((blk[0], -1), (blk[-1], 1)):
-            j = body.index(edge) + step
-            if 0 <= j < len(body):
-                n = body[j]
-                pn, pe = prov.get(n), prov.get(edge)
-                if n not in blk and n not in level and pn is not None and pe is not None and pn.rsid and pn.rsid == pe.rsid \
-                        and (pscore.get(n) or 0) >= 20:
-                    level[n] = ("soft", 40.0, "session")
-
+    # File traces may strengthen a sentence's located wording evidence. They
+    # cannot extend shading into neighbours or create a location themselves.
     # ---- 3. units
     plan.units = []           # (level, confidence, para, a, b)
     for i in body:
@@ -368,29 +336,15 @@ def plan_highlights(rep, paras, prov=None) -> Plan:
         plan.per_para[i] = (pw, 0)
         if not counted:
             continue
-        if i in level:
-            lv, conf, _why = level[i]
-            plan.units.append((lv, conf, i, counted[0][1], counted[-1][2]))
-            continue
         hit = {}
         for k, a, b, n in counted:
             e = sum(w for s, w in ev[i] if a <= s < b)
             has_trace = any(a <= s < b for s in trace[i])
-            if sc is not None and sc >= HIGH and n >= MIN_SENT_WORDS and not (has_trace and e < STRONG):
-                hit[k] = min(99.0, sc + 8 * e)
-            elif e >= STRONG and (sc is None or sc >= MID):
+            located_score = max(sc or 0.0, level.get(i, ("", 0.0))[1])
+            if (e >= STRONG and n >= MIN_SENT_WORDS
+                    and (sc is None or located_score >= MID)
+                    and not (has_trace and e < 2 * STRONG)):
                 hit[k] = min(99.0, (sc or 50.0) + 8 * e)
-        ks = sorted(hit)
-        for x, y in zip(ks, ks[1:]):                            # close a one-sentence gap inside one passage
-            if 1 < y - x <= SENT_GAP + 1:
-                for k, a, b, n in counted:
-                    if x < k < y and k not in hit and not any(a <= s < b for s in trace[i]):
-                        hit[k] = min(hit[x], hit[y]) - 1.0
-        if hit and sc is not None and sc >= HIGH:
-            share = sum(n for k, a, b, n in counted if k in hit) / pw
-            if share >= PARA_WHOLE and not any(trace[i]):       # a clean, mostly flagged paragraph is one passage
-                plan.units.append(("strong", max(hit.values()), i, counted[0][1], counted[-1][2]))
-                continue
         cur = None
         for k, a, b, n in counted:
             if k in hit:
@@ -481,7 +435,7 @@ def balance_to_engine_index(rep, paras, plan: Plan) -> Plan:
     used, kept = 0, []
     for u in units:
         w = words_in(u[2], u[3], u[4])
-        if used + w / 2.0 <= budget:
+        if used + w <= budget:
             kept.append(u)
             used += w
     plan.units = kept
@@ -1130,19 +1084,21 @@ def _shade_pdf_pages(body_pdf, dest_page, offsets, texts, plan: Plan, ocr_pages=
     for ranges, level in ((plan.soft_flags, "soft"), (plan.flags, "strong")):   # strong wins
         for i, spans in ranges.items():
             for a, b in spans:
-                ids = []
-                for start, wid in aligned.get(i, ()):
-                    if a <= start < b:
-                        total += 1
-                        if wid is not None:
-                            matched += 1
-                            ids.append(wid)
+                selected = [(start, wid) for start, wid in aligned.get(i, ()) if a <= start < b]
+                total += len(selected)
+                # Ambiguous or damaged extraction must not produce scattered
+                # word highlights or spill into an unrelated sentence.
+                if (not selected or selected[0][1] is None or selected[-1][1] is None
+                        or sum(wid is not None for _, wid in selected) / len(selected) < 0.9):
+                    continue
+                ids = [wid for _, wid in selected if wid is not None]
+                matched += len(ids)
                 ids = sorted(set(ids))
                 if not ids:
                     continue
                 filled = set(ids)
                 for p, q in zip(ids, ids[1:]):       # bridge inline maths / stray glyphs inside a sentence
-                    if 1 < q - p <= 14 and words[p][0] == words[q][0]:
+                    if 1 < q - p and words[p][5] == words[q][5]:
                         filled.update(range(p + 1, q))
                 for wid in filled:
                     tint[wid] = level
@@ -1151,7 +1107,8 @@ def _shade_pdf_pages(body_pdf, dest_page, offsets, texts, plan: Plan, ocr_pages=
     for wid in sorted(tint):
         pno, x0, _y0, x1, _y1, key = words[wid]
         if runs and runs[-1]["key"] == key and runs[-1]["level"] == tint[wid] and runs[-1]["last"] == wid - 1:
-            runs[-1]["x1"] = x1
+            runs[-1]["x0"] = min(runs[-1]["x0"], x0)
+            runs[-1]["x1"] = max(runs[-1]["x1"], x1)
             runs[-1]["last"] = wid
         else:
             runs.append({"page": pno, "key": key, "level": tint[wid], "x0": x0, "x1": x1, "last": wid})

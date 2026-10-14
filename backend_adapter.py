@@ -159,6 +159,10 @@ def _academic_for(report):
     try:
         import academic_signals as acad
         _dp = getattr(report, "doc_paras", None) or []
+        if not _dp:
+            eng = get_engine()
+            _dp = [eng.Para(text=t) for t in report.texts]
+            eng.assign_roles(_dp, bool(getattr(report, "is_docx", False)))
         topic = acad.topic_terms([getattr(q, "text", "") for q in _dp if getattr(q, "role", "") == "heading"],
                                  extra=[getattr(q, "text", "") for q in _dp if getattr(q, "role", "") == "keywords"])
         out = (acad, acad.analyze([t for t in report.texts if t and t.strip()], topic), topic)
@@ -271,7 +275,7 @@ def _lists_neutral(report):
         key = (f.para, k)
         sent_of.setdefault(key, []).append(f)
     for key, fs in sent_of.items():
-        if not any(acad.rhetorical_triad(texts[f.para][f.start:f.end]) for f in fs):
+        if not any(acad.rhetorical_triad(texts[f.para][f.start:f.end], _academic_for(report)[2]) for f in fs):
             named.add(key)
     if not named:
         return 0.0
@@ -677,6 +681,103 @@ def _score_stage(report, key, label):
                    "delta": float(report.score) - previous})
 
 
+def _refresh_paragraph_evidence(report):
+    """Local scores must use the findings that survived evidence corrections."""
+    eng = get_engine()
+    paras = getattr(report, "doc_paras", None)
+    if paras is None:
+        paras = [eng.Para(text=t) for t in report.texts]
+        eng.assign_roles(paras, report.is_docx)
+    # Punctuation, numbered steps and markup are valid human writing too;
+    # they cannot create local authorship evidence by themselves.
+    local_findings = [f for f in report.findings
+                      if f.kind not in {"ai_enum", "ai_emdash", "ai_dash", "ai_markdown"}]
+    report.para_scores = eng.paragraph_scores(paras, local_findings)
+    report.wording_map = list(report.para_scores)
+    note = getattr(report, "meta_gen_note", None)
+    if note:
+        _generator_to_paragraphs(report, note[2])
+    return paras
+
+
+def _topic_vocab_neutral(report, paras):
+    """Topic vocabulary is required by the subject, not an independent style trace."""
+    import academic_signals as acad
+    eng = get_engine()
+    topic = acad.topic_terms([p.text for p in paras if p.role == "heading"],
+                             extra=[p.text for p in paras if p.role == "keywords"])
+    if not topic:
+        return
+    strong = medium = prose_words = 0
+    for p in paras:
+        if p.role in eng.PROSE_ROLES:
+            prose_words += len(eng.WORD_RE.findall(p.text))
+        if p.role in ("body", "list"):
+            strong += sum(acad._stem(m.group()) not in topic for m in eng.RX_VOC_STRONG.finditer(p.text))
+            medium += sum(acad._stem(m.group()) not in topic for m in eng.RX_VOC_MED.finditer(p.text))
+    feats = dict(report.features)
+    v, w, old = feats["ai_vocab"]
+    density = (strong + 0.25 * medium) / (max(prose_words, 1) / 1000.0)
+    new_v = min(v, eng._sat(density, eng.TUNE["vocab_scale"]))
+    feats["ai_vocab"] = (new_v, w, new_v * w)
+    report.features = feats
+    report.z += new_v * w - old
+    report.ctx["voc_density"] = density
+    report.findings = [f for f in report.findings if not (
+        f.kind == "ai_vocab" and 0 <= f.para < len(report.texts)
+        and acad._stem(report.texts[f.para][f.start:f.end]) in topic)]
+    _rescore(report)
+    # Keep the existing reason format, but use the contribution actually counted.
+    reasons = []
+    for reason in report.reasons:
+        if "مفردات أكاديمية-مولَّدة شائعة" in str(reason):
+            if new_v * w < 0.2:
+                continue
+            reason = "   %+.1f  %s" % (new_v * w, eng.REASON_TXT["ai_vocab"](report.ctx))
+        reasons.append(reason)
+    report.reasons = reasons
+
+
+def _corroborated_style(layer):
+    """Require wording convergence; layout, cleanliness and repetition cannot open this gate."""
+    if not layer.sufficient or layer.score is None:
+        return False
+    semantic = {s.key for s in layer.signals if s.key in {"stock", "frames", "connectors"}
+                and s.z is not None and s.z >= 0.5}
+    return len(semantic) >= 2 and layer.score >= 55
+
+
+def _local_style_review(report, paras):
+    """Reuse the repository's bilingual, local stylometry with explicit evidence gates."""
+    import ai_signals
+    eng = get_engine()
+    prose = [p.text for p in paras if p.role in ("body", "list")]
+    topic = _academic_for(report)[2]
+    layer = ai_signals.analyze(prose, topic=topic)
+    report.local_style = layer
+    report.style_spans = {}
+    if not _corroborated_style(layer):
+        return
+    before = report.score
+    combined = ai_signals.fuse(before, layer).combined
+    if combined <= before:
+        return
+    report.score = combined
+    revised = []
+    for i, sc, n in report.para_scores:
+        pl = ai_signals.analyze([report.texts[i]], "para", topic=topic)
+        if _corroborated_style(pl):
+            new = ai_signals.fuse(sc, pl).combined
+            if new > sc:
+                for a, b in eng.split_sentences(report.texts[i]):
+                    sl = ai_signals.analyze([report.texts[i][a:b]], "para", topic=topic)
+                    if _corroborated_style(sl):
+                        report.style_spans.setdefault(i, []).append((a, b))
+                sc = new
+        revised.append((i, sc, n))
+    report.para_scores = revised
+
+
 def _aggregate_paragraph_index(report):
     """Bound the heuristic document index by its word-weighted local evidence.
 
@@ -737,6 +838,12 @@ def _enhance(report):
         if pdf_gated:
             lines.append("■ PDF: قائمة المراجع مقطّعة في الاستخراج (مداخل ناقصة)، فعُطِّلت قرينة «مراجع بلا إحالات» ولم تُحتسب.")
     _structural_neutral(report)
+    paras = getattr(report, "doc_paras", None)
+    if paras is None:
+        paras = [eng.Para(text=t) for t in report.texts]
+        eng.assign_roles(paras, report.is_docx)
+    _topic_vocab_neutral(report, paras)
+    _refresh_paragraph_evidence(report)
     _score_stage(report, "neutralization", "استبعاد قرائن القياسات والقوائم والبنية")
     deck = getattr(report, "deck", None)
     deck_mode = deck is not None and deck.is_deck
@@ -824,6 +931,8 @@ def _enhance(report):
         pass
 
     _score_stage(report, "academic", "طبقة النثر الأكاديمي")
+    _local_style_review(report, paras)
+    _score_stage(report, "local_style", "مراجعة الأنماط العربية والإنجليزية المحلية")
     # Paragraph map = wording evidence only. The evidence about the FILE (human editing history, hand formatting,
     # typing slips) applies to every paragraph of that file exactly as it applies to the document score, so it is
     # added to each paragraph's log-odds (human evidence only, never raising). Without this the map and the

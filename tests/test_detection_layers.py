@@ -65,7 +65,8 @@ def test_docx_route_end_to_end():
     human = b.analyze_uploaded_bytes("h.docx", _docx([HUMAN_PARA] * 12))
     pasted = b.analyze_uploaded_bytes("p.docx", _docx([HUMAN_PARA] * 12,
                                       run_props='<w:rFonts w:ascii="Söhne" w:hAnsi="Söhne"/><w:color w:val="0D0D0D"/>'))
-    assert pasted.score > human.score
+    assert pasted.score_pooled > human.score_pooled  # provenance remains observable
+    assert pasted.score <= human.score + 3.0        # formatting cannot turn human prose into AI
     llm = b.analyze_uploaded_bytes("l.docx", _docx([LLM_PARA] * 30))
     assert llm.score >= 65
 

@@ -28,7 +28,8 @@ def test_web_formatting_still_counts_when_the_wording_agrees():
 def test_direct_chat_fingerprint_keeps_at_least_half_its_weight():
     plain = b.analyze_uploaded_bytes("a.docx", _docx(_human_paras()))
     chat = b.analyze_uploaded_bytes("b.docx", _docx(_human_paras(), run_props=CHAT))
-    assert chat.score > plain.score + 3.0
+    assert chat.score_pooled > plain.score_pooled + 3.0
+    assert chat.score <= plain.score + 3.0  # final local evidence protects rewritten human prose
 
 
 def test_unconverged_wording_share_is_zero():

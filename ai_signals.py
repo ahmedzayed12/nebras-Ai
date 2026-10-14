@@ -500,7 +500,7 @@ def layer_label(score: Optional[float]) -> str:
 # =============================================================================
 # 5. CORE ANALYSIS
 # =============================================================================
-def analyze(paragraphs, mode: str = "doc") -> Layer:
+def analyze(paragraphs, mode: str = "doc", topic=None) -> Layer:
     doc = mode == "doc"
     paras = [p for p in (str(x) for x in paragraphs) if p.strip()]
     raw = "\n".join(paras)
@@ -551,6 +551,10 @@ def analyze(paragraphs, mode: str = "doc") -> Layer:
 
     # 2. stock phrases ----------------------------------------------------------------
     hits = Counter(m.group(1) for m in _STOCK_RE.finditer(joined))
+    if topic:
+        from academic_signals import _stem as topic_stem
+        hits = Counter({k: v for k, v in hits.items()
+                        if not all(topic_stem(w) in topic for w in _TOK.findall(k))})
     wsum = sum(_STOCK[k] * min(c, 2) for k, c in hits.items())
     rate = wsum / den * 1000
     z = _pw(rate, [(0, -.2), (1.5, -.05), (4, .3), (8, .75), (14, 1.0)])
@@ -565,7 +569,13 @@ def analyze(paragraphs, mode: str = "doc") -> Layer:
 
     # 3. rhetorical frames ----------------------------------------------------------------
     frames = sum(len(r.findall(nraw)) for r in _FRAME_RES)
-    triads = len(_TRIAD.findall(nraw)) if english else 0
+    # Reuse the balanced-triad rule and retain capitals: named protocols,
+    # taxa and numeric lists are subject matter, not rhetorical authorship.
+    if english:
+        from academic_signals import count_triads
+        triads = count_triads(raw, topic)
+    else:
+        triads = 0
     zf = _pw(frames / den * 1000, [(0, -.1), (1, .25), (3, .8), (6, 1)])
     z = (.6 * zf + .4 * _pw(triads / den * 1000, [(0, -.2), (4, 0), (10, .5), (18, .9)])) if english else zf
     note = ("أنماط بلاغية متكررة (التوازي السلبي «ليس فقط… بل» والثلاثيات)." if z >= .25 else
