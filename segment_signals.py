@@ -68,7 +68,7 @@ _STATS = re.compile(r"[=<>±%§]|\b[pnNrtFβχ]\s*[=<>]|\d")       # "(R² = .04
 # letters ("Lі\u2060terаture"). That masking is also used against plagiarism checkers, so it says nothing about
 # who wrote the words; such a file is read exactly as it is.
 _ODD_SPACE = re.compile(r"(?<=[A-Za-z,.;:)])[\u2000-\u200a\u202f\u205f\u3000](?=[A-Za-z(])")
-EVASION_L = 2.5
+EVASION_L = 1.0          # a moderate habit, not a verdict: the paragraph's own wording decides (user: match the drop other detectors show)
 EVASION_DOC_MIN = 10       # ten or more in one document (none in 2254 human files): then one artefact marks its unit
 EVASION_UNIT_MIN = 3       # otherwise a unit needs three of its own
 
@@ -134,7 +134,7 @@ class Unit:
     paste: float = 0.0
     arabic: bool = False
     evasion: int = 0
-    tool_marked: bool = False       # carries evasion artefacts: attributed whatever its neighbours say
+    tool_marked: bool = False       # carries humanizer spacing (counted as one strong habit)
     post: float = 0.0
     habits: Dict[str, float] = field(default_factory=dict)
 
@@ -366,22 +366,14 @@ def own_evidence_veto(seg: Segmentation, veto: float = None):
     veto = OWN_HUMAN_VETO if veto is None else veto
     changed = False
     for u in seg.units:
-        if u.L <= veto and u.post >= SUSPECT and not u.tool_marked:
+        if u.L <= veto and u.post >= SUSPECT:
             u.post = min(u.post, SUSPECT - 0.01)
             changed = True
     if changed:
         _summarise(seg)
 
 
-def _lock_tool_marked(seg: Segmentation):
-    """A paragraph that itself carries evasion artefacts went through an evasion tool: its neighbours cannot clear it."""
-    for u in seg.units:
-        if u.tool_marked and u.post < 0.95:
-            u.post = 0.95
-
-
 def _summarise(seg: Segmentation):
-    _lock_tool_marked(seg)
     tot = sum(u.words for u in seg.units) or 1
     seg.words = tot
     seg.share = sum(u.post * u.words for u in seg.units) / tot
