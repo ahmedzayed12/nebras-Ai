@@ -128,7 +128,7 @@ def test_pdf_report_cover_uses_rendered_coverage_after_alignment(monkeypatch):
         assert page.insert_textbox((60, 60, 535, 780), "\n\n".join([LLM_PARA] * 3), fontsize=10) >= 0
         data = doc.tobytes()
     rep = ba.analyze_uploaded_bytes("alignment.pdf", data)
-    rep.score_engine = 30  # fix the authoritative headline to isolate PDF rendering
+    rep.final_score = 30  # fix the authoritative headline to isolate PDF rendering
     assert nr.compute_plan(rep, filename="alignment.pdf", data=data).total_words > 0
     # Simulate a selectable PDF whose located passages cannot be aligned
     # reliably: none may be painted, so none may be counted on the cover.

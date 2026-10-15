@@ -1032,9 +1032,9 @@ def _cover(doc, rep, plan, meta, page_total, *, page=None):
     y2 = y + 160
     page.draw_line((m, y2 - 6), (Wd - m, y2 - 6), color=LINE, width=0.8)
     _box(page, pymupdf.Rect(m, y2, Wd - m, y2 + 92),
-         '<div class="lbl">Original engine result / نتيجة المحرك الأصلية</div>'
-         '<div style="font-size:15pt;font-weight:bold">%.0f / 100 &nbsp;<span style="font-size:9pt;font-weight:normal" class="mut">confidence %.0f%%</span></div>'
-         % (ba.primary_score(rep), rep.confidence * 100))
+         '<div class="lbl">Baseline v2.1 / نتيجة المحرك القديم للمقارنة</div>'
+         '<div style="font-size:15pt;font-weight:bold">%.0f / 100 &nbsp;<span style="font-size:9pt;font-weight:normal" class="mut">length support %.0f%%</span></div>'
+         % (getattr(rep, "score_engine", rep.score), rep.confidence * 100))
     return page
 
 
@@ -1058,6 +1058,13 @@ def _details(doc, rep, plan):
               "تسندها قرائن لغوية جزئية في الجملة نفسها، وتُترك الجمل المجاورة دون تظليل إذا لم تسندها قرائن. "
               "المؤشر قياس للمستند كله لا نسبة حقيقية للكلمات المكتوبة "
               "آليًا، والتظليل ليس إثباتًا للكاتب. تُستثنى المراجع والعناوين والجداول.")
+    if getattr(rep, "score_source", "") == "balanced_v3":
+        how = ("<b>Reading the highlights.</b> Cyan marks complete passages above the local wording threshold. "
+               "Word history, fonts and paste fingerprints do not determine this text-only map. "
+               "Its coverage is separate from the global/local style index and is not proof of authorship.")
+        how_ar = ("<b>قراءة التظليل:</b> السماوي يحدد مقاطع كاملة تجاوزت عتبة القرائن النصية الموضعية. "
+                  "لا يحدد تاريخ Word أو الخط أو آثار اللصق هذا التظليل. تغطيته منفصلة عن مؤشر الصياغة "
+                  "العام والموضعي، ولا تثبت جهة التأليف.")
     y = _flow(page, m, y, Wd - m, ymax,
               '<div class="sm">%s</div><div dir="rtl" class="sm" style="margin-top:5px">%s</div>' % (how, how_ar), gap=16)
     reasons = [_clean_ui_text(x) for x in rep.reasons if _clean_ui_text(x)][:7]
@@ -1066,7 +1073,7 @@ def _details(doc, rep, plan):
               '<div style="font-weight:bold;font-size:10.5pt">Engine reasons / أهم أسباب الحكم</div>'
               '<div dir="rtl" class="sm">%s</div>' % li, gap=14)
     rows = []
-    for i, sc, n in rep.para_scores:
+    for i, sc, n in ba.primary_paragraph_scores(rep):
         w, f = plan.per_para.get(i, (n, 0))
         soft = sum(len(ba.get_engine().WORD_RE.findall(rep.texts[i][a:b]))
                    for a, b in plan.soft_flags.get(i, ()))
@@ -1230,7 +1237,7 @@ def _content_box(page):
 
 def plan_from_segmentation(rep, paras) -> Plan | None:
     """Shade units above the evidence threshold independently of the continuous index."""
-    seg = getattr(rep, "segmentation", None)
+    seg = ba.primary_segmentation(rep)
     if seg is None or not seg.units:
         return None
     eng = ba.get_engine()
@@ -1321,6 +1328,9 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
     meta = {"name": name, "sha": sha, "src_pages": len(body_pdf),
             "date": _dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
             "engine_version": eng.VERSION, "engine_sha": ba.ENGINE_SHA256, "removed_highlights": removed}
+    if getattr(rep, "score_source", "") == "balanced_v3":
+        meta["engine_version"] = "Nebras balanced v3.0"
+        meta["engine_sha"] = ba.engine_status()["published_model_fingerprint"]
 
     out = pymupdf.open()
     if kind == "pdf":

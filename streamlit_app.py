@@ -1,13 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Streamlit interface "Nebras Ai detector" over the original v2.1 engine.
+"""Presentation for the versioned backend's published result and local evidence.
 
-Equations (LaTeX / Word OMML) are removed by math_guard before the engine runs; see backend_adapter.
-PRESENTATION ONLY: every score, verdict, finding, statistic, CSV and HTML report
-comes from the unchanged engine through backend_adapter.py. Nothing in this file
-computes, rescales, re-thresholds or re-orders an analysis result. Before handing text
-to the engine the app always strips copy artefacts the engine mistakes for human typos
-(zero-width characters and trailing spaces at line ends). Files are analysed by the engine
-exactly as in the original desktop tool, metadata and formatting included.
+No UI scoring or rescaling. Text input trims line-end padding but preserves
+confusable letters and zero-width characters. See balanced_engine/backend_adapter
+for the current English scorer, legacy fallback and input guards.
 """
 from __future__ import annotations
 
@@ -21,7 +17,7 @@ from turnstile_gate import require_human, render_turnstile
 
 from backend_adapter import (
     analyze_batch_inputs, analyze_pasted, analyze_uploaded_bytes, batch_csv_bytes, normalize_upload_name,
-    expand_uploaded_inputs, filename_only, get_engine, primary_score,
+    expand_uploaded_inputs, filename_only, get_engine, primary_score, primary_paragraph_scores, primary_segmentation,
 )
 
 st.set_page_config(
@@ -75,13 +71,9 @@ def fmt(v) -> str:
     return str(v)
 
 
-_ZW = dict.fromkeys(map(ord, "\u200b\u200c\u200d\u2060\ufeff"))
-
-
 def clean_for_engine(text: str) -> str:
-    """Drop copy artefacts the engine counts as human spacing/punctuation errors:
-    zero-width characters and the trailing spaces at the end of each line."""
-    return "\n".join(line.rstrip() for line in text.translate(_ZW).splitlines())
+    """Trim line-end padding; preserve confusables and zero-width characters."""
+    return "\n".join(line.rstrip() for line in text.splitlines())
 
 
 def md(markup: str):
@@ -277,9 +269,10 @@ def _suspect_share(rep) -> str:
     deck = getattr(rep, "deck", None)
     if deck is not None and deck.is_deck and deck.suspect_share is not None:
         return "%.0f%% من الشرائح" % (100.0 * deck.suspect_share)
-    if getattr(rep, "segmentation", None) is not None:      # thresholded coverage is separate from the continuous index
-        return "%.0f%%" % (100.0 * rep.ai_share)
-    ps = list(getattr(rep, "para_scores", []) or [])
+    seg = primary_segmentation(rep)
+    if seg is not None:
+        return "%.0f%%" % (100.0 * seg.suspect_share)
+    ps = list(primary_paragraph_scores(rep) or [])
     tot = sum(n for _, _, n in ps)
     return "%.0f%%" % (100.0 * sum(n for _, sc, n in ps if sc >= 55) / tot) if tot >= 150 else "—"
 
@@ -290,8 +283,8 @@ def dial_panel(rep=None, plan=None):
         <div class="ends"><span>أسلوب بشري</span><span>أسلوب مولَّد</span></div>
         <div class="verdict-pill idle">ضع نصًا ثم اضغط «حلّل»</div></section>""")
         return
-    # Result panel = the gauge and the number inside it, nothing else (no verdict pill, no legend, no side figures).
-    # The one exception is a text too short to judge: then a single line says so instead of showing a meaningless gauge.
+    # A compact abstention message is part of the result when the backend's
+    # evidence is inconclusive; never present a conflicting estimate as certain.
     score = primary_score(rep)
     vc = _grad(score / 100.0)
     if plan is not None:
@@ -299,6 +292,9 @@ def dial_panel(rep=None, plan=None):
         short = "" if plan.sufficient else '<p class="note">النص قصير جدًا؛ لا توجد نتيجة صالحة للعرض.</p>'
     else:
         dial, short = dial_svg(score), ""
+    verdict = getattr(rep, "final_verdict", "")
+    if "غير حاسم" in verdict:
+        short += '<p class="note">%s</p>' % html.escape(verdict)
     md(f"""<section id="nebras-result" class="panel dial-panel" style="--halo:{vc}33" aria-label="لوحة النتيجة">{dial}{short}</section>""")
 
 
@@ -324,7 +320,7 @@ def _band(score):
 
 def skyline_svg(rep) -> str:
     """One column per paragraph: width follows its word count, height follows the engine's paragraph score."""
-    items = list(rep.para_scores)
+    items = list(primary_paragraph_scores(rep))
     k = len(items)
     W, H, top, label_h = 1000, 270, 30, 40
     VW = W + 44
@@ -405,11 +401,11 @@ def report_download_panel(rep, source: dict, key: str):
 # ----------------------------------------------------------------- result
 def report_dashboard(rep):
     section("خريطة الفقرات", "عرض العمود يتناسب مع عدد كلمات الفقرة، وارتفاعه مع درجة الاشتباه")
-    if not rep.para_scores:
+    if not primary_paragraph_scores(rep):
         st.info("لم يحسب المحرك درجة لفقرات هذا النص.")
         return
     counts = {"hi": 0, "mid": 0, "lo": 0}
-    for _, sc, _ in rep.para_scores:
+    for _, sc, _ in primary_paragraph_scores(rep):
         counts[_band(sc)] += 1
     md(f"""<div class="panel sky">{skyline_svg(rep)}
       <div class="chips">
@@ -419,9 +415,9 @@ def report_dashboard(rep):
       </div></div>""")
     md('<div style="height:18px"></div>')
     table(["الفقرة", "الدرجة", "الكلمات", "مطلع الفقرة"],
-          [(i + 1, score, n, rep.texts[i][:155]) for i, score, n in rep.para_scores],
+          [(i + 1, score, n, rep.texts[i][:155]) for i, score, n in primary_paragraph_scores(rep)],
           num_cols={0, 1, 2}, wrap_cols={3}, max_h=340)
-    md('<p class="caveat">المؤشر تقدير احتمالي مبني على قرائن أسلوبية، وليس إثباتًا لجهة كتابة النص.</p>')
+    md('<p class="caveat">المؤشر تقدير مبني على قرائن أسلوبية، وليس احتمال تأليف مُعايرًا أو إثباتًا لجهة كتابة النص.</p>')
 
 
 def batch_dashboard(results):

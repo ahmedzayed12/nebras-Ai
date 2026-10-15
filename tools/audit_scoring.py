@@ -31,6 +31,13 @@ def audit(path):
         "engine_arithmetic_error": r.score_engine - expected,
         "published_score": b.primary_score(r), "published_source": r.score_source,
         "diagnostic_score": r.score,
+        "balanced_components": {
+            "source": r.balanced.source, "global": r.balanced.global_score,
+            "local": r.balanced.local_score, "final": r.balanced.score,
+            "global_logit": r.balanced.global_logit,
+            "excluded_file_contributions": r.balanced.excluded,
+            "warnings": r.balanced.warnings,
+        },
         "engine_features": evidence["features"],
         "preparation": vars(r.docx_clean) if hasattr(r, "docx_clean") else {},
         "stages": r.score_stages,

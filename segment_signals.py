@@ -374,7 +374,7 @@ def _forward_backward(Ls: List[float], prior: float = PRIOR, stay: float = STAY)
 
 def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para_scores=(), topic=frozenset(),
             docx: bool = False, paste_texts: Optional[Dict[str, float]] = None, pasted_idx=frozenset(), outside_texts=frozenset(),
-            global_logit: float = 0.0, local_wording=None) -> Segmentation:
+            global_logit: float = 0.0, local_wording=None, artifact_evidence: bool = True) -> Segmentation:
     units = _build_units(texts, roles)
     seg = Segmentation(units=units)
     if not units:
@@ -434,7 +434,8 @@ def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para
     for u in units:                           # deliberate obfuscation of the words: text passed through an evasion tool
         spaced = u.evasion >= (1 if doc_evasion else EVASION_UNIT_MIN)
         if spaced or u.spun:
-            u.L += (SPACE_L if spaced else 0.0) + (EVASION_L if u.spun else 0.0)
+            if artifact_evidence:
+                u.L += (SPACE_L if spaced else 0.0) + (EVASION_L if u.spun else 0.0)
             u.tool_marked = True
     seg.outside = 0
     for u in units:

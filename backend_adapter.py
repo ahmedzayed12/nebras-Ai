@@ -129,18 +129,36 @@ def _attach(report, mm, forensics=None, paste=None, deck=None, paras=None):
     report.paste = paste
     report.deck = deck
     report = _enhance(report)
-    # The original engine is the authoritative published result. Later layers
-    # remain available for diagnostics/localisation, never as a replacement.
     report.diagnostic_score = float(report.score)
-    report.final_score = primary_score(report)
-    report.final_verdict, report.final_color = get_engine().make_verdict(report.final_score, report.words)
-    report.score_source = "main_engine"
+    report.diagnostic_reasons = list(report.reasons)
+    import balanced_engine
+    report.balanced = balanced_engine.analyze(report)
+    report.final_score = report.balanced.score
+    report.final_verdict, report.final_color = (balanced_engine.verdict(report.balanced)
+                                               or get_engine().make_verdict(report.final_score, report.words))
+    report.score_source = report.balanced.source
+    if report.score_source == balanced_engine.SOURCE:
+        report.reasons = balanced_engine.reasons(report.balanced)
+        if getattr(report, "from_pdf", False):
+            report.reasons.insert(0, "■ PDF: النتيجة من النص وحده؛ التظليل يعتمد على قابلية مطابقة النص المستخرج.")
+    else:
+        report.reasons += ["⚠ " + w for w in report.balanced.warnings]
     return report
 
 
 def primary_score(report) -> float:
     """Single source for UI, exports and clients; preserve legacy report objects."""
-    return max(0.0, min(100.0, float(getattr(report, "score_engine", report.score))))
+    return max(0.0, min(100.0, float(getattr(report, "final_score", getattr(report, "score_engine", report.score)))))
+
+
+def primary_paragraph_scores(report):
+    result = getattr(report, "balanced", None)
+    return result.paragraphs if result is not None and result.source == "balanced_v3" else report.para_scores
+
+
+def primary_segmentation(report):
+    result = getattr(report, "balanced", None)
+    return result.segmentation if result is not None and result.source == "balanced_v3" else getattr(report, "segmentation", None)
 
 
 # Word "edit history" (edit time, revisions, comments, rsid sessions) is reset by a plain Save-As / another editor.
@@ -318,6 +336,24 @@ def _spacing_insensitive_style(report, paras):
         "tricolon": eng._clamp((tri_share - tune["tricolon_lo"]) / (tune["tricolon_hi"] - tune["tricolon_lo"])),
         "generic_phr": eng._clamp((counts["gen"] / kw - tune["gen_lo"]) / (tune["gen_hi"] - tune["gen_lo"])) if words >= 120 else 0.0,
     }
+    # Opening/closing frames are wording too. Previously this feature retained
+    # its raw-space value while the phrase features used the matching view.
+    body = [i for i, p in enumerate(match_paras) if p.role == "body" and len(p.text.strip()) >= 40]
+    frame_open = frame_close = False
+    if body and words >= 150:
+        spans = sentences.get(body[0], [])
+        if spans:
+            first = match_paras[body[0]].text[spans[0][0]:spans[0][1]]
+            frame_open = bool(eng.RX_FRAME_OPEN.search(first) or eng.RX_FRAME_OPEN_AR.search(first.translate(eng.NORM_AR)))
+        spans = sentences.get(body[-1], [])
+        if spans:
+            last = match_paras[body[-1]].text[spans[max(0, len(spans) - 2)][0]:spans[-1][1]]
+            frame_close = bool(eng.RX_FRAME_CLOSE.search(last) or eng.RX_FRAME_CLOSE_AR.search(last.translate(eng.NORM_AR)))
+    values["frame"] = 0.5 * frame_open + 0.5 * frame_close
+    report.ctx.update({"frame_open": frame_open, "frame_close": frame_close})
+    spec, _numbers, _capitals = eng.specificity(match_paras)
+    values["evidence_low"] = eng._clamp((tune["spec_hi"] - spec) / tune["spec_hi"]) if words >= 150 else 0.0
+    report.ctx["spec"] = spec
     feats = dict(report.features)
     delta = 0.0
     for key, value in values.items():
@@ -1123,6 +1159,7 @@ def _enhance(report):
     _topic_vocab_neutral(report, paras)
     _refresh_paragraph_evidence(report)
     _score_stage(report, "neutralization", "استبعاد قرائن القياسات والقوائم والبنية")
+    report.text_evidence_features = dict(report.features)
     deck = getattr(report, "deck", None)
     deck_mode = deck is not None and deck.is_deck
     if deck_mode:
@@ -1664,8 +1701,17 @@ def html_report_bytes(report) -> bytes:
     for key, value in getattr(report, "engine_evidence", {}).items():
         setattr(view, key, value)
     view.score = primary_score(report)
-    view.verdict, view.color = get_engine().make_verdict(view.score, view.words)
-    return get_engine().report_to_html(view).encode("utf-8")
+    result = getattr(report, "balanced", None)
+    if result is not None and result.source == "balanced_v3":
+        view.features = result.features
+        view.reasons = report.reasons
+        view.para_scores = primary_paragraph_scores(report)
+    view.verdict = getattr(report, "final_verdict", report.verdict)
+    view.color = getattr(report, "final_color", report.color)
+    html = get_engine().report_to_html(view)
+    if result is not None and result.source == "balanced_v3":
+        html = html.replace("(الثقة ", "(كفاية طول النص ")
+    return html.encode("utf-8")
 
 
 def engine_status():
@@ -1674,5 +1720,8 @@ def engine_status():
     digest = hashlib.sha256(
         str(sorted(weights.items())).encode("utf-8")
     ).hexdigest()
-    return {"version": eng.VERSION, "sha256": ENGINE_SHA256, "weights_fingerprint": digest,
+    model_files = ("balanced_engine.py", "segment_signals.py", "academic_signals.py", "tech_signals.py", "matching_text.py", "backend_adapter.py")
+    model_digest = hashlib.sha256(b"".join((ROOT / p).read_bytes() for p in model_files)).hexdigest()
+    return {"version": eng.VERSION, "published_model": "balanced_v3", "sha256": ENGINE_SHA256, "weights_fingerprint": digest,
+            "published_model_fingerprint": model_digest,
             "custom_weights": os.path.exists(eng.WEIGHTS_FILE)}

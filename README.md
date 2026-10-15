@@ -1,7 +1,22 @@
 # Nebras Ai detector
 
-واجهة Streamlit عربية لفحص احتمال أن يكون نصٌّ ما مكتوبًا بالذكاء الاصطناعي، مع خريطة فقرات وتقرير PDF.
-A Streamlit (Arabic/RTL) front-end for the AI Text Inspector v2.1 engine, with paragraph map and PDF report.
+واجهة Streamlit عربية تعرض مؤشر قرائن أسلوبية مع خريطة فقرات وتقرير PDF.
+The published English-prose scorer is now **Nebras balanced v3.0** (`balanced_engine.py`), with the unchanged v2.1 engine retained as a baseline and fallback.
+
+## المسار الحالي v3.0
+
+- يجمع قراءة عامة للنص وقراءة فقرات مستقلة؛ لا تستبدل إحداهما الأخرى.
+- يفصل تاريخ Word والخطوط وآثار اللصق عن جهة تأليف الكلمات، في الاتجاهين.
+- الأخطاء النصية المؤثرة تُحتسب بحدودها، ولا توجد قاعدة تخفيض تلقائي لمجرد استخدام أداة إعادة صياغة.
+- اختلاف المسارات يعطي حكمًا غير حاسم. انخفاض المؤشر **لا يثبت بشرية النص**.
+- الدرجة المعتمدة `final_score` / `primary_score(report)`؛ المقارنة القديمة `score_engine`؛ الحقول القديمة `score` و`diagnostic_score` للتشخيص فقط.
+- خريطة الفقرات والتظليل يستخدمان المسار الجديد، دون تظليل مقاطع إضافية لبلوغ النسبة.
+- النصوص العربية والعروض والنثر القصير لها مسار رجوع معلن إلى المحرك القديم؛ لا ندّعي تحقق v3 عليها.
+- الحروف المتشابهة من أبجديات أخرى وzero-width تبقى دون تنظيف، كما طُلب.
+
+نتائج التحقق المحدود، والمصادر المثبتة قبل 2020، والفشل المعروف على إعادة صياغة عادية: [benchmarks/README.md](benchmarks/README.md). هذه ليست نسبة دقة عامة أو نموذج تأليف احتمالي مُعاير.
+
+الأقسام التالية التي تحمل v2.x تشرح المسار التاريخي والتشخيصي؛ سياسة النتيجة الحالية هي v3 أعلاه.
 
 > المؤشر تقدير احتمالي مبني على قرائن أسلوبية، وليس إثباتًا لمن كتب النص. لا تعتمد عليه وحده في اتهام أحد أو في قرار عالي الأثر.
 
@@ -16,7 +31,8 @@ A Streamlit (Arabic/RTL) front-end for the AI Text Inspector v2.1 engine, with p
 | الملف | الوظيفة |
 |---|---|
 | `streamlit_app.py` | الواجهة (نقطة التشغيل) |
-| `backend_adapter.py` | وسيط نقل فقط؛ لا يحسب أي درجة، ويتحقق من بصمة SHA-256 للمحرك |
+| `backend_adapter.py` | تجهيز الإدخال، تدقيق حساب الطبقات، وتوحيد النتيجة المعتمدة والتصدير |
+| `balanced_engine.py` | محرك v3 المنشور: فصل آثار الملف، تجميع القراءة العامة والموضعية، وبيان عدم اليقين |
 | `AI_Text_Inspector.pyw` | محرك التحليل الأصلي v2.1 **دون أي تعديل** |
 | `nebras_report.py` | بناء تقرير PDF (تظليل DOCX + غلاف + ترويسة) |
 | `ui.css` + `static/fonts/` | التصميم والخطوط (تراخيص الخطوط داخل المجلد) |
@@ -44,7 +60,7 @@ A Streamlit (Arabic/RTL) front-end for the AI Text Inspector v2.1 engine, with p
 
 4. **وضع العروض التقديمية** (`slide_mode.py`): إذا كان الـ PDF عرضًا (PowerPoint أو Keynote أو Google Slides أو Canva…، أو صفحات عرضية بنصوص قصيرة)، يُحلَّل شريحةً شريحة. لا يُحتسب غياب النقطة في آخر العناوين خطأً بشريًا، ويُقاس انتظام القالب بين الشرائح: عنوان صغير مرقّم، وسطر خلاصة «تسمية: جملة»، وعدد بطاقات ثابت، وأوصاف متقاربة الطول بجمل تامة، ومفردات مولَّدة. يرفع المؤشر فقط عند اجتماع 3 بصمات، وتظهر نسبة **الشرائح** المشتبه بها. ملفات PDF المنتَجة من Word لا تُعامل كعروض أبدًا.
 
-تُعرض أيضًا **نسبة النص المشتبه به** (حصة الكلمات في فقرات درجتها 55 فأكثر)، وهي المقابلة لنسبة Turnitin/GPTZero. أما المؤشر العام فهو احتمال أن يكون المستند مولَّدًا، وهو مقياس مختلف.
+تُعرض أيضًا **نسبة النص المشتبه به** (حصة الكلمات في فقرات درجتها 55 فأكثر)، وهي المقابلة لنسبة Turnitin/GPTZero. أما المؤشر العام الحالي فهو مؤشر قرائن أسلوبية، وليس احتمال تأليف مُعايرًا.
 
 ## إصلاحات «الأسباب لا الضغط» (v2.3)
 
@@ -316,9 +332,9 @@ not reconstruct text provenance after substantial rewriting. Passing regression
 tests is not a measured sensitivity rate on humanized documents. Confusable
 letters and zero-width masking remain untouched.
 
-### Authoritative result: original engine
+### Historical result policy: original engine (superseded by v3)
 
-The published result now comes from the original engine (`score_engine`) through
+Before v3, the published result came from the original engine (`score_engine`) through
 `primary_score(report)`. The single-file gauge, batch table, CSV and PDF all use
 this selector. Uploaded/text analysis exposes `final_score`, `final_verdict`,
 `final_color`, and `score_source="main_engine"`. Existing `report.score` remains

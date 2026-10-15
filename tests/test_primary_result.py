@@ -7,17 +7,19 @@ import nebras_report as nr
 from tests.test_detection_layers import _docx, LLM_PARA
 
 
-def test_final_result_uses_main_engine_and_keeps_diagnostics_separate():
+def test_final_result_uses_balanced_engine_and_keeps_baseline_separate():
     r = b.analyze_uploaded_bytes("test.docx", _docx([LLM_PARA] * 24))
-    assert r.final_score == r.score_engine == b.primary_score(r)
+    assert r.final_score == r.balanced.score == b.primary_score(r)
+    baseline = r.score_engine
     assert r.diagnostic_score == r.score
-    assert r.score_source == "main_engine"
+    assert r.score_source == "balanced_v3"
     r.score = 1.0
-    assert b.primary_score(r) == r.score_engine
+    assert b.primary_score(r) == r.final_score
+    assert r.score_engine == baseline
     plan = nr.compute_plan(r, filename="test.docx", data=_docx([LLM_PARA] * 24))
-    assert plan.engine_index == r.score_engine
+    assert plan.engine_index == r.final_score
     rows = list(csv.reader(io.StringIO(b.batch_csv_bytes([("test.docx", r)]).decode("utf-8-sig"))))
-    assert rows[1][2] == "%.0f" % r.score_engine
+    assert rows[1][2] == "%.0f" % r.final_score
     assert rows[1][3] == r.final_verdict
 
 
