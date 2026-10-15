@@ -146,3 +146,30 @@ def test_file_wide_push_never_shades_a_paragraph_whose_own_evidence_is_human():
     assert human.own_L <= sg.OWN_HUMAN_VETO
     sg.own_evidence_veto(seg)
     assert human.post < sg.SUSPECT
+
+
+def test_paragraphs_placed_outside_word_are_a_trace_but_never_shade_human_wording():
+    """v2.9: in a Word-stamped file, paragraphs without Word's revision stamps were written into the XML by a tool."""
+    import io, zipfile
+    def p(t, stamped):
+        a = ' w:rsidR="00A1B2C3" w:rsidRDefault="00A1B2C3"' if stamped else ""
+        return '<w:p%s><w:r><w:t>%s</w:t></w:r></w:p>' % (a, t)
+    body = "".join(p(HUMAN_PARA, True) for _ in range(20)) + "".join(p(LLM_PARA, False) for _ in range(3))
+    xml = ('<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/'
+           'wordprocessingml/2006/main"><w:body>%s</w:body></w:document>' % body)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("word/document.xml", xml)
+    keys = sg.outside_word_texts(buf.getvalue())
+    assert len(keys) == 1 and sg._okey(LLM_PARA) in keys            # three identical unstamped paragraphs
+    assert sg.outside_word_texts(buf.getvalue().replace(b"x", b"x")) == keys
+    # a file with no stamps at all (Google Docs / LibreOffice / python-docx) is not "mixed": nothing is flagged
+    plain = xml.replace(' w:rsidR="00A1B2C3" w:rsidRDefault="00A1B2C3"', "")
+    buf2 = io.BytesIO()
+    with zipfile.ZipFile(buf2, "w") as z:
+        z.writestr("word/document.xml", plain)
+    assert sg.outside_word_texts(buf2.getvalue()) == frozenset()
+    # the trace lifts the unit, but a paragraph whose own wording is clearly human stays unshaded
+    seg = sg.segment([HUMAN_PARA] * 5, ["body"] * 5, docx=True, outside_texts=frozenset({sg._okey(HUMAN_PARA)}))
+    sg.own_evidence_veto(seg)
+    assert seg.outside == 5 and all(u.post < sg.SUSPECT for u in seg.units if u.own_L <= sg.OWN_HUMAN_VETO)
