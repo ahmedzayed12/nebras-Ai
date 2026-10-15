@@ -19,7 +19,8 @@ for path in sys.argv[1:]:
     print("=" * 70)
     print(os.path.basename(path))
     print("  engine v2.1 : %5.1f%%" % getattr(r, "score_engine", r.score))
-    print("  final index : %5.1f%%   %s" % (r.score, r.verdict))
+    print("  final index : %5.1f%%   %s" % (b.primary_score(r), getattr(r, "final_verdict", r.verdict)))
+    print("  diagnostic index : %5.1f%%" % r.score)
     print("  suspicious text share : %.0f%%   words: %d" % (share, r.words))
     for line in r.reasons:
         print("  " + line)

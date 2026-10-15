@@ -21,7 +21,7 @@ from turnstile_gate import require_human, render_turnstile
 
 from backend_adapter import (
     analyze_batch_inputs, analyze_pasted, analyze_uploaded_bytes, batch_csv_bytes, normalize_upload_name,
-    expand_uploaded_inputs, filename_only, get_engine,
+    expand_uploaded_inputs, filename_only, get_engine, primary_score,
 )
 
 st.set_page_config(
@@ -292,12 +292,13 @@ def dial_panel(rep=None, plan=None):
         return
     # Result panel = the gauge and the number inside it, nothing else (no verdict pill, no legend, no side figures).
     # The one exception is a text too short to judge: then a single line says so instead of showing a meaningless gauge.
-    vc = _grad(rep.score / 100.0)
+    score = primary_score(rep)
+    vc = _grad(score / 100.0)
     if plan is not None:
-        dial = dial_svg(rep.score, plan.percent if plan.sufficient else 0.0, plan.sufficient)
+        dial = dial_svg(score, plan.percent if plan.sufficient else 0.0, plan.sufficient)
         short = "" if plan.sufficient else '<p class="note">النص قصير جدًا؛ لا توجد نتيجة صالحة للعرض.</p>'
     else:
-        dial, short = dial_svg(rep.score), ""
+        dial, short = dial_svg(score), ""
     md(f"""<section id="nebras-result" class="panel dial-panel" style="--halo:{vc}33" aria-label="لوحة النتيجة">{dial}{short}</section>""")
 
 
@@ -436,7 +437,7 @@ def batch_dashboard(results):
         if isinstance(r, Exception):
             rows.append((name, "—", "—", str(r)))
         else:
-            rows.append((name, r.words, f"{r.score:.0f}", r.verdict))
+            rows.append((name, r.words, f"{primary_score(r):.0f}", getattr(r, "final_verdict", r.verdict)))
     md('<div style="height:14px"></div>')
     table(["الملف", "الكلمات", "المؤشر", "الحكم"],
           rows, num_cols={1, 2}, wrap_cols={0, 3}, max_h=460)

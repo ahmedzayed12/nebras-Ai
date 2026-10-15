@@ -424,7 +424,7 @@ def balance_to_engine_index(rep, paras, plan: Plan) -> Plan:
     The headline remains the heuristic index, not a calibrated authorship
     probability. Whole-unit overshoot remains bounded by INDEX_SLACK.
     """
-    plan.engine_index = max(0.0, min(100.0, float(rep.score))) if plan.sufficient else None
+    plan.engine_index = ba.primary_score(rep) if plan.sufficient else None
     if not plan.sufficient:
         return plan
     plan.target_words = max(0, min(plan.qualifying_words,
@@ -1034,7 +1034,7 @@ def _cover(doc, rep, plan, meta, page_total, *, page=None):
     _box(page, pymupdf.Rect(m, y2, Wd - m, y2 + 92),
          '<div class="lbl">Original engine result / نتيجة المحرك الأصلية</div>'
          '<div style="font-size:15pt;font-weight:bold">%.0f / 100 &nbsp;<span style="font-size:9pt;font-weight:normal" class="mut">confidence %.0f%%</span></div>'
-         % (rep.score, rep.confidence * 100))
+         % (ba.primary_score(rep), rep.confidence * 100))
     return page
 
 
@@ -1251,7 +1251,7 @@ def plan_from_segmentation(rep, paras) -> Plan | None:
     if plan.qualifying_words < MIN_WORDS:
         plan.sufficient = False
         return plan
-    plan.engine_index = max(0.0, min(100.0, float(rep.score)))
+    plan.engine_index = ba.primary_score(rep)
     import segment_signals as sg
     chosen = []                                            # ("strong", probability, para, start, end): whole sentences
     for post, _k, idx, _w in units:

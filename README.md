@@ -315,3 +315,19 @@ segmenter. Low results on paraphrases are still possible: this rules engine does
 not reconstruct text provenance after substantial rewriting. Passing regression
 tests is not a measured sensitivity rate on humanized documents. Confusable
 letters and zero-width masking remain untouched.
+
+### Authoritative result: original engine
+
+The published result now comes from the original engine (`score_engine`) through
+`primary_score(report)`. The single-file gauge, batch table, CSV and PDF all use
+this selector. Uploaded/text analysis exposes `final_score`, `final_verdict`,
+`final_color`, and `score_source="main_engine"`. Existing `report.score` remains
+the later layers' diagnostic index for compatibility; `diagnostic_score` names
+it explicitly. Consumers must use `final_score` or `primary_score`, not the
+legacy diagnostic field, for the authoritative result.
+
+Paragraph analysis and shading remain local diagnostic evidence. They neither
+replace the main result nor need to cover the same percentage of the document.
+Selecting the original engine is an output policy, not a claim that its
+authorship accuracy has been validated on all rewritten texts. Confusable
+letters are still left untouched.

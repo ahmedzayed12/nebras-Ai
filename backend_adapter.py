@@ -122,7 +122,19 @@ def _attach(report, mm, forensics=None, paste=None, deck=None, paras=None):
     report.format_forensics = forensics
     report.paste = paste
     report.deck = deck
-    return _enhance(report)
+    report = _enhance(report)
+    # The original engine is the authoritative published result. Later layers
+    # remain available for diagnostics/localisation, never as a replacement.
+    report.diagnostic_score = float(report.score)
+    report.final_score = primary_score(report)
+    report.final_verdict, report.final_color = get_engine().make_verdict(report.final_score, report.words)
+    report.score_source = "main_engine"
+    return report
+
+
+def primary_score(report) -> float:
+    """Single source for UI, exports and clients; preserve legacy report objects."""
+    return max(0.0, min(100.0, float(getattr(report, "score_engine", report.score))))
 
 
 # Word "edit history" (edit time, revisions, comments, rsid sessions) is reset by a plain Save-As / another editor.
@@ -1595,7 +1607,7 @@ def batch_csv_bytes(results) -> bytes:
         if isinstance(report, Exception):
             row = (name, "-", "-", "خطأ: %s" % report, "-", "-", "-", "-")
         else:
-            row = (name, report.words, "%.0f" % report.score, report.verdict,
+            row = (name, report.words, "%.0f" % primary_score(report), getattr(report, "final_verdict", report.verdict),
                    report.stats["أخطاء مرجّحة لكل 1000 كلمة"],
                    "%.2f" % report.fvals["fmt_incons"], "%.2f" % report.fvals["meta_human"],
                    getattr(getattr(report, "math", None), "stats", None).found

@@ -27,7 +27,8 @@ def diagnose(path: str) -> None:
     print("=" * 78)
     print(os.path.basename(path), "| words:", r.words)
     print("  engine v2.1 (unchanged)      : %5.1f" % getattr(r, "score_engine", r.score))
-    print("  final index                  : %5.1f   %s" % (r.score, r.verdict))
+    print("  final index                  : %5.1f   %s" % (b.primary_score(r), getattr(r, "final_verdict", r.verdict)))
+    print("  diagnostic index             : %5.1f" % r.score)
     print("  pooled / local index         : %5.1f / %5.1f" % (
         getattr(r, "score_pooled", r.score), getattr(r, "score_local", r.score)))
     print("  suspected text share (map)   : %.0f%%   paragraphs scored: %d" % (share, len(ps)))
