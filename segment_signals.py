@@ -315,8 +315,8 @@ def wording_score(h: Dict[str, float], label_list: bool = False) -> float:
     return x
 
 
-def _to_logodds(x: float, words: int) -> float:
-    L = max(-L_CAP, min(L_CAP, ALPHA * (x - X0)))
+def _to_logodds(x: float, words: int, threshold: float = X0) -> float:
+    L = max(-L_CAP, min(L_CAP, ALPHA * (x - threshold)))
     return L * max(0.5, min(1.5, math.sqrt(words / 90.0)))
 
 
@@ -374,7 +374,8 @@ def _forward_backward(Ls: List[float], prior: float = PRIOR, stay: float = STAY)
 
 def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para_scores=(), topic=frozenset(),
             docx: bool = False, paste_texts: Optional[Dict[str, float]] = None, pasted_idx=frozenset(), outside_texts=frozenset(),
-            global_logit: float = 0.0, local_wording=None, artifact_evidence: bool = True) -> Segmentation:
+            global_logit: float = 0.0, local_wording=None, artifact_evidence: bool = True,
+            wording_threshold: float = X0) -> Segmentation:
     units = _build_units(texts, roles)
     seg = Segmentation(units=units)
     if not units:
@@ -410,7 +411,7 @@ def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para
             lab = len(u.idx) >= 2 and sum(1 for i in u.idx if _LABEL_ITEM.match(texts[i])) >= max(2, 0.6 * len(u.idx))
             u.x = wording_score(h, lab)
             u.habits = h
-            u.L = _to_logodds(u.x, u.words)
+            u.L = _to_logodds(u.x, u.words, wording_threshold)
         # Preserve a locally corroborated technical channel that the generic
         # English habits do not measure. Max-pooling avoids adding shared words
         # twice; the same slip discount then applies to both channels.
@@ -514,6 +515,27 @@ def _summarise(seg: Segmentation):
     if cur is not None:
         blocks.append(tuple(cur))
     seg.blocks = blocks
+
+
+def preserve_standalone_support(seg: Segmentation):
+    """Neighbours may not erase a unit's positive, independently measured cues.
+
+    Bound the sequence result below by the SINGLE-unit posterior using the same
+    PRIOR as the sequence model. Do not use a 50/50 prior or file-wide boosts.
+    Negative/neutral local evidence is never raised by this safeguard.
+    """
+    prior_logit = math.log(PRIOR / (1.0 - PRIOR))
+    changed = False
+    for u in seg.units:
+        own = u.L if u.own_L is None else min(u.L, u.own_L)
+        if own <= 0:
+            continue
+        independent = 1.0 / (1.0 + math.exp(-max(-30.0, min(30.0, prior_logit + own))))
+        if u.post < independent:
+            u.post = independent
+            changed = True
+    if changed:
+        _summarise(seg)
 
 
 def _key(t: str) -> str:

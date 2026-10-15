@@ -83,7 +83,7 @@ def run(humans):
     return {"summary": summary, "results": rows,
             "limitations": ["Human excerpts may share authors; intervals assume independent samples and may be optimistic.",
                             "Four generated fixture families with six correlated variants each; not population recall.",
-                            "English technical/fiction validation; no Arabic or comprehensive academic-domain calibration.",
+                            "Limited English sources identified per row; no Arabic or comprehensive academic-domain calibration.",
                             "A plain generated rewrite is deliberately included even when the detector misses it."],
             "engine": b.engine_status()}
 

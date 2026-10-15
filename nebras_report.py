@@ -1329,7 +1329,8 @@ def build_report_pdf(rep, *, filename=None, data=None, text=None, color=HIGHLIGH
             "date": _dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
             "engine_version": eng.VERSION, "engine_sha": ba.ENGINE_SHA256, "removed_highlights": removed}
     if getattr(rep, "score_source", "") == "balanced_v3":
-        meta["engine_version"] = "Nebras balanced v3.0"
+        import balanced_engine
+        meta["engine_version"] = "Nebras balanced v" + balanced_engine.VERSION
         meta["engine_sha"] = ba.engine_status()["published_model_fingerprint"]
 
     out = pymupdf.open()

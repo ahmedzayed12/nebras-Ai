@@ -95,6 +95,33 @@ def topic_terms(headings, extra=None) -> frozenset:
     return frozenset(out)
 
 
+def document_topic(paras) -> frozenset:
+    """Document-wide topics require title/keywords or recurring heading context.
+
+    A term appearing in one subsection title is not a global exemption from
+    wording evidence. Repeated copies of the same heading add no support.
+    ``topic_terms`` remains available for explicitly supplied titles/topics.
+    """
+    from collections import Counter
+    counts = Counter()
+    seen = set()
+    explicit = []
+    for p in paras:
+        text = str(getattr(p, "text", "") or "").strip()
+        role = getattr(p, "role", "")
+        style = str(getattr(p, "style_name", "") or "").strip().lower()
+        if role == "keywords" or style in {"title", "document title", "عنوان"}:
+            explicit.append(text)
+        if role != "heading" or not text:
+            continue
+        key = re.sub(r"^\s*(?:\d+[.\-\s]*)+", "", " ".join(text.lower().split()))
+        if key in seen:
+            continue
+        seen.add(key)
+        counts.update(topic_terms([text]))
+    return frozenset({word for word, n in counts.items() if n >= 2} | set(topic_terms(explicit)))
+
+
 STEM_CAP = 3        # per 1000 words: the LLM signature is MANY different marker words,
                     # while a word repeated dozens of times is the subject of the text ("framework", "robustness")
 

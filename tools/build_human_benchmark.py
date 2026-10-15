@@ -20,9 +20,8 @@ def require_commit(root, expected):
         raise ValueError("Source snapshot differs from the pinned pre-2020 commit: " + str(root))
 
 
-def build(peps, fiction):
+def pep_rows(peps):
     require_commit(peps, PEP_COMMIT)
-    require_commit(fiction.parent, DOYLE_COMMIT)
     rows = []
     for path in sorted(peps.glob("pep-*.txt")):
         text = path.read_text(errors="replace")
@@ -42,6 +41,12 @@ def build(peps, fiction):
     # The first 100 documents were development data; never report them as
     # the reserved validation set. Selection is independent of model scores.
     rows.sort(key=lambda r: hashlib.sha256(r["id"].encode()).hexdigest())
+    return rows
+
+
+def build(peps, fiction):
+    require_commit(fiction.parent, DOYLE_COMMIT)
+    rows = pep_rows(peps)
     rows = rows[100:]
     book = fiction.read_text(errors="replace")
     start = max(0, book.find("A SCANDAL IN BOHEMIA"))

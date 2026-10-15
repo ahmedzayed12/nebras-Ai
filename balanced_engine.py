@@ -8,7 +8,11 @@ from dataclasses import dataclass, field
 import math
 import re
 
-VERSION = "3.0"
+VERSION = "3.1"
+# Human p97 after correlated wording features were pooled. Measured only on
+# the 52 development-calibration PEPs, not user documents or validation sets.
+# See benchmarks/v3.1-wording-calibration.json and tools/calibrate_wording.py.
+WORDING_THRESHOLD = 2.11
 SOURCE = "balanced_v3"
 # These properties describe editing/exporting a FILE, not writing its prose.
 FILE_FEATURES = frozenset({"photos", "paste_trace", "meta_human", "meta_gen",
@@ -77,8 +81,9 @@ def analyze(report):
     seg = sg.segment([matching_text(t) for t in texts], roles, findings,
                      getattr(report, "wording_map", ()), topic, docx=False,
                      local_wording=getattr(report, "local_technical_support", {}),
-                     artifact_evidence=False)
+                     artifact_evidence=False, wording_threshold=WORDING_THRESHOLD)
     sg.own_evidence_veto(seg)
+    sg.preserve_standalone_support(seg)
     if not seg.units:
         return Result(baseline, baseline, baseline, baseline, words,
                       source="main_engine_fallback", warnings=["لا توجد وحدات نثرية كافية."])

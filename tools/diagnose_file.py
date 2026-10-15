@@ -59,7 +59,7 @@ def diagnose(path: str) -> None:
         if line[:1] in "▲◆■●⚠":
             print("    " + line)
     heads = [q.text for q in (getattr(r, "doc_paras", None) or []) if getattr(q, "role", "") == "heading"]
-    topic = acad.topic_terms(heads)
+    topic = b._academic_for(r)[2]
     texts = [t for t in r.texts if t and t.strip()]
     m_all, m_top = acad.measure(texts), acad.measure(texts, topic)
     print("  academic habits (per 1000 words): lexicon %.1f -> %.1f after removing %d topic stems | triads %.1f | long words %.1f%% | I/we %.2f"

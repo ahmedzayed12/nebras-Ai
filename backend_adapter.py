@@ -197,8 +197,7 @@ def _academic_for(report):
             eng = get_engine()
             _dp = [eng.Para(text=t) for t in report.texts]
             eng.assign_roles(_dp, bool(getattr(report, "is_docx", False)))
-        topic = acad.topic_terms([getattr(q, "text", "") for q in _dp if getattr(q, "role", "") == "heading"],
-                                 extra=[getattr(q, "text", "") for q in _dp if getattr(q, "role", "") == "keywords"])
+        topic = acad.document_topic(_dp)
         out = (acad, acad.analyze([t for t in report.texts if t and t.strip()], topic), topic)
     except Exception:
         out = (None, None, None)
@@ -1011,8 +1010,7 @@ def _topic_vocab_neutral(report, paras):
     """Topic vocabulary is required by the subject, not an independent style trace."""
     import academic_signals as acad
     eng = get_engine()
-    topic = acad.topic_terms([p.text for p in paras if p.role == "heading"],
-                             extra=[p.text for p in paras if p.role == "keywords"])
+    topic = acad.document_topic(paras)
     if not topic:
         return
     strong = medium = prose_words = 0
@@ -1722,6 +1720,8 @@ def engine_status():
     ).hexdigest()
     model_files = ("balanced_engine.py", "segment_signals.py", "academic_signals.py", "tech_signals.py", "matching_text.py", "backend_adapter.py")
     model_digest = hashlib.sha256(b"".join((ROOT / p).read_bytes() for p in model_files)).hexdigest()
-    return {"version": eng.VERSION, "published_model": "balanced_v3", "sha256": ENGINE_SHA256, "weights_fingerprint": digest,
+    import balanced_engine
+    return {"version": eng.VERSION, "published_model": "balanced_v3", "published_model_version": balanced_engine.VERSION,
+            "sha256": ENGINE_SHA256, "weights_fingerprint": digest,
             "published_model_fingerprint": model_digest,
             "custom_weights": os.path.exists(eng.WEIGHTS_FILE)}
