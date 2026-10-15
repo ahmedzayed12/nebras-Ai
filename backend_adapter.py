@@ -117,6 +117,12 @@ def _photo_evidence(report):
 
 
 def _attach(report, mm, forensics=None, paste=None, deck=None, paras=None):
+    # Freeze the engine's evidence as well as its score. Exporting its score
+    # alongside the later layers' feature table would explain a different model.
+    report.engine_evidence = {key: dict(getattr(report, key)) for key in
+                              ("features", "fvals", "stats", "ctx")}
+    report.engine_evidence["reasons"] = list(report.reasons)
+    report.engine_evidence["z"] = float(report.z)
     report.math = mm
     report.doc_paras = paras
     report.format_forensics = forensics
@@ -140,7 +146,7 @@ def primary_score(report) -> float:
 # Word "edit history" (edit time, revisions, comments, rsid sessions) is reset by a plain Save-As / another editor.
 # Its swing must not exceed what the TEXT can do: both history features are bounded.
 META_HUMAN_MIN, META_GEN_MAX = -0.25, 0.1
-PROSE_ONLY_EXCLUDE = {"photos", "meta_human", "meta_gen", "fmt_incons", "fmt_perfect", "mixed_conv", "err_density", "clean", "ortho"}
+PROSE_ONLY_EXCLUDE = {"photos", "paste_trace", "meta_human", "meta_gen", "fmt_incons", "fmt_perfect", "mixed_conv", "err_density", "clean", "ortho"}
 
 
 # Explicit generator traces (a code library or an AI product named as the author, or the python-docx template date).
@@ -252,7 +258,25 @@ def prose_only_score(report) -> float:
 def _rescore(report):
     conf = float(getattr(report, "confidence", 1.0) or 0.0)
     if conf:
-        report.score = 100.0 / (1.0 + math.exp(-float(report.z) * conf))
+        base = 100.0 / (1.0 + math.exp(-float(report.z) * conf))
+        report.feature_score = base
+        report.score = _replay_fusions(report, base)
+
+
+def _replay_fusions(report, base):
+    """Reapply non-logistic layers after a feature edit, never to a fused logit."""
+    score = base
+    for kind, layer in getattr(report, "score_fusions", []):
+        if kind == "technical":
+            import tech_signals
+            score = tech_signals.fuse(score, layer)
+        elif kind == "academic":
+            import academic_signals
+            score = academic_signals.fuse(score, layer)
+        elif kind == "local_style":
+            import ai_signals
+            score = max(score, ai_signals.fuse(score, layer).combined)
+    return score
 
 
 def _spacing_insensitive_style(report, paras):
@@ -704,18 +728,25 @@ def _recalibrate_container(report, strength: float = 1.0):
     wording evidence converges (strength 0..1). Full convergence (3 habits) = the full cap, as before; two habits
     relax it only partly, so partial wording evidence cannot erase most of the human evidence in one step."""
     feats = getattr(report, "features", None) or {}
-    raw = sum(feats[k][2] for k in CONTAINER_KEYS if k in feats and feats[k][2] < 0)
+    original = getattr(report, "container_original_features", None)
+    if original is None:
+        original = {k: feats[k] for k in CONTAINER_KEYS if k in feats and feats[k][2] < 0}
+        report.container_original_features = dict(original)
+    raw = sum(row[2] for row in original.values())
+    current = sum(feats[k][2] for k in CONTAINER_KEYS if k in feats and feats[k][2] < 0)
     report.container_raw = raw
     strength = max(0.0, min(1.0, strength))
-    report.container_eff = raw
-    if raw >= CONTAINER_CAP - 1e-9 or strength <= 0:
-        return False
-    target = raw + strength * (CONTAINER_CAP - raw)
+    target = raw + strength * (CONTAINER_CAP - raw) if raw < CONTAINER_CAP else raw
     report.container_eff = target
-    z = float(report.z) - raw + target
-    conf = float(getattr(report, "confidence", 1.0) or 0.0)
-    report.z = z
-    report.score = 100.0 / (1.0 + math.exp(-z * conf)) if conf else report.score
+    if abs(target - current) < 1e-9:
+        return False
+    features = dict(feats)
+    scale = target / raw if raw else 1.0
+    for k, (v, w, c) in original.items():
+        features[k] = (v, w, c * scale)
+    report.features = features
+    report.z = float(report.z) - current + target
+    _rescore(report)
     return True
 
 
@@ -814,14 +845,13 @@ def _file_evidence_to_paragraphs(report, paras=None) -> bool:
             delta = effective - min(0.0, cont)
             if delta > 1e-9:
                 report.z += delta
-                p = min(1 - 1e-12, max(1e-12, report.score / 100.0))
-                report.score = 100.0 / (1.0 + math.exp(-(math.log(p / (1 - p)) + delta * conf)))
                 report.container_eff = effective
                 for key, locations in (("meta_human", None), ("fmt_incons", fmt), ("mixed_conv", convention)):
                     if key in feats:
                         v, w, _ = feats[key]
                         eligible = 1.0 if locations is None else sum(n for i, _, n in report.para_scores if i in locations) / words
                         report.features[key] = (v, w, contribution(key) * eligible)
+                _rescore(report)
                 report.reasons = eng.build_reasons(report, report.ctx)
     else:
         conf = float(getattr(report, "confidence", 1.0) or 0.0)
@@ -878,8 +908,12 @@ def _score_stage(report, key, label):
     previous = stages[-1]["score"] if stages else float(report.score)
     ps = [(sc, n) for _, sc, n in getattr(report, "para_scores", []) if n > 0]
     words = sum(n for _, n in ps)
+    feature_sum = get_engine().load_weights()["bias"] + sum(c for _, _, c in (getattr(report, "features", None) or {}).values())
     stages.append({"key": key, "label": label, "score": float(report.score),
                    "delta": float(report.score) - previous,
+                   "feature_logit": float(report.z), "feature_sum": feature_sum,
+                   "ledger_error": float(report.z) - feature_sum,
+                   "fusion_channels": [k for k, _ in getattr(report, "score_fusions", [])],
                    "wording_only": prose_only_score(report),
                    "paragraph_mean": sum(sc * n for sc, n in ps) / words if words else None,
                    "paragraph_count": len(ps)})
@@ -999,6 +1033,8 @@ def _local_style_review(report, paras):
     # this layer's estimate. Otherwise paragraph aggregation loses the very
     # evidence that made the document score high.
     report.score = max(report.score, ai_signals.fuse(report.score, layer).combined)
+    if hasattr(report, "score_fusions"):
+        report.score_fusions.append(("local_style", layer))
     revised = []
     for i, sc, n in report.para_scores:
         pl = ai_signals.analyze([report.texts[i]], "para", topic=topic)
@@ -1046,6 +1082,7 @@ def _enhance(report):
     scores (which drive the PDF shading) are updated together so every report shows the same percentage."""
     eng = get_engine()
     report.score_engine = float(report.score)
+    report.score_fusions = []
     report.score_stages = []
     _score_stage(report, "engine", "المحرك الأصلي")
     report.wording_map = list(getattr(report, "para_scores", None) or [])
@@ -1119,9 +1156,10 @@ def _enhance(report):
     paste_fired = pa is not None and paste_eff >= PASTE_MIN
     if paste_fired:
         before = float(report.score)
-        report.z = float(report.z) + min(PASTE_MAX_LOGIT, PASTE_LOGIT * paste_eff)
-        conf = float(getattr(report, "confidence", 1.0) or 0.0)
-        report.score = 100.0 / (1.0 + math.exp(-report.z * conf)) if conf else report.score
+        paste_delta = min(PASTE_MAX_LOGIT, PASTE_LOGIT * paste_eff)
+        report.features["paste_trace"] = (paste_eff, PASTE_LOGIT, paste_delta)
+        report.z = float(report.z) + paste_delta
+        _rescore(report)
         lines.append("▲ آثار نسخ/لصق في تنسيق ملف Word (طبقة مستقلة) رفعت المؤشر من %.0f إلى %.0f:" % (before, report.score))
         lines += paste_lines
     elif pa is not None and paste_raw >= PASTE_MIN:
@@ -1144,6 +1182,8 @@ def _enhance(report):
         report.tech = layer
         before = float(report.score)
         fused = ts.fuse(before, layer)
+        report.score_fusions.append(("technical", layer))
+        report.score = float(fused)
         if layer.confidence > 0:
             _lift_paras(report, ts, layer.confidence)
         if fused > before + 0.5:
@@ -1162,6 +1202,8 @@ def _enhance(report):
             raise RuntimeError
         before = float(report.score)
         fused = acad.fuse(before, layer)
+        report.score_fusions.append(("academic", layer))
+        report.score = float(fused)
         if layer.confidence > 0:
             _lift_paras(report, acad, layer.confidence, topic=topic)
         if fused > before + 0.5:
@@ -1617,7 +1659,13 @@ def batch_csv_bytes(results) -> bytes:
 
 
 def html_report_bytes(report) -> bytes:
-    return get_engine().report_to_html(report).encode("utf-8")
+    import copy
+    view = copy.copy(report)
+    for key, value in getattr(report, "engine_evidence", {}).items():
+        setattr(view, key, value)
+    view.score = primary_score(report)
+    view.verdict, view.color = get_engine().make_verdict(view.score, view.words)
+    return get_engine().report_to_html(view).encode("utf-8")
 
 
 def engine_status():

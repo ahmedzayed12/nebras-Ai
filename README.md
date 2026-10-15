@@ -331,3 +331,25 @@ replace the main result nor need to cover the same percentage of the document.
 Selecting the original engine is an output policy, not a claim that its
 authorship accuracy has been validated on all rewritten texts. Confusable
 letters are still left untouched.
+
+### Arithmetic audit and evidence ledger
+
+`python tools/audit_scoring.py file.docx [more.docx]` emits a read-only JSON
+audit of the raw document engine result, prepared-input engine result, exact
+reconstruction from bias and feature contributions, intermediate stages, and
+published versus diagnostic results. Preparation can change the engine input;
+these two original-engine runs must not be conflated. Input documents are not
+rewritten and the audit performs no training or threshold tuning.
+
+Container recalibration now updates feature contributions and its logit together,
+and repeating the same recalibration is idempotent. Non-logistic technical,
+academic and local style fusions are replayed after later feature corrections;
+a fused percentage is never treated as the base engine's feature logit. Paste
+contributions are recorded explicitly and excluded from wording-only evidence.
+HTML export uses a snapshot of the original engine evidence with its headline,
+instead of explaining that headline using the later feature table.
+
+These arithmetic repairs do not change the authoritative main-engine selection
+or establish authorship accuracy. Low direct-engine results cannot automatically
+be blamed on the later layers. Regression tests check mathematical consistency,
+not empirical sensitivity or a target percentage on submitted documents.

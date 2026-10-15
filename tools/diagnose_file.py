@@ -44,6 +44,9 @@ def diagnose(path: str) -> None:
         wording = stage.get("wording_only")
         if wording is not None:
             suffix += " | wording-only %.2f" % wording
+        suffix += " | ledger error %.3g" % stage.get("ledger_error", 0.0)
+        if stage.get("fusion_channels"):
+            suffix += " | fusions " + ",".join(stage["fusion_channels"])
         print("    %-35s %6.2f (%+.2f points)%s" % (stage["label"], stage["score"], stage["delta"], suffix))
     seg = getattr(r, "segmentation", None)
     if seg is not None and seg.units:

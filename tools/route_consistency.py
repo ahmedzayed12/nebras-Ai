@@ -54,8 +54,8 @@ def compare(path: str) -> None:
     print("=" * 78)
     print(name)
     for tag, r in routes.items():
-        print("  %s  engine %5.1f   final %5.1f   words %6d   %s" % (tag, getattr(r, "score_engine", r.score), r.score, r.words, r.verdict[:34]))
-    scores = [r.score for r in routes.values()]
+        print("  %s  engine %5.1f   final %5.1f   diagnostic %5.1f   words %6d   %s" % (tag, getattr(r, "score_engine", r.score), b.primary_score(r), r.score, r.words, getattr(r, "final_verdict", r.verdict)[:34]))
+    scores = [b.primary_score(r) for r in routes.values()]
     gap = max(scores) - min(scores)
     print("  gap between routes: %.1f  %s" % (gap, "OK" if gap <= GAP_OK else "<< EXTRACTION-SENSITIVE: see features below"))
     base = _feat(docx)
