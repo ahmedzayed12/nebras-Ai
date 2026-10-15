@@ -34,6 +34,23 @@ C = {"ai": "#FF4B4B", "human": "#35E0B4", "warn": "#FFC247"}
 BAND_HIGH, BAND_MID = 55, 30
 MIN_WORDS = 300
 MODE_TEXT, MODE_FILE, MODE_BATCH = "نص مباشر", "ملف واحد", "دفعة ملفات أو ZIP"
+# Upload from the interface: Word and plain text only (PDF upload is closed in the UI; the engine keeps its PDF reader).
+UPLOAD_TYPES = ["docx", "txt", "md"]
+UPLOAD_EXT = tuple("." + t for t in UPLOAD_TYPES)
+UPLOAD_REJECT = "الملفات المقبولة: Word (DOCX) أو نص (TXT / MD) فقط. رفع PDF مغلق؛ ارفع نسخة Word من الملف."
+
+
+def _picker_types(extra=()):
+    """Computer: the picker shows only the accepted types. Phone: no filter, because Android pickers grey out or drop
+    files whose extension they do not map (".md"), and files shared from Drive / WhatsApp often arrive without an
+    extension, which Streamlit's type check silently rejects. On a phone the file is identified by its own bytes."""
+    try:
+        ua = st.context.headers.get("User-Agent", "") or ""
+    except Exception:
+        ua = ""
+    if any(k in ua for k in ("Android", "iPhone", "iPad", "iPod", "Mobile")):
+        return None
+    return UPLOAD_TYPES + list(extra)
 
 
 # ----------------------------------------------------------------- helpers
@@ -143,8 +160,8 @@ def footer():
           <div class="institutional-detail">
             <p>نبراس خدمة تحليل تقدّر ميل النص العربي أو الإنجليزي إلى أسلوب مولّد بالذكاء الاصطناعي،
             وتقدّم مؤشرًا وخريطة للفقرات المؤثرة وتقرير PDF.</p>
-            <p>الصق النص أو ارفع ملف Word أو PDF، وأكمل التحقق البشري، ثم اضغط زر الفحص.
-            ملف Word الأصلي يحافظ على قرائن التنسيق التي قد تفقدها نسخة PDF.</p>
+            <p>الصق النص أو ارفع ملف Word أو ملفًا نصيًا، وأكمل التحقق البشري، ثم اضغط زر الفحص.
+            ملف Word الأصلي يحافظ على قرائن التنسيق.</p>
           </div>
         </details>
         <details>
@@ -500,17 +517,18 @@ def input_desk():
                 except Exception as ex:
                     st.error(str(ex))
     elif selection == MODE_FILE:
-        # No `type=` filter: Android/iOS pickers grey out files when given a list of extensions (and drop files
-        # that arrive without one). Unsupported types are rejected with a clear message below instead.
-        uploaded = st.file_uploader("ملف PDF أو Word أو نص", key=f"one_file_{n}")
+        # Only the types the program accepts are offered in the picker (Word / text); PDF upload is closed.
+        uploaded = st.file_uploader("ملف Word أو نص (DOCX / TXT / MD)", type=_picker_types(), key=f"one_file_{n}")
         pressed, captcha_slot = analysis_action("حلّل الملف", f"analyze_file_{n}")
         if pressed:
             if uploaded is None:
-                st.warning("اختر ملفًا أولًا.")
+                st.warning("اختر ملفًا أولًا، وانتظر اكتمال شريط الرفع قبل الضغط على زر التحليل.")
             elif require_human():
                 try:
                     data = uploaded.getvalue()
                     uname = normalize_upload_name(uploaded.name, getattr(uploaded, "type", ""), data)
+                    if not uname.lower().endswith(UPLOAD_EXT):
+                        raise ValueError(UPLOAD_REJECT)
                     report = analyze_uploaded_bytes(uname, data)
                     st.session_state["current_report"] = report
                     st.session_state["batch_reports"] = None
@@ -547,9 +565,9 @@ def input_desk():
                         except Exception as ex:
                             st.error(str(ex))
     else:
-        multiple = st.file_uploader("ملفات متعددة أو أرشيف ZIP", accept_multiple_files=True,
-                                    key=f"multi_files_{n}")
-        md('<p class="note">ارفع أرشيف ZIP لمجلد كامل. يُحلَّل كل ملف بنفس طريقة الملف المنفرد.</p>')
+        multiple = st.file_uploader("ملفات Word أو نص متعددة، أو أرشيف ZIP", accept_multiple_files=True,
+                                    type=_picker_types(["zip"]), key=f"multi_files_{n}")
+        md('<p class="note">ارفع أرشيف ZIP لمجلد كامل. تُفحص ملفات Word والنصوص فقط، ويُحلَّل كل ملف بنفس طريقة الملف المنفرد.</p>')
         pressed, captcha_slot = analysis_action("حلّل الدفعة", f"analyze_batch_{n}")
         if pressed:
             if not multiple:
@@ -560,9 +578,21 @@ def input_desk():
                     for x in multiple:
                         _d = x.getvalue()
                         files.append((normalize_upload_name(x.name, getattr(x, 'type', ''), _d), _d))
-                    results = analyze_batch_inputs(files)
+                    allitems = list(expand_uploaded_inputs(files))
+                    items = [(lbl, d) for lbl, d in allitems if lbl.lower().endswith(UPLOAD_EXT)]
+                    skipped = [lbl for lbl, _ in allitems if not lbl.lower().endswith(UPLOAD_EXT)]
+                    skipped += [nm for nm, _ in files if not nm.lower().endswith(UPLOAD_EXT + (".zip", ".pdf", ".text"))]
+                    if skipped:
+                        st.warning(UPLOAD_REJECT + " تُجوهلت: " + "، ".join(filename_only(x) for x in skipped[:10]))
+                    results = []
+                    for lbl, d in items:       # same per-file path as analyze_batch_inputs, PDFs inside a ZIP skipped
+                        try:
+                            res = analyze_uploaded_bytes(filename_only(lbl), d)
+                        except Exception as exc:
+                            res = exc
+                        results.append((lbl, res))
                     if results:
-                        st.session_state["batch_sources"] = {lbl: d for lbl, d in expand_uploaded_inputs(files)}
+                        st.session_state["batch_sources"] = dict(items)
                         st.session_state["batch_reports"] = results
                         st.session_state["current_report"] = None
                         st.session_state["editor_origin"] = None

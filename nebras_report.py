@@ -733,6 +733,9 @@ def converter_status() -> dict:
     return {"word": _word_available(), "libreoffice": _find_soffice()}
 
 
+_WORD_LOCK = __import__("threading").Lock()
+
+
 def _convert_with_word(src: Path, dst: Path):
     # A dedicated, invisible Word instance (DispatchEx) is used instead of docx2pdf's
     # Dispatch(): Dispatch attaches to whichever Word process is already running (stale
@@ -757,7 +760,20 @@ def _convert_with_word(src: Path, dst: Path):
         "            except Exception:\n"
         "                pass\n"
         "    return ids\n"
+        # A Word instance that was force-closed leaves its owner file '~$Normal.dotm' behind; every later Word start
+        # then reports 'Normal.dotm is in use by another application'. Removed only when no Word is running at all.
+        "import os, glob\n"
+        "def _clear_stale_normal_lock():\n"
+        "    if _word_pids():\n"
+        "        return\n"
+        "    tdir = os.path.join(os.environ.get('APPDATA', ''), 'Microsoft', 'Templates')\n"
+        "    for f in glob.glob(os.path.join(tdir, '~$*.dotm')):\n"
+        "        try:\n"
+        "            os.remove(f)\n"
+        "        except Exception:\n"
+        "            pass\n"
         "src, dst = sys.argv[1], sys.argv[2]\n"
+        "_clear_stale_normal_lock()\n"
         "before = _word_pids()\n"
         "pythoncom.CoInitialize()\n"
         "word = win32com.client.DispatchEx('Word.Application')\n"
@@ -795,15 +811,18 @@ def _convert_with_word(src: Path, dst: Path):
         "except Exception:\n"
         "    pass\n"
         # give the instance time to exit by itself (and release Normal.dotm); force-close only a real leftover
-        "for _ in range(30):\n"
+        "for _ in range(60):\n"
         "    if not (_word_pids() - before):\n"
         "        break\n"
         "    time.sleep(0.5)\n"
         "for pid in (_word_pids() - before):\n"
-        "    sp.run(['taskkill', '/F', '/PID', str(pid)], capture_output=True)\n"
+        "    sp.run(['taskkill', '/F', '/PID', str(pid)], capture_output=True, creationflags=0x08000000)\n"
+        "time.sleep(0.5)\n"
+        "_clear_stale_normal_lock()\n"
     )
-    r = subprocess.run([sys.executable, "-c", code, str(src), str(dst)],
-                       capture_output=True, text=True, timeout=240)
+    with _WORD_LOCK:     # one hidden Word at a time: two instances started together fight over Normal.dotm
+        r = subprocess.run([sys.executable, "-c", code, str(src), str(dst)],
+                           capture_output=True, text=True, timeout=240)
     if r.returncode != 0 or not dst.exists():
         raise RuntimeError("Word: " + (r.stderr or r.stdout or "").strip()[-300:])
 
