@@ -126,3 +126,23 @@ def test_spinner_phrases_mark_their_paragraph():
     assert sg.spinner_count("A profound learning experience for the students in the village school.") == 0
     seg = sg.segment([spun] * 3, ["body"] * 3, docx=True)
     assert seg.spun == 9 and all(u.tool_marked for u in seg.units)
+
+
+def test_scientific_notation_is_not_a_typing_slip():
+    """'cobalt(II)', 'N,S-donor', '2:1', '[CoL2(NO3)2]' are notation; 'Ulysses(1922)' or 'it(see below)' are real slips."""
+    assert sg.is_scientific_slip("treated with cobalt(II) chloride", 19)
+    assert sg.is_scientific_slip("the same N,S-donor ligand set", 10)
+    assert sg.is_scientific_slip("at 2:1 ligand ratio", 4)
+    assert sg.is_scientific_slip("for [CoL2(NO3)2] the", 9)
+    assert not sg.is_scientific_slip("Joyce's Ulysses(1922) is", 15)
+    assert not sg.is_scientific_slip("we saw it(see below)", 9)
+    assert not sg.is_scientific_slip("good,bad and ugly", 4)
+
+
+def test_file_wide_push_never_shades_a_paragraph_whose_own_evidence_is_human():
+    """v2.8: metadata / slip-free rule / neighbours can decide undecided paragraphs, never clearly human ones."""
+    seg = sg.segment([LLM_PARA] * 3 + [HUMAN_PARA] + [LLM_PARA] * 3, ["body"] * 7, docx=True, global_logit=2.5)
+    human = seg.units[3]
+    assert human.own_L <= sg.OWN_HUMAN_VETO
+    sg.own_evidence_veto(seg)
+    assert human.post < sg.SUSPECT
