@@ -155,7 +155,7 @@ def test_no_math_keeps_engine_input_and_original_engine_score():
     assert guarded.texts == raw.texts
     assert guarded.score_engine == raw.score
     if getattr(guarded, "segmentation", None) is not None:      # v2.5: index = share of attributed words
-        assert guarded.score == pytest.approx(round(100.0 * guarded.ai_share, 1))
+        assert guarded.score == pytest.approx(round(100.0 * guarded.ai_share_expected, 1))
     else:
         assert guarded.score <= guarded.score_pooled
 

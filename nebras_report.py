@@ -1229,12 +1229,7 @@ def _content_box(page):
 
 
 def plan_from_segmentation(rep, paras) -> Plan | None:
-    """v2.5: shading = the document index, attributed paragraph by paragraph by the engines.
-
-    Each prose unit carries its own probability of being generated, computed from its own wording, its own slips /
-    paste traces and its neighbours (segment_signals). The index is the share of prose words in the units whose
-    probability is 0.5 or more, and exactly those paragraphs are shaded, whole. No supplementary / illustrative tint:
-    every shaded word belongs to a paragraph the engines attribute to generation, so shading == index."""
+    """Shade units above the evidence threshold independently of the continuous index."""
     seg = getattr(rep, "segmentation", None)
     if seg is None or not seg.units:
         return None

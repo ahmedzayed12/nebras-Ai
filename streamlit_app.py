@@ -277,8 +277,8 @@ def _suspect_share(rep) -> str:
     deck = getattr(rep, "deck", None)
     if deck is not None and deck.is_deck and deck.suspect_share is not None:
         return "%.0f%% من الشرائح" % (100.0 * deck.suspect_share)
-    if getattr(rep, "segmentation", None) is not None:      # v2.5: the index IS the share of generated text
-        return "%.0f%%" % rep.score
+    if getattr(rep, "segmentation", None) is not None:      # thresholded coverage is separate from the continuous index
+        return "%.0f%%" % (100.0 * rep.ai_share)
     ps = list(getattr(rep, "para_scores", []) or [])
     tot = sum(n for _, _, n in ps)
     return "%.0f%%" % (100.0 * sum(n for _, sc, n in ps if sc >= 55) / tot) if tot >= 150 else "—"

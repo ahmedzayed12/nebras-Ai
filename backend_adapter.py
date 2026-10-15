@@ -1297,7 +1297,12 @@ def _segment(report, topic, pa):
     if pa is not None and pa.total >= PASTE_MIN and not traces:
         g += 0.3 * min(PASTE_MAX_LOGIT, PASTE_LOGIT * pa.total)     # file-wide paste trace (e.g. typed-space indents)
     outside = sg.outside_word_texts(getattr(report, "docx_bytes", None)) if docx else frozenset()
-    seg = sg.segment(report.texts, roles, report.findings, report.para_scores, topic or frozenset(), docx=docx,
+    # Use the same authorship-error policy as the earlier text/friction layers.
+    # Cosmetic spacing remains visible as a quality finding, not human credit.
+    error_kinds = getattr(report, "text_error_kinds", None)
+    findings = [f for f in report.findings if error_kinds is None
+                or f.kind not in sg.TEXT_SLIPS_DOCX or f.kind in error_kinds]
+    seg = sg.segment(report.texts, roles, findings, report.para_scores, topic or frozenset(), docx=docx,
                      paste_texts=traces, pasted_idx=frozenset(pasted), outside_texts=outside, global_logit=g)
     # "A human always slips" (Word files): a long suspected text without a single slip confirms the suspicion.
     if docx and seg.units:
@@ -1313,8 +1318,7 @@ def _segment(report, topic, pa):
 
 
 def _apply_segmentation(report, seg, lines):
-    """The index = the share of prose words in the paragraphs the engines attribute to generation (probability >= 0.5).
-    The paragraph map and the PDF shading are built from exactly the same paragraphs, so they always equal the index."""
+    """Continuous word-weighted style index; thresholded coverage is kept separately."""
     import segment_signals as sg
     eng = get_engine()
     before = float(report.score)
@@ -1328,8 +1332,8 @@ def _apply_segmentation(report, seg, lines):
     tot = sum(words_of.values()) or 1
     hit = sum(words_of[i] for u in seg.units if u.post >= sg.SUSPECT for i in u.idx)
     report.ai_share = hit / tot
-    report.ai_share_expected = seg.share
-    report.score = round(100.0 * hit / tot, 1)
+    report.ai_share_expected = sum(seg.para_post[i] * n for i, n in words_of.items()) / tot
+    report.score = round(100.0 * report.ai_share_expected, 1)
     report.para_scores = [(i, round(100.0 * seg.para_post[i], 0), words_of[i]) for i in sorted(seg.para_post)]
     report.reasons = [r for r in report.reasons if not str(r).startswith("⚠ مستند مختلط محتمل")]
     if getattr(seg, "spun", 0):
@@ -1345,9 +1349,9 @@ def _apply_segmentation(report, seg, lines):
     if seg.blocks:
         spans = "، ".join(("الفقرة %d" % (a + 1)) if a == b else ("الفقرات %d–%d" % (a + 1, b + 1)) for a, b, _ in seg.blocks[:8])
         lines.append("◆ قراءة المستند فقرةً فقرة: %.0f%% من كلمات المتن في فقرات تحمل عادات النص المولَّد، في %d كتلة (%s)."
-                     % (report.score, len(seg.blocks), spans))
+                     % (100.0 * report.ai_share, len(seg.blocks), spans))
     else:
-        lines.append("◆ قراءة المستند فقرةً فقرة: لا توجد فقرة تحمل عادات النص المولَّد.")
+        lines.append("◆ قراءة المستند فقرةً فقرة: لا توجد فقرة تتجاوز عتبة الاشتباه؛ المؤشر المستمر يحتفظ بالقرائن الأضعف.")
 
 def analyze_text_guarded(text: str, source: str = "نص ملصق", deck=None, from_pdf: bool = False):
     """Text route (paste / TXT / MD / PDF text): equations out, then the unchanged engine."""

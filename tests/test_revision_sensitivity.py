@@ -41,7 +41,7 @@ def test_rewriting_progressively_reduces_suspicion_and_keeps_detection():
         # v2.5: with the paragraph reading the index is the share of attributed words (it may exceed the pooled score
         # of a mixed file); without it the paragraph aggregation may only lower the pooled score.
         if getattr(r, "segmentation", None) is not None:
-            assert r.score == pytest.approx(round(100.0 * r.ai_share, 1))
+            assert r.score == pytest.approx(round(100.0 * r.ai_share_expected, 1))
         else:
             assert r.score <= r.score_pooled
     assert all(a > c for a, c in zip(scores, scores[1:]))

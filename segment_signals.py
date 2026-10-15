@@ -21,8 +21,8 @@ WHAT THIS LAYER DOES (reasons, not pressure)
   3. Generated text arrives in contiguous blocks (a section, a chapter), so the units are read as a sequence with a
      two-state model (human / generated) whose state rarely switches between neighbouring paragraphs. A paragraph is
      judged together with its neighbours; an isolated "polished" human paragraph inside human text stays human.
-  4. The document index becomes the estimated SHARE of generated text (the number Turnitin / GPTZero report), so the
-     index, the paragraph map and the PDF shading always describe the same thing.
+  4. The document index is the continuous word-weighted paragraph indicator.
+     Thresholded attribution and shading are separate from this heuristic index.
 
 LANGUAGE
   English units are scored by the habits below. Arabic units keep the engine's own paragraph score as their evidence.
@@ -473,8 +473,10 @@ def own_evidence_veto(seg: Segmentation, veto: float = None):
     changed = False
     for u in seg.units:
         own = u.L if u.own_L is None else min(u.L, u.own_L)
-        if own <= veto and u.post >= SUSPECT:
-            u.post = min(u.post, SUSPECT - 0.01)
+        if own <= veto and u.post > min(SUSPECT - 0.01, 1.0 / (1.0 + math.exp(-max(-30.0, own)))):
+            # Preserve the strength of local evidence rather than flattening
+            # every vetoed paragraph to the same 49 percent.
+            u.post = min(u.post, SUSPECT - 0.01, 1.0 / (1.0 + math.exp(-max(-30.0, own))))
             changed = True
     if changed:
         _summarise(seg)

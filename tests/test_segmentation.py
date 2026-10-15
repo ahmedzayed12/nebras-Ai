@@ -79,7 +79,7 @@ def test_report_shading_equals_the_index_and_follows_the_paragraphs():
     r = b.analyze_uploaded_bytes("sh.docx", data)
     plan = nr.compute_plan(r, filename="sh.docx", data=data)
     assert plan.soft_words == 0
-    assert abs(plan.percent - r.score) <= 3.0, (plan.percent, r.score)
+    assert abs(plan.percent - 100.0 * r.ai_share) <= 3.0, (plan.percent, r.ai_share)
     post = r.segmentation.para_post
     shaded = [i for i, (w, f) in plan.per_para.items() if f]
     assert shaded and min(post[i] for i in shaded) >= max(

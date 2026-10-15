@@ -283,9 +283,20 @@ fed back into paragraph evidence. A paragraph needs positive local evidence to
 be attributed to generation, even inside a suspected block.
 
 These are general evidence corrections, not calibration against a particular
-user document or another detector's reported percentage. The displayed share
-remains a heuristic share of flagged prose, not a verified authorship percentage.
+user document or another detector's reported percentage. The headline is a continuous word-weighted style index, not a verified authorship
+percentage. The thresholded share of flagged prose is retained separately.
 Rewriting can reduce it when measured local evidence changes; paraphrasing or
 adding errors must not guarantee a predetermined reduction. Deployment thresholds
 still require held-out, provenance-labelled academic texts, including non-native
 English, proofread human work, weak generation, and human/automatic paraphrases.
+
+### Continuous index correction
+
+The headline uses all paragraph evidence weighted by eligible word counts, rather
+than counting only paragraphs over 0.5. Low nonzero evidence no longer disappears
+into an exact zero, and crossing the highlighting threshold does not cause a
+whole-paragraph jump. Highlighting still requires the local evidence threshold;
+it is never expanded to match the headline. A local-evidence veto caps the
+paragraph at its own evidence strength rather than flattening it to 49 percent.
+Cosmetic spacing is excluded from human-error credit consistently across layers.
+There is no artificial minimum score; a displayed 0.0 may still occur by rounding.
