@@ -1320,8 +1320,9 @@ def _apply_segmentation(report, seg, lines):
     before = float(report.score)
     report.segmentation = seg
     report.score_document = before          # whole-document reading of the earlier stages (kept for diagnosis)
-    if before > SEG_DOC_GATE:
-        sg.raise_prior(seg, SEG_DOC_LOGIT * min(1.0, (before - SEG_DOC_GATE) / (100.0 - SEG_DOC_GATE)))
+    # The pooled score already uses these same lexical and structural habits.
+    # Reinjecting it as a prior counts the wording twice and can overwhelm
+    # paragraph-local editing evidence. Independent provenance enters _segment.
     sg.own_evidence_veto(seg)
     words_of = {i: len(eng.WORD_RE.findall(report.texts[i] or "")) for u in seg.units for i in u.idx}
     tot = sum(words_of.values()) or 1

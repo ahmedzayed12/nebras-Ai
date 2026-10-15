@@ -271,3 +271,21 @@ IBM Plex Sans Arabic وReem Kufi تحت ترخيص SIL OFL، ونصوص التر
 - v2.7.1: الترميز العلمي (cobalt(II)، N,S-donor، 2:1، [CoL2(NO3)2]) لا يُحتسب «خطأ كتابة بشريًا»؛ أما Ulysses(1922) فيبقى خطأً حقيقيًا.
 - v2.8: حاجز الدليل الذاتي يُحكم على دليل الفقرة نفسها (صياغتها وأخطاؤها وآثار اللصق/الأدوات فيها) قبل أي دفع على مستوى الملف؛ فلا تُظلَّل فقرة صياغتها بشرية بوضوح بسبب الميتاداتا أو قاعدة «البشر يخطئون» أو جيرانها.
 - v2.9: الفقرات التي وُضعت في ملف Word من خارجه (بلا علامات التحرير rsid التي يضعها Word على كل فقرة تُكتب أو تُلصق فيه، في ملف باقيه يحملها) تُحتسب قرينة أداة في فقراتها (وزن أثر اللصق نفسه)، ولا تُظلِّل فقرة صياغتها بشرية بوضوح. الملفات الخالية من العلامات كلها لا تتأثر.
+
+# Formal-prose fairness correction
+
+The academic layer does not count absence of first-person pronouns as another
+independent habit. Vocabulary plus long words alone cannot activate its fusion.
+Paragraph scoring pools overlapping vocabulary dictionaries and morphological
+complexity instead of adding them as independent evidence, and uses the academic
+triad filter to exclude technical enumerations. The pooled document score is not
+fed back into paragraph evidence. A paragraph needs positive local evidence to
+be attributed to generation, even inside a suspected block.
+
+These are general evidence corrections, not calibration against a particular
+user document or another detector's reported percentage. The displayed share
+remains a heuristic share of flagged prose, not a verified authorship percentage.
+Rewriting can reduce it when measured local evidence changes; paraphrasing or
+adding errors must not guarantee a predetermined reduction. Deployment thresholds
+still require held-out, provenance-labelled academic texts, including non-native
+English, proofread human work, weak generation, and human/automatic paraphrases.

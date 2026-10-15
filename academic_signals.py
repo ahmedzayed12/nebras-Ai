@@ -15,7 +15,7 @@ CALIBRATION (anchors: z=0 at the human 99th percentile, z=1 near the minimum of 
    lex     LLM excess vocabulary per 1000 words      human med 1.5, p99 8.1, max 12.8 | LLM min 13.8, med 17.6
    tri     balanced triads "A, B, and C" per 1000     human med 0.7, p99 3.8, max 6.2  | LLM min 10.2, med 14.0
    long_w  % of words >= 10 letters                   human med 8.0, p99 13.8, max 15.3| LLM min 16.9, med 18.1
-   voice   no I / we / my / our in >= 2000 words      human med 3.8 per 1000           | LLM 0
+   voice   no I / we / my / our in >= 2000 words      supporting context only; not an independent habit
 
   ONE-SIDED: absence of a habit says nothing, and the layer can only RAISE the engine score, and only when at
   least 3 independent habits converge (the same rule tech_signals uses). Re-calibrate the anchors in SPEC with
@@ -206,14 +206,14 @@ def analyze(paragraphs, topic=None) -> AcadLayer:
     zv = 1.0 if (m["words"] >= 2000 and m["first"] < 0.3) else 0.0
     sigs.append(AcadSignal("voice", "غياب تام لضمير المتكلم في نص طويل", 0.5, m["first"], "لكل 1000 كلمة", zv))
     total += 0.5 * zv
-    if zv and fired >= 2:
-        fired += 1
+    # Impersonal voice is normal in academic writing; it is supporting
+    # context, never an additional independent habit.
     score = 50.0 + 50.0 * math.tanh((total - SCORE_OFFSET) / SCORE_SCALE)
-    # graded, no cliff: 3+ converging habits = full confidence; 2 STRONG habits (combined evidence >= TWO_STRONG)
-    # = partial confidence growing with their strength; fewer = nothing.
+    # Three measured habits give full confidence. Two may give partial confidence
+    # only with rhetorical structure: terminology plus word length is insufficient.
     if fired >= 3:
         g = 1.0
-    elif fired == 2 and total >= TWO_STRONG:
+    elif fired == 2 and total >= TWO_STRONG and sigs[1].z >= 0.25:
         g = min(0.6, 0.6 * (total - TWO_STRONG + 0.4) / 0.8)
     else:
         g = 0.0

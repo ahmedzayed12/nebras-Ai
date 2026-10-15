@@ -195,7 +195,7 @@ SLIP_L, SLIP_CAP = 0.6, 1.8       # each human slip inside a unit (log-odds), an
 FMT_SLIP_L = 0.25                 # a scattered hand-format difference on that paragraph
 PASTE_L = 1.2                     # chat-window formatting carried by that very paragraph
 MIN_UNIT_WORDS = 12
-OWN_HUMAN_VETO = -1.0              # own evidence at least 1:2.7 for human: neighbours cannot attribute the unit to generation
+OWN_HUMAN_VETO = 0.0               # attribution requires positive local evidence
 CLEAR_HUMAN_L = -1.5              # own evidence at least 1:4.5 for human: document-wide evidence does not move it
 SUSPECT = 0.5                     # a unit is attributed to generation when that is more likely than not
 
@@ -268,7 +268,7 @@ def habits(text: str, topic=frozenset()) -> Dict[str, float]:
     h = {
         "lex": len(lex) / k,
         "vocab": (len(vs) + 0.3 * len(vm)) / k,
-        "tri": sum(1 for s in sents if E.RX_TRICOLON.search(s)) / ns,
+        "tri": sum(1 for s in sents if acad.count_triads(s, topic)) / ns,
         "wlen": sum(len(w) for w in ws) / n,
         "nomin": len(_NOMIN.findall(text)) / k,
         "doublet": sum(1 for a, b in _DOUBLET.findall(text) if a.lower() not in _DOUBLET_STOP and b.lower() not in _DOUBLET_STOP) / k,
@@ -292,11 +292,15 @@ def _is_aside(c: str) -> bool:
 
 
 def wording_score(h: Dict[str, float], label_list: bool = False) -> float:
-    x = 0.0
+    contributions = {}
     for key, (w, lo, hi) in ANCHORS.items():
         if hi <= lo:
             hi = lo + 1e-6
-        x += w * max(0.0, min(MAX_Z, (h[key] - lo) / (hi - lo)))
+        contributions[key] = w * max(0.0, min(MAX_Z, (h[key] - lo) / (hi - lo)))
+    # Pool overlapping dictionaries and morphological complexity once per family.
+    x = max(contributions.pop("lex"), contributions.pop("vocab"))
+    x += max(contributions.pop("wlen"), contributions.pop("nomin"))
+    x += sum(contributions.values())
     cv = h.get("cv", float("nan"))
     if cv == cv:
         x += UNIFORM_W * max(0.0, min(1.0, (CV_HI - cv) / (CV_HI - CV_LO)))

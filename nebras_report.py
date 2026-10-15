@@ -981,8 +981,8 @@ def _cover(doc, rep, plan, meta, page_total, *, page=None):
          '<div class="lbl">Overall AI style index (engine)</div>'
          % (int(col[0] * 255), int(col[1] * 255), int(col[2] * 255), _esc(percent_label(plan))))
     if plan.sufficient and getattr(rep, "segmentation", None) is not None:
-        ar = "التظليل يطابق النسبة؛ كل فقرة مظللة نسبها المحرك إلى النص المولَّد."
-        stat = ("<b>%d</b> of <b>%d</b> eligible words shaded"
+        ar = "التظليل يعرض المقاطع التي أمكن تحديدها فعليًا؛ قد تقل تغطيته عن مؤشر الاشتباه عند تعذر مطابقة النص."
+        stat = ("<b>%d</b> of <b>%d</b> eligible words highlighted"
                 % (plan.total_words, plan.qualifying_words))
     elif plan.sufficient:
         ar = "النتيجة النهائية من مؤشر المحرك العام."
