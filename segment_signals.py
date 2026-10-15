@@ -117,6 +117,46 @@ def is_scientific_slip(text: str, start: int) -> bool:
     return bool(_SCI_TOKEN.search(tok))
 
 
+# Paragraphs placed in a Word file from OUTSIDE Word (v2.9). Word stamps every paragraph it writes, typed or pasted, with
+# revision ids (w:rsid*). A tool that edits the file's XML directly (a script, an agent, a "rewrite my docx" service)
+# leaves its paragraphs without any. Only a MIXED file counts: most prose carries Word's stamps and some does not.
+# Files with no stamps at all (Google Docs, LibreOffice, python-docx) are left to the metadata layer.
+OUTSIDE_L = 1.2                 # same weight as a chat-paste trace; never overrides a paragraph whose own wording is human
+OUTSIDE_MIN_MARKED = 20         # the file must really be a Word-written file
+OUTSIDE_MIN_MARKED_SHARE = 0.5
+OUTSIDE_MIN_UNMARKED = 3
+_XML_P = re.compile(r"<w:p[ >].*?</w:p>", re.S)
+_XML_T = re.compile(r"<w:t(?:\s[^>]*)?>([^<]*)</w:t>")
+
+
+def _okey(t: str) -> str:
+    return re.sub(r"\s+", "", t or "")[:70]       # spacing-free: Word tabs / run joins differ from the engine's text
+
+
+def outside_word_texts(docx_bytes) -> frozenset:
+    """Keys of prose paragraphs without any Word revision stamp, in a file otherwise stamped by Word."""
+    if not docx_bytes:
+        return frozenset()
+    try:
+        import io, zipfile, html as _h
+        xml = zipfile.ZipFile(io.BytesIO(docx_bytes)).read("word/document.xml").decode("utf-8", "ignore")
+    except Exception:
+        return frozenset()
+    marked, unmarked = 0, []
+    for p in _XML_P.findall(xml):
+        t = _h.unescape("".join(_XML_T.findall(p))).strip()
+        if len(t.split()) < MIN_UNIT_WORDS:
+            continue
+        if "w:rsid" in p:
+            marked += 1
+        else:
+            unmarked.append(_okey(t))
+    n = marked + len(unmarked)
+    if marked < OUTSIDE_MIN_MARKED or len(unmarked) < OUTSIDE_MIN_UNMARKED or marked < OUTSIDE_MIN_MARKED_SHARE * n:
+        return frozenset()
+    return frozenset(k for k in unmarked if k)
+
+
 def evasion_count(text: str) -> int:
     return len(_ODD_SPACE.findall(text or ""))
 
@@ -180,6 +220,7 @@ class Unit:
     evasion: int = 0
     spun: int = 0
     tool_marked: bool = False       # carries humanizer spacing (counted as one strong habit)
+    outside: bool = False           # placed in the Word file from outside Word (no revision stamp)
     own_L: Optional[float] = None   # the paragraph's OWN evidence: wording, its slips, its paste / tool traces (no file-wide push)
     post: float = 0.0
     habits: Dict[str, float] = field(default_factory=dict)
@@ -195,6 +236,7 @@ class Segmentation:
     para_post: Dict[int, float] = field(default_factory=dict)
     evasion: int = 0                # evasion artefacts found, when they are established across the document
     spun: int = 0                   # synonym-spinner phrases found
+    outside: int = 0                # units placed in the Word file from outside Word
 
 
 def _engine():
@@ -324,7 +366,7 @@ def _forward_backward(Ls: List[float], prior: float = PRIOR, stay: float = STAY)
 
 
 def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para_scores=(), topic=frozenset(),
-            docx: bool = False, paste_texts: Optional[Dict[str, float]] = None, pasted_idx=frozenset(),
+            docx: bool = False, paste_texts: Optional[Dict[str, float]] = None, pasted_idx=frozenset(), outside_texts=frozenset(),
             global_logit: float = 0.0) -> Segmentation:
     units = _build_units(texts, roles)
     seg = Segmentation(units=units)
@@ -378,8 +420,13 @@ def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para
         if spaced or u.spun:
             u.L += (SPACE_L if spaced else 0.0) + (EVASION_L if u.spun else 0.0)
             u.tool_marked = True
+    seg.outside = 0
     for u in units:
         u.own_L = u.L - global_logit
+        if outside_texts and any(_okey(texts[i]) in outside_texts for i in u.idx):
+            u.outside = True                  # judged on its own words for the veto; the stamp is file provenance
+            u.L += OUTSIDE_L
+            seg.outside += 1
     post = _forward_backward([u.L for u in units])
     for u, p in zip(units, post):
         u.post = p

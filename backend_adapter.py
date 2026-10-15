@@ -1296,8 +1296,9 @@ def _segment(report, topic, pa):
     traces = dict(getattr(pa, "trace_texts", {}) or {}) if pa is not None else {}
     if pa is not None and pa.total >= PASTE_MIN and not traces:
         g += 0.3 * min(PASTE_MAX_LOGIT, PASTE_LOGIT * pa.total)     # file-wide paste trace (e.g. typed-space indents)
+    outside = sg.outside_word_texts(getattr(report, "docx_bytes", None)) if docx else frozenset()
     seg = sg.segment(report.texts, roles, report.findings, report.para_scores, topic or frozenset(), docx=docx,
-                     paste_texts=traces, pasted_idx=frozenset(pasted), global_logit=g)
+                     paste_texts=traces, pasted_idx=frozenset(pasted), outside_texts=outside, global_logit=g)
     # "A human always slips" (Word files): a long suspected text without a single slip confirms the suspicion.
     if docx and seg.units:
         import friction
@@ -1333,6 +1334,10 @@ def _apply_segmentation(report, seg, lines):
     if getattr(seg, "spun", 0):
         lines.append("▲ %d عبارة «معذَّبة» تبدّل فيها مصطلح علمي ثابت بمرادفات حرفية (مثل «counterfeit consciousness» بدل artificial intelligence). "
                      "هذه بصمة أدوات إعادة الصياغة الآلية. (معلومة؛ لا تغيّر النسبة)" % seg.spun)
+    if getattr(seg, "outside", 0):
+        lines.append("▲ %d فقرة وُضعت في ملف Word من خارج Word: لا تحمل علامات التحرير التي يضعها Word على كل فقرة تُكتب "
+                     "أو تُلصق فيه، بينما باقي الملف يحملها. هذا أثر أداة عدّلت الملف مباشرة؛ احتُسب قرينةً في تلك الفقرات، "
+                     "ولا تُظلَّل منها فقرة صياغتها بشرية بوضوح." % seg.outside)
     if getattr(seg, "evasion", 0):
         lines.append("▲ %d مسافة من نوع غير عادي (مثل U+2002) مزروعة بين كلمات إنجليزية. لوحة المفاتيح لا تكتب هذه المسافة؛ "
                      "تزرعها أدوات «أنسنة» النص للتحايل على أجهزة الكشف. نُظّفت إلى مسافات عادية، واحتُسبت قرينةً متوسطة في فقراتها." % seg.evasion)
@@ -1410,6 +1415,7 @@ def analyze_docx_guarded(path: str, content: bytes):
     except Exception:
         pass
     report.photos_n = photo_count(content)
+    report.docx_bytes = content          # v2.9: read once more for Word's own revision stamps (segmentation only)
     return _attach(report, mm, ff, pa, paras=clean)
 
 
