@@ -868,6 +868,7 @@ def _score_stage(report, key, label):
     words = sum(n for _, n in ps)
     stages.append({"key": key, "label": label, "score": float(report.score),
                    "delta": float(report.score) - previous,
+                   "wording_only": prose_only_score(report),
                    "paragraph_mean": sum(sc * n for sc, n in ps) / words if words else None,
                    "paragraph_count": len(ps)})
 
@@ -1302,8 +1303,23 @@ def _segment(report, topic, pa):
     error_kinds = getattr(report, "text_error_kinds", None)
     findings = [f for f in report.findings if error_kinds is None
                 or f.kind not in sg.TEXT_SLIPS_DOCX or f.kind in error_kinds]
+    # The final segmenter must not discard technical evidence from preceding
+    # layers. Transfer only units with their own converging wording habits;
+    # document metadata and a high pooled score cannot create local support.
+    local_wording = {}
+    layer = getattr(report, "tech", None)
+    if layer is not None and layer.confidence > 0:
+        import tech_signals as ts
+        for i, text in enumerate(report.texts):
+            if roles[i] not in ("body", "list"):
+                continue
+            value = ts.para_score(text)
+            if value is not None and value > 50.0:
+                p = min(0.97, value / 100.0)
+                local_wording[i] = layer.confidence * math.log(p / (1.0 - p))
+    report.local_technical_support = dict(local_wording)
     seg = sg.segment(report.texts, roles, findings, report.para_scores, topic or frozenset(), docx=docx,
-                     paste_texts=traces, pasted_idx=frozenset(pasted), outside_texts=outside, global_logit=g)
+                     paste_texts=traces, pasted_idx=frozenset(pasted), outside_texts=outside, global_logit=g, local_wording=local_wording)
     # "A human always slips" (Word files): a long suspected text without a single slip confirms the suspicion.
     if docx and seg.units:
         import friction
@@ -1335,6 +1351,9 @@ def _apply_segmentation(report, seg, lines):
     report.ai_share_expected = sum(seg.para_post[i] * n for i, n in words_of.items()) / tot
     report.score = round(100.0 * report.ai_share_expected, 1)
     report.para_scores = [(i, round(100.0 * seg.para_post[i], 0), words_of[i]) for i in sorted(seg.para_post)]
+    supported = [u for u in seg.units if u.technical_L is not None]
+    if supported:
+        lines.append("◆ حفظ القرائن التقنية الموضعية في القراءة النهائية: %d وحدة نصية؛ تُدمج دون جمع القرينة نفسها مرتين، ثم يطبّق أثر الأخطاء في موضعها." % len(supported))
     report.reasons = [r for r in report.reasons if not str(r).startswith("⚠ مستند مختلط محتمل")]
     if getattr(seg, "spun", 0):
         lines.append("▲ %d عبارة «معذَّبة» تبدّل فيها مصطلح علمي ثابت بمرادفات حرفية (مثل «counterfeit consciousness» بدل artificial intelligence). "

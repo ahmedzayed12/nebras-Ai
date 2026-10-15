@@ -300,3 +300,18 @@ it is never expanded to match the headline. A local-evidence veto caps the
 paragraph at its own evidence strength rather than flattening it to 49 percent.
 Cosmetic spacing is excluded from human-error credit consistently across layers.
 There is no artificial minimum score; a displayed 0.0 may still occur by rounding.
+
+### Technical-channel transfer and stage audit
+
+The generic paragraph segmenter now preserves locally corroborated technical
+wording from the technical layer when that layer has document-level convergence.
+Each supported paragraph uses the stronger wording channel, not their sum, before
+the same bounded local error discount. A human paragraph cannot inherit support
+merely from its technical neighbours. The original engine remains unchanged.
+
+`tools/diagnose_file.py` reports the main wording-only score at each stage and
+weighted wording log-odds, error discounts, and technical support in the final
+segmenter. Low results on paraphrases are still possible: this rules engine does
+not reconstruct text provenance after substantial rewriting. Passing regression
+tests is not a measured sensitivity rate on humanized documents. Confusable
+letters and zero-width masking remain untouched.

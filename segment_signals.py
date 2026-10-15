@@ -214,6 +214,9 @@ class Unit:
     words: int
     x: float = 0.0
     L: float = 0.0
+    wording_L: float = 0.0         # before typing/file evidence
+    technical_L: Optional[float] = None
+    slip_discount: float = 0.0
     slips: int = 0
     paste: float = 0.0
     arabic: bool = False
@@ -371,7 +374,7 @@ def _forward_backward(Ls: List[float], prior: float = PRIOR, stay: float = STAY)
 
 def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para_scores=(), topic=frozenset(),
             docx: bool = False, paste_texts: Optional[Dict[str, float]] = None, pasted_idx=frozenset(), outside_texts=frozenset(),
-            global_logit: float = 0.0) -> Segmentation:
+            global_logit: float = 0.0, local_wording=None) -> Segmentation:
     units = _build_units(texts, roles)
     seg = Segmentation(units=units)
     if not units:
@@ -408,8 +411,17 @@ def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para
             u.x = wording_score(h, lab)
             u.habits = h
             u.L = _to_logodds(u.x, u.words)
+        # Preserve a locally corroborated technical channel that the generic
+        # English habits do not measure. Max-pooling avoids adding shared words
+        # twice; the same slip discount then applies to both channels.
+        support = [local_wording[i] for i in u.idx if local_wording and i in local_wording]
+        if support:
+            u.technical_L = sum(support) / len(support)
+            u.L = max(u.L, u.technical_L)
+        u.wording_L = u.L
         u.slips = sum(slips.get(i, 0) for i in u.idx)
-        u.L -= min(SLIP_CAP, SLIP_L * u.slips + FMT_SLIP_L * sum(fmt.get(i, 0) for i in u.idx))
+        u.slip_discount = min(SLIP_CAP, SLIP_L * u.slips + FMT_SLIP_L * sum(fmt.get(i, 0) for i in u.idx))
+        u.L -= u.slip_discount
         pt = max([paste_texts.get(_key(texts[i]), 0.0) for i in u.idx] or [0.0])
         if pt > 0:
             u.paste = pt

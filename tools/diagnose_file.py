@@ -40,7 +40,17 @@ def diagnose(path: str) -> None:
     for stage in getattr(r, "score_stages", []):
         local = stage.get("paragraph_mean")
         suffix = " | paragraph mean %.2f" % local if local is not None else ""
+        wording = stage.get("wording_only")
+        if wording is not None:
+            suffix += " | wording-only %.2f" % wording
         print("    %-35s %6.2f (%+.2f points)%s" % (stage["label"], stage["score"], stage["delta"], suffix))
+    seg = getattr(r, "segmentation", None)
+    if seg is not None and seg.units:
+        total = sum(u.words for u in seg.units) or 1
+        print("  final wording/slip audit     : wording log-odds %.3f; slip discount %.3f; technical units %d"
+              % (sum(u.wording_L * u.words for u in seg.units) / total,
+                 sum(u.slip_discount * u.words for u in seg.units) / total,
+                 sum(u.technical_L is not None for u in seg.units)))
     for line in r.reasons:
         if line[:1] in "▲◆■●⚠":
             print("    " + line)
