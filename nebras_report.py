@@ -772,7 +772,24 @@ def _convert_with_word(src: Path, dst: Path):
         "            os.remove(f)\n"
         "        except Exception:\n"
         "            pass\n"
+        # Hidden Word instances started by automation (COM) carry '-Embedding' on their command line; a visible Word
+        # the user opened never does. An orphan from an earlier run holds Normal.dotm open, so every new Word start
+        # shows the 'in use' dialog. Orphans are closed before and after each conversion; the user's own Word is untouched.
+        "def _orphan_automation_pids():\n"
+        "    ps = (\"Get-CimInstance Win32_Process -Filter \\\"Name='WINWORD.EXE'\\\" | \"\n"
+        "          \"Where-Object { $_.CommandLine -match 'Embedding' } | ForEach-Object { $_.ProcessId }\")\n"
+        "    try:\n"
+        "        out = sp.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', ps],\n"
+        "                     capture_output=True, text=True, timeout=20, creationflags=0x08000000).stdout\n"
+        "    except Exception:\n"
+        "        return set()\n"
+        "    return {int(x) for x in out.split() if x.strip().isdigit()}\n"
+        "def _close_orphans():\n"
+        "    for pid in _orphan_automation_pids():\n"
+        "        sp.run(['taskkill', '/F', '/PID', str(pid)], capture_output=True, creationflags=0x08000000)\n"
         "src, dst = sys.argv[1], sys.argv[2]\n"
+        "_close_orphans()\n"
+        "time.sleep(0.3)\n"
         "_clear_stale_normal_lock()\n"
         "before = _word_pids()\n"
         "pythoncom.CoInitialize()\n"
@@ -818,6 +835,8 @@ def _convert_with_word(src: Path, dst: Path):
         "for pid in (_word_pids() - before):\n"
         "    sp.run(['taskkill', '/F', '/PID', str(pid)], capture_output=True, creationflags=0x08000000)\n"
         "time.sleep(0.5)\n"
+        "_close_orphans()\n"
+        "time.sleep(0.3)\n"
         "_clear_stale_normal_lock()\n"
     )
     with _WORD_LOCK:     # one hidden Word at a time: two instances started together fight over Normal.dotm

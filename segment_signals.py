@@ -99,6 +99,24 @@ def spinner_count(text: str) -> int:
     return len(_TORTURED_RX.findall(text or ""))
 
 
+# Scientific notation is not a typing slip: "cobalt(II)", "N-(2-aminobenzylidene)thiourea", "[CoL2(NO3)2]",
+# "N,S-donor", "2:1", "[3-5,17-24]". A slip counts only when the token around it is ordinary words.
+_SCI_TOKEN = re.compile(r"\d|\((?:I{1,3}|IV|VI{0,3}|V|IX|X)\)|[-\u2013]\(|\)[-\u2013]|^[A-Z][a-z]?\(|\b[A-Z],[A-Z]\b|\b[A-Z]{1,3}[,:][A-Z]{1,3}\b")
+SCI_SLIP_KINDS = {"bracket_space", "no_space_after_punct"}
+
+
+def is_scientific_slip(text: str, start: int) -> bool:
+    """True when a spacing 'slip' sits inside a formula, a chemical / IUPAC name, a ratio or a citation range."""
+    if not text or start is None or start < 0 or start > len(text):
+        return False
+    a = text.rfind(" ", 0, start) + 1
+    b = text.find(" ", start + 1)
+    tok = text[a:b if b >= 0 else len(text)]
+    if re.search(r"[A-Za-z]\((?:19|20)\d\d[a-z]?[),;]", tok):     # "Ulysses(1922)", "McCrary(2024)": a real slip
+        return False
+    return bool(_SCI_TOKEN.search(tok))
+
+
 def evasion_count(text: str) -> int:
     return len(_ODD_SPACE.findall(text or ""))
 
@@ -162,6 +180,7 @@ class Unit:
     evasion: int = 0
     spun: int = 0
     tool_marked: bool = False       # carries humanizer spacing (counted as one strong habit)
+    own_L: Optional[float] = None   # the paragraph's OWN evidence: wording, its slips, its paste / tool traces (no file-wide push)
     post: float = 0.0
     habits: Dict[str, float] = field(default_factory=dict)
 
@@ -320,6 +339,8 @@ def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para
         if p is None or p < 0:
             continue
         if f.kind in slip_kinds:
+            if f.kind in SCI_SLIP_KINDS and p < len(texts) and is_scientific_slip(texts[p], getattr(f, "start", -1)):
+                continue
             slips[p] = slips.get(p, 0) + 1
         elif docx and f.kind in FORMAT_SLIPS and p not in pasted_idx and (p, f.kind) not in seen_fmt:
             seen_fmt.add((p, f.kind))
@@ -357,6 +378,8 @@ def segment(texts: Sequence[str], roles: Sequence[str], findings=(), engine_para
         if spaced or u.spun:
             u.L += (SPACE_L if spaced else 0.0) + (EVASION_L if u.spun else 0.0)
             u.tool_marked = True
+    for u in units:
+        u.own_L = u.L - global_logit
     post = _forward_backward([u.L for u in units])
     for u, p in zip(units, post):
         u.post = p
@@ -392,12 +415,14 @@ def raise_prior(seg: Segmentation, delta: float):
 
 
 def own_evidence_veto(seg: Segmentation, veto: float = None):
-    """Neighbours may decide a unit its own evidence leaves undecided, never one whose own evidence leans human:
-    a unit with L <= OWN_HUMAN_VETO is not attributed to generation, whatever the block around it says."""
+    """Neighbours, file metadata and the slip-free rule may decide a unit its own evidence leaves undecided, never one
+    whose OWN evidence leans human: a unit whose own wording/slips/traces give <= OWN_HUMAN_VETO is not shaded,
+    whatever the block around it or the file as a whole says (v2.8: judged on own_L, before any file-wide push)."""
     veto = OWN_HUMAN_VETO if veto is None else veto
     changed = False
     for u in seg.units:
-        if u.L <= veto and u.post >= SUSPECT:
+        own = u.L if u.own_L is None else min(u.L, u.own_L)
+        if own <= veto and u.post >= SUSPECT:
             u.post = min(u.post, SUSPECT - 0.01)
             changed = True
     if changed:
