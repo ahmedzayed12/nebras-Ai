@@ -14,6 +14,8 @@ VERSION = "3.2"
 # See benchmarks/v3.1-wording-calibration.json and tools/calibrate_wording.py.
 WORDING_THRESHOLD = 2.11
 SOURCE = "balanced_v3"
+# Shown instead of the word "inconclusive" in every verdict and reason (user decision).
+INCONCLUSIVE_MARK = "\u2194"
 # These properties describe editing/exporting a FILE, not writing its prose.
 FILE_FEATURES = frozenset({"photos", "paste_trace", "meta_human", "meta_gen",
                            "fmt_incons", "fmt_perfect", "mixed_conv", "clean"})
@@ -138,13 +140,20 @@ def reasons(result):
     return rows[:1] + ["⚠ " + w for w in result.warnings] + rows[1:]
 
 
+def mark_inconclusive(text):
+    """Replace the word for "inconclusive" (also from the frozen v2.1 engine) with the mark."""
+    for word in ("— غير حاسمة", "— غير حاسم", "غير حاسمة", "غير حاسم"):
+        text = text.replace(word, INCONCLUSIVE_MARK)
+    return text
+
+
 def verdict(result):
     if result.source != SOURCE:
         return None
     if abs(result.global_score - result.local_score) >= 30.0:
-        return "اختلاف بين مسارات التحليل — غير حاسم", "#f08c00"
+        return "اختلاف بين مسارات التحليل " + INCONCLUSIVE_MARK, "#f08c00"
     if result.score >= 65:
         return "قرائن أسلوبية آلية مرتفعة", "#e03131"
     if result.score >= 40:
-        return "قرائن متعارضة — غير حاسم", "#f08c00"
+        return "قرائن متعارضة " + INCONCLUSIVE_MARK, "#f08c00"
     return "قرائن أسلوبية آلية منخفضة — لا تثبت بشرية النص", "#2b8a3e"

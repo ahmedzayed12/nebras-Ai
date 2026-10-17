@@ -88,4 +88,5 @@ def test_published_score_has_one_reproducible_equation_and_localisation():
 
 def test_disagreeing_channels_abstain_from_high_confidence_verdict():
     result = v3.Result(66, 99, 33, 90, 500)
-    assert "غير حاسم" in v3.verdict(result)[0]
+    assert v3.INCONCLUSIVE_MARK in v3.verdict(result)[0]
+    assert "حاسم" not in v3.verdict(result)[0]
