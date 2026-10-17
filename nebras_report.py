@@ -974,7 +974,7 @@ def _cover(doc, rep, plan, meta, page_total, *, page=None):
     card = pymupdf.Rect(m, top, Wd - m, top + 162)
     page.draw_rect(card, color=LINE, fill=(0.975, 0.98, 0.99), width=0.8, radius=0.04)
     pct = plan.engine_index if plan.sufficient else 0.0
-    strong_pct, soft_pct = plan.percent, 100.0 * plan.soft_words / max(1, plan.qualifying_words)
+    strong_pct = plan.percent
     col = _verdict_color(pct) if plan.sufficient else MUTED
     _box(page, pymupdf.Rect(m + 18, top + 12, m + 201, top + 93),
          '<div style="font-size:46pt;font-weight:bold;color:#%02X%02X%02X;line-height:1">%s</div>'
@@ -1005,12 +1005,6 @@ def _cover(doc, rep, plan, meta, page_total, *, page=None):
     if plan.sufficient and plan.flagged_words:
         page.draw_rect(pymupdf.Rect(bx0, by, bx0 + length * strong_pct / 100, by + 12),
                        color=None, fill=CYAN, radius=0.5)
-    page.draw_rect(pymupdf.Rect(bx0, by + 21, bx0 + 9, by + 30), color=None, fill=CYAN)
-    _box(page, pymupdf.Rect(bx0 + 14, by + 16, bx1, by + 37),
-         '<div dir="rtl" class="sm">إجمالي التظليل: <b dir="ltr">%.0f%%</b>'
-         ' &nbsp;·&nbsp; قوي: <b dir="ltr">%.0f%%</b>%s</div>'
-         % (plan.total_percent, strong_pct,
-            (' &nbsp;·&nbsp; محتمل: <b dir="ltr">%.0f%%</b>' % soft_pct) if plan.soft_words else ""))
 
     # document facts
     y = top + 176
