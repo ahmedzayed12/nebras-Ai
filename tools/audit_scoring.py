@@ -35,6 +35,9 @@ def audit(path):
             "source": r.balanced.source, "global": r.balanced.global_score,
             "local": r.balanced.local_score, "final": r.balanced.score,
             "global_logit": r.balanced.global_logit,
+            "mean_of_readings": (r.balanced.global_score + r.balanced.local_score) / 2.0
+            if r.balanced.source == "balanced_v3" else None,
+            "head_logit": r.balanced.head_logit, "head_lift": r.balanced.head_lift,
             "excluded_file_contributions": r.balanced.excluded,
             "warnings": r.balanced.warnings,
         },

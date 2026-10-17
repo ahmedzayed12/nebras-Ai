@@ -1752,7 +1752,7 @@ def engine_status():
     digest = hashlib.sha256(
         str(sorted(weights.items())).encode("utf-8")
     ).hexdigest()
-    model_files = ("balanced_engine.py", "segment_signals.py", "academic_signals.py", "tech_signals.py", "matching_text.py", "backend_adapter.py")
+    model_files = ("balanced_engine.py", "expository_head.py", "segment_signals.py", "academic_signals.py", "tech_signals.py", "matching_text.py", "backend_adapter.py")
     model_digest = hashlib.sha256(b"".join((ROOT / p).read_bytes() for p in model_files)).hexdigest()
     import balanced_engine
     return {"version": eng.VERSION, "published_model": "balanced_v3", "published_model_version": balanced_engine.VERSION,

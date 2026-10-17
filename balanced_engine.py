@@ -102,10 +102,12 @@ def analyze(report):
     # only. It is gated above every training human and can only raise.
     import expository_head
     head = expository_head.decision(expository_head.inputs(
-        {k: row[0] for k, row in active.items()}, [(u.words, u.x) for u in seg.units], local_score, z))
+        active, [(u.words, u.x) for u in seg.units], local_score, z, report.confidence), report.confidence)
     lifted = expository_head.lift(score, head)
     head_lift, score = lifted - score, lifted
     warnings = []
+    if head_lift >= expository_head.MIN_REPORTED_LIFT:
+        warnings.append("رأس النثر التفسيري رفع المؤشر على مستوى المستند كله؛ خريطة الفقرات لا تحدد موضع هذا الرفع.")
     if abs(global_score - local_score) >= 30.0:
         warnings.append("اختلاف كبير بين القراءة العامة وقراءة الفقرات؛ النتيجة تحتاج مراجعة.")
     warnings.append("المؤشر يقيس القرائن الأسلوبية، ولا يثبت مصدر النص بعد إعادة الصياغة.")
@@ -119,10 +121,11 @@ def analyze(report):
 
 def reasons(result):
     import backend_adapter as b
+    import expository_head
     labels = b.get_engine().FEATURE_LABELS
     rows = ["■ محرك v3: قراءة عامة %.1f، وقراءة فقرات %.1f؛ المؤشر يجمع القراءتين دون تغيير الأوزان لإرضاء نسبة مستهدفة."
             % (result.global_score, result.local_score)]
-    if result.head_lift > 0:
+    if result.head_lift >= expository_head.MIN_REPORTED_LIFT:
         rows.append("▲ رأس النثر التفسيري (v3.2) تجاوز أعلى قيمة بشرية في التدريب؛ رفع المؤشر %.1f نقطة." % result.head_lift)
     positive = sorted(((k, c) for k, (_, _, c) in result.features.items() if c >= 0.2), key=lambda x: -x[1])[:5]
     negative = sorted(((k, c) for k, (_, _, c) in result.features.items() if c <= -0.2), key=lambda x: x[1])[:5]

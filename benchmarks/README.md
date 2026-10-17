@@ -3,27 +3,39 @@
 ## v3.2 expository head
 
 Short generated expository essays carrying many names and dates scored low in
-v3.1 (median 47 on held-out external essays). `expository_head.py` adds a
-learned, upward-only read of the same v3.1 evidence vector: class-balanced L2
-logistic regression whose coefficients must keep the engine's prior sign, gated
-at the highest decision value of any training human, closing at most 80% of the
-remaining gap. Artifact: `v3.2-expository-head.json` (hashes and scores only).
+v3.1. `expository_head.py` adds a learned, upward-only read of the same v3.1
+evidence: class-balanced L2 logistic regression over effective feature values
+(neutralized evidence stays out), paragraph wording scores and both readings.
+The head logit is shrunk by the same length confidence as the global reading.
+Coefficients must keep the engine's prior sign. It fires only above the highest
+training-human decision value (gate) and closes at most 80% of the remaining
+gap. Existing weights, thresholds and verdict cut-offs are unchanged.
 
-Training (tools/train_expository_head.py): 339 humans = train split of Wells
-(1922), van Loon (1921), Brown corpus (1961), ABC news (NLTK) and the 100
-development PEPs; 23 assistant-generated essays. Splits are by source group via
-SHA-256. No submitted user document is used for training, gating or tuning.
+Reproduce (pinned sources; no download, no user documents):
+
+```sh
+python tools/build_genre_benchmark.py --nltk-data /path/to/nltk_data --wells /path/to/wells --vanloon /path/to/vanloon --output genre.json
+python tools/train_expository_head.py --genre-json genre.json --peps /path/to/peps --output benchmarks/v3.2-expository-head.json --write-module
+```
+
+Training: 577 humans (train split of Wells 1922, van Loon 1921, Brown 1961,
+ABC news, State of the Union, each also as a 150-300 word variant, plus the 100
+development PEPs) and 46 generated texts (23 essays + short variants from
+`tests/fixtures/expository_generated.json`). Splits are by source group.
 
 | Held-out check | v3.1 | v3.2 |
 |---|---:|---:|
-| External humans (242) at >=52 / >=65 | 0 / 0 | 0 / 0 |
-| External generated essays (13) at >=52 / >=65 | 5 / 2 | 10 / 8 |
+| External humans, full (221) at >=52 | 0 | 0 |
+| External humans, 150-300 words (209) at >=52 | 0 | 0 |
+| Generated essays, full (13) at >=52 / >=65 | 5 / 2 | 10 / 8 |
+| Generated essays, 150-300 words (13) at >=52 / >=65 | 2 / 1 | 8 / 7 |
 | Reserved PEPs + Doyle (70) at >=52 | 0 | 0 |
 | CUAD contracts (40) at >=52 | 0 | 0 |
 | Synthetic controls (24) at >=52 | 18 | 18 |
 
 Limits: one assistant model family on the generated side; no student or
-non-native human essays; the paragraph map is unchanged.
+non-native human essays; the paragraph map is unchanged (a warning says so when
+the head lifts); texts on the v2.1 fallback path are not affected.
 
 ## v3.1 calculation repair
 
