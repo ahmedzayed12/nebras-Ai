@@ -66,21 +66,7 @@ def test_arabic_uses_explicit_fallback_instead_of_english_validation_claim():
 
 def test_published_score_has_one_reproducible_equation_and_localisation():
     r = b.analyze_uploaded_bytes("equation.docx", docx(CONTROLS[0]["text"]))
-    # Recompute the published equation independently of the engine's head_lift field.
-    import math
-    import expository_head as eh
-    p, bl = eh.PARAMS, r.balanced
-    rows = {k: v for k, v in bl.features.items()}
-    values = [rows[k][2] / rows[k][1] if k in rows and rows[k][1] else 0.0 for k in eh.ENGINE_INPUTS]
-    units = [(u.words, u.x) for u in bl.segmentation.units]
-    xs = [x for _, x in units]
-    local = min(max(bl.local_score, 0.5), 99.5) / 100
-    values += [sum(w * x for w, x in units) / sum(w for w, _ in units), max(xs), sum(x > 1 for x in xs) / len(xs),
-               math.log(local / (1 - local)), bl.global_logit * r.confidence]
-    d = r.confidence * (p["intercept"] + sum(c * (v - m) / s for v, m, s, c in zip(values, p["mean"], p["scale"], p["coef"])))
-    mean = (bl.global_score + bl.local_score) / 2
-    expected = mean + (100 - mean) * 0.8 * (1 - math.exp(-(d - p["gate"]))) if d > p["gate"] else mean
-    assert r.final_score == round(expected, 1)
+    assert r.final_score == round((r.balanced.global_score + r.balanced.local_score) / 2, 1)
     assert b.primary_paragraph_scores(r) == r.balanced.paragraphs
     assert b.primary_segmentation(r) is r.balanced.segmentation
     assert r.score_engine == r.score_stages[0]["score"]
@@ -88,5 +74,4 @@ def test_published_score_has_one_reproducible_equation_and_localisation():
 
 def test_disagreeing_channels_abstain_from_high_confidence_verdict():
     result = v3.Result(66, 99, 33, 90, 500)
-    assert v3.INCONCLUSIVE_MARK in v3.verdict(result)[0]
-    assert "حاسم" not in v3.verdict(result)[0]
+    assert "غير حاسم" in v3.verdict(result)[0]

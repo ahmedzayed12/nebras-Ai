@@ -8,14 +8,12 @@ from dataclasses import dataclass, field
 import math
 import re
 
-VERSION = "3.2"
+VERSION = "3.1"
 # Human p97 after correlated wording features were pooled. Measured only on
 # the 52 development-calibration PEPs, not user documents or validation sets.
 # See benchmarks/v3.1-wording-calibration.json and tools/calibrate_wording.py.
 WORDING_THRESHOLD = 2.11
 SOURCE = "balanced_v3"
-# Shown instead of the word "inconclusive" in every verdict and reason (user decision).
-INCONCLUSIVE_MARK = "\u2194"
 # These properties describe editing/exporting a FILE, not writing its prose.
 FILE_FEATURES = frozenset({"photos", "paste_trace", "meta_human", "meta_gen",
                            "fmt_incons", "fmt_perfect", "mixed_conv", "clean"})
@@ -36,8 +34,6 @@ class Result:
     global_logit: float = 0.0
     slip_discount: float = 0.0
     segmentation: object = None
-    head_logit: float = 0.0
-    head_lift: float = 0.0
 
 
 def _sigmoid(z):
@@ -100,35 +96,23 @@ def analyze(report):
     # arithmetic mean avoids multiplying correlated likelihoods or letting
     # either the global pool or the paragraph reader replace the other.
     score = (global_score + local_score) / 2.0
-    # v3.2: a learned read of the same evidence, trained on external essays
-    # only. It is gated above every training human and can only raise.
-    import expository_head
-    head = expository_head.decision(expository_head.inputs(
-        active, [(u.words, u.x) for u in seg.units], local_score, z, report.confidence), report.confidence)
-    lifted = expository_head.lift(score, head)
-    head_lift, score = lifted - score, lifted
     warnings = []
-    if head_lift >= expository_head.MIN_REPORTED_LIFT:
-        warnings.append("رأس النثر التفسيري رفع المؤشر على مستوى المستند كله؛ خريطة الفقرات لا تحدد موضع هذا الرفع.")
     if abs(global_score - local_score) >= 30.0:
         warnings.append("اختلاف كبير بين القراءة العامة وقراءة الفقرات؛ النتيجة تحتاج مراجعة.")
     warnings.append("المؤشر يقيس القرائن الأسلوبية، ولا يثبت مصدر النص بعد إعادة الصياغة.")
     return Result(round(score, 1), global_score, local_score, baseline, words,
                   features=active, excluded=excluded, warnings=warnings,
                   paragraphs=[(i, round(100.0 * seg.para_post[i], 1), weights[i]) for i in sorted(weights)],
-                  global_logit=z, head_logit=head, head_lift=head_lift,
+                  global_logit=z,
                   slip_discount=sum(u.slip_discount * u.words for u in seg.units) / max(1, seg.words),
                   segmentation=seg)
 
 
 def reasons(result):
     import backend_adapter as b
-    import expository_head
     labels = b.get_engine().FEATURE_LABELS
     rows = ["■ محرك v3: قراءة عامة %.1f، وقراءة فقرات %.1f؛ المؤشر يجمع القراءتين دون تغيير الأوزان لإرضاء نسبة مستهدفة."
             % (result.global_score, result.local_score)]
-    if result.head_lift >= expository_head.MIN_REPORTED_LIFT:
-        rows.append("▲ رأس النثر التفسيري (v3.2) تجاوز أعلى قيمة بشرية في التدريب؛ رفع المؤشر %.1f نقطة." % result.head_lift)
     positive = sorted(((k, c) for k, (_, _, c) in result.features.items() if c >= 0.2), key=lambda x: -x[1])[:5]
     negative = sorted(((k, c) for k, (_, _, c) in result.features.items() if c <= -0.2), key=lambda x: x[1])[:5]
     if positive:
@@ -140,20 +124,13 @@ def reasons(result):
     return rows[:1] + ["⚠ " + w for w in result.warnings] + rows[1:]
 
 
-def mark_inconclusive(text):
-    """Replace the word for "inconclusive" (also from the frozen v2.1 engine) with the mark."""
-    for word in ("— غير حاسمة", "— غير حاسم", "غير حاسمة", "غير حاسم"):
-        text = text.replace(word, INCONCLUSIVE_MARK)
-    return text
-
-
 def verdict(result):
     if result.source != SOURCE:
         return None
     if abs(result.global_score - result.local_score) >= 30.0:
-        return "اختلاف بين مسارات التحليل " + INCONCLUSIVE_MARK, "#f08c00"
+        return "اختلاف بين مسارات التحليل — غير حاسم", "#f08c00"
     if result.score >= 65:
         return "قرائن أسلوبية آلية مرتفعة", "#e03131"
     if result.score >= 40:
-        return "قرائن متعارضة " + INCONCLUSIVE_MARK, "#f08c00"
+        return "قرائن متعارضة — غير حاسم", "#f08c00"
     return "قرائن أسلوبية آلية منخفضة — لا تثبت بشرية النص", "#2b8a3e"

@@ -1,16 +1,14 @@
 # Nebras Ai detector
 
 واجهة Streamlit عربية تعرض مؤشر قرائن أسلوبية مع خريطة فقرات وتقرير PDF.
-The published English-prose scorer is now **Nebras balanced v3.2** (`balanced_engine.py`): the v3.1 global/paragraph mean plus an upward-only expository head (`expository_head.py`), with the unchanged v2.1 engine retained as a baseline and fallback.
+The published English-prose scorer is now **Nebras balanced v3.1** (`balanced_engine.py`), with the unchanged v2.1 engine retained as a baseline and fallback.
 
-## المسار الحالي v3.2
-
-- v3.2: رأس مدرَّب على نصوص خارجية فقط يقرأ القرائن نفسها، ولا يعمل إلا فوق أعلى قيمة بشرية في التدريب، ولا يستطيع إلا الرفع. أوزان المحرك وعتباته لم تتغير. التفاصيل في [benchmarks/README.md](benchmarks/README.md).
+## المسار الحالي v3.1
 
 - يجمع قراءة عامة للنص وقراءة فقرات مستقلة؛ لا تستبدل إحداهما الأخرى.
 - يفصل تاريخ Word والخطوط وآثار اللصق عن جهة تأليف الكلمات، في الاتجاهين.
 - الأخطاء النصية المؤثرة تُحتسب بحدودها، ولا توجد قاعدة تخفيض تلقائي لمجرد استخدام أداة إعادة صياغة.
-- اختلاف المسارات يُعرض بعلامة ↔ بدل الحكم القاطع. انخفاض المؤشر **لا يثبت بشرية النص**.
+- اختلاف المسارات يعطي حكمًا غير حاسم. انخفاض المؤشر **لا يثبت بشرية النص**.
 - الدرجة المعتمدة `final_score` / `primary_score(report)`؛ المقارنة القديمة `score_engine`؛ الحقول القديمة `score` و`diagnostic_score` للتشخيص فقط.
 - خريطة الفقرات والتظليل يستخدمان المسار الجديد، دون تظليل مقاطع إضافية لبلوغ النسبة.
 - النصوص العربية والعروض والنثر القصير لها مسار رجوع معلن إلى المحرك القديم؛ لا ندّعي تحقق v3 عليها.

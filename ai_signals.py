@@ -492,7 +492,7 @@ def layer_label(score: Optional[float]) -> str:
     if score >= 56:
         return "تميل المؤشرات إلى نص مولَّد"
     if score >= 44:
-        return "\u2194"
+        return "غير حاسم"
     if score >= 32:
         return "تميل المؤشرات إلى كتابة بشرية"
     return "أقرب إلى كتابة بشرية"
@@ -746,7 +746,7 @@ def fuse(engine: float, layer: Optional[Layer], wmax: float = LAYER_MAX_WEIGHT) 
     elif abs(engine - ls) >= 35:
         ag, msg = "conflict", "تعارض كبير بين المحرك والطبقة الإضافية؛ تلزم مراجعة بشرية ولا يُعتمد أي رقم وحده."
     else:
-        ag, msg = "partial", "توافق جزئي \u2194"
+        ag, msg = "partial", "توافق جزئي؛ القرائن غير حاسمة."
     return Fusion(combined, engine, ls, ag, msg, w)
 
 

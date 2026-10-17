@@ -288,9 +288,8 @@ def dial_panel(rep=None, plan=None):
     else:
         dial, short = dial_svg(score), ""
     verdict = getattr(rep, "final_verdict", "")
-    if "\u2194" in verdict:
-        short += '<p class="note">%s</p>' % html.escape(verdict).replace(
-            "\u2194", '<span class="mark-inconclusive" aria-hidden="true">\u2194</span>')
+    if "غير حاسم" in verdict:
+        short += '<p class="note">%s</p>' % html.escape(verdict)
     md(f"""<section id="nebras-result" class="panel dial-panel" style="--halo:{vc}33" aria-label="لوحة النتيجة">{dial}{short}</section>""")
 
 

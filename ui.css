@@ -316,6 +316,3 @@ table.t td.wrap{min-width:220px}
   .institutional-bottom{display:block}
   .institutional-bottom span{display:block;margin-top:3px}
 }
-
-/* Inconclusive verdicts show a small two-way arrow instead of a word. */
-.mark-inconclusive { font-size: .9em; opacity: .85; }

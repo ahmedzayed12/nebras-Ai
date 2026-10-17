@@ -144,10 +144,6 @@ def _attach(report, mm, forensics=None, paste=None, deck=None, paras=None):
             report.reasons.insert(0, "■ PDF: النتيجة من النص وحده؛ التظليل يعتمد على قابلية مطابقة النص المستخرج.")
     else:
         report.reasons += ["⚠ " + w for w in report.balanced.warnings]
-    mark = balanced_engine.mark_inconclusive
-    report.final_verdict, report.verdict = mark(report.final_verdict), mark(report.verdict)
-    report.reasons = [mark(r) if isinstance(r, str) else r for r in report.reasons]
-    report.diagnostic_reasons = [mark(r) if isinstance(r, str) else r for r in report.diagnostic_reasons]
     return report
 
 
@@ -1756,7 +1752,7 @@ def engine_status():
     digest = hashlib.sha256(
         str(sorted(weights.items())).encode("utf-8")
     ).hexdigest()
-    model_files = ("balanced_engine.py", "expository_head.py", "segment_signals.py", "academic_signals.py", "tech_signals.py", "matching_text.py", "backend_adapter.py")
+    model_files = ("balanced_engine.py", "segment_signals.py", "academic_signals.py", "tech_signals.py", "matching_text.py", "backend_adapter.py")
     model_digest = hashlib.sha256(b"".join((ROOT / p).read_bytes() for p in model_files)).hexdigest()
     import balanced_engine
     return {"version": eng.VERSION, "published_model": "balanced_v3", "published_model_version": balanced_engine.VERSION,
