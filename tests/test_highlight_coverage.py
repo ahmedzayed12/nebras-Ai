@@ -97,7 +97,7 @@ def test_pdf_cover_reports_total_coverage_with_both_tints():
         page = nr._cover(doc, rep, plan, meta, None)
         cover = page.get_text()
     assert "30%" in cover
-    assert "30 of 100 eligible words highlighted (strong + probable)" in " ".join(cover.split())
+    assert "eligible words highlighted" not in " ".join(cover.split())  # shading counts are not printed
 
 
 def test_pdf_rejected_locations_are_removed_from_cover_counts():
@@ -138,4 +138,4 @@ def test_pdf_report_cover_uses_rendered_coverage_after_alignment(monkeypatch):
         cover = " ".join(doc[0].get_text().split())
         assert len(doc) == 2
         assert "30%" in cover
-        assert "0 of" in cover and "eligible words highlighted" in cover
+        assert "eligible words highlighted" not in cover

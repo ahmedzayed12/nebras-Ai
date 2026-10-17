@@ -971,10 +971,9 @@ def _cover(doc, rep, plan, meta, page_total, *, page=None):
 
     # The headline is ALWAYS the untouched engine index (not the strong-highlight share).
     top = 148.0
-    card = pymupdf.Rect(m, top, Wd - m, top + 162)
+    card = pymupdf.Rect(m, top, Wd - m, top + 110)
     page.draw_rect(card, color=LINE, fill=(0.975, 0.98, 0.99), width=0.8, radius=0.04)
     pct = plan.engine_index if plan.sufficient else 0.0
-    strong_pct = plan.percent
     col = _verdict_color(pct) if plan.sufficient else MUTED
     _box(page, pymupdf.Rect(m + 18, top + 12, m + 201, top + 93),
          '<div style="font-size:46pt;font-weight:bold;color:#%02X%02X%02X;line-height:1">%s</div>'
@@ -982,32 +981,19 @@ def _cover(doc, rep, plan, meta, page_total, *, page=None):
          % (int(col[0] * 255), int(col[1] * 255), int(col[2] * 255), _esc(percent_label(plan))))
     if plan.sufficient and getattr(rep, "segmentation", None) is not None:
         ar = "التظليل يعرض المقاطع التي أمكن تحديدها فعليًا؛ قد تقل تغطيته عن مؤشر الاشتباه عند تعذر مطابقة النص."
-        stat = ("<b>%d</b> of <b>%d</b> eligible words highlighted"
-                % (plan.total_words, plan.qualifying_words))
+        stat = ""
     elif plan.sufficient:
         ar = "النتيجة النهائية من مؤشر المحرك العام."
-        stat = ("<b>%d</b> of <b>%d</b> eligible words highlighted (strong + probable)"
-                % (plan.total_words, plan.qualifying_words))
+        stat = ""
     else:
         ar = "النص المؤهَّل أقصر من 40 كلمة؛ لا يحكم المحرك على نص بهذا القِصَر"
         stat = "Fewer than 40 qualifying words: no score is reported."
     _box(page, pymupdf.Rect(m + 215, top + 13, Wd - m - 16, top + 103),
          '<div style="font-size:9.7pt">%s</div><div dir="rtl" style="font-size:9.3pt;margin-top:6px">%s</div>'
          % (stat, _esc(ar)))
-    # Two tonal segments: located passages and probable passages (partial evidence).
-    bx0, bx1, by = m + 18, Wd - m - 18, top + 112
-    length = bx1 - bx0
-    page.draw_rect(pymupdf.Rect(bx0, by, bx1, by + 12), color=None,
-                   fill=(0.88, 0.9, 0.93), radius=0.5)
-    if plan.sufficient and plan.total_words:
-        page.draw_rect(pymupdf.Rect(bx0, by, bx0 + length * plan.total_percent / 100, by + 12),
-                       color=None, fill=(0.83, 0.95, 0.975), radius=0.5)
-    if plan.sufficient and plan.flagged_words:
-        page.draw_rect(pymupdf.Rect(bx0, by, bx0 + length * strong_pct / 100, by + 12),
-                       color=None, fill=CYAN, radius=0.5)
 
     # document facts
-    y = top + 176
+    y = top + 124
     rows = [
         ("Document / المستند", _esc(meta["name"]), _dir(meta["name"])),
         ("File SHA-256", '<span class="mono">%s</span>' % meta["sha"], "ltr"),
