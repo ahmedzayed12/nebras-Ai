@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 import math
 import re
 
-VERSION = "3.1"
+VERSION = "3.2"
 # Human p97 after correlated wording features were pooled. Measured only on
 # the 52 development-calibration PEPs, not user documents or validation sets.
 # See benchmarks/v3.1-wording-calibration.json and tools/calibrate_wording.py.
@@ -34,6 +34,8 @@ class Result:
     global_logit: float = 0.0
     slip_discount: float = 0.0
     segmentation: object = None
+    head_logit: float = 0.0
+    head_lift: float = 0.0
 
 
 def _sigmoid(z):
@@ -96,6 +98,13 @@ def analyze(report):
     # arithmetic mean avoids multiplying correlated likelihoods or letting
     # either the global pool or the paragraph reader replace the other.
     score = (global_score + local_score) / 2.0
+    # v3.2: a learned read of the same evidence, trained on external essays
+    # only. It is gated above every training human and can only raise.
+    import expository_head
+    head = expository_head.decision(expository_head.inputs(
+        {k: row[0] for k, row in active.items()}, [(u.words, u.x) for u in seg.units], local_score, z))
+    lifted = expository_head.lift(score, head)
+    head_lift, score = lifted - score, lifted
     warnings = []
     if abs(global_score - local_score) >= 30.0:
         warnings.append("اختلاف كبير بين القراءة العامة وقراءة الفقرات؛ النتيجة تحتاج مراجعة.")
@@ -103,7 +112,7 @@ def analyze(report):
     return Result(round(score, 1), global_score, local_score, baseline, words,
                   features=active, excluded=excluded, warnings=warnings,
                   paragraphs=[(i, round(100.0 * seg.para_post[i], 1), weights[i]) for i in sorted(weights)],
-                  global_logit=z,
+                  global_logit=z, head_logit=head, head_lift=head_lift,
                   slip_discount=sum(u.slip_discount * u.words for u in seg.units) / max(1, seg.words),
                   segmentation=seg)
 
@@ -113,6 +122,8 @@ def reasons(result):
     labels = b.get_engine().FEATURE_LABELS
     rows = ["■ محرك v3: قراءة عامة %.1f، وقراءة فقرات %.1f؛ المؤشر يجمع القراءتين دون تغيير الأوزان لإرضاء نسبة مستهدفة."
             % (result.global_score, result.local_score)]
+    if result.head_lift > 0:
+        rows.append("▲ رأس النثر التفسيري (v3.2) تجاوز أعلى قيمة بشرية في التدريب؛ رفع المؤشر %.1f نقطة." % result.head_lift)
     positive = sorted(((k, c) for k, (_, _, c) in result.features.items() if c >= 0.2), key=lambda x: -x[1])[:5]
     negative = sorted(((k, c) for k, (_, _, c) in result.features.items() if c <= -0.2), key=lambda x: x[1])[:5]
     if positive:

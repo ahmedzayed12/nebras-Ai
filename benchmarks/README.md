@@ -1,5 +1,30 @@
 # v3 validation and its limits
 
+## v3.2 expository head
+
+Short generated expository essays carrying many names and dates scored low in
+v3.1 (median 47 on held-out external essays). `expository_head.py` adds a
+learned, upward-only read of the same v3.1 evidence vector: class-balanced L2
+logistic regression whose coefficients must keep the engine's prior sign, gated
+at the highest decision value of any training human, closing at most 80% of the
+remaining gap. Artifact: `v3.2-expository-head.json` (hashes and scores only).
+
+Training (tools/train_expository_head.py): 339 humans = train split of Wells
+(1922), van Loon (1921), Brown corpus (1961), ABC news (NLTK) and the 100
+development PEPs; 23 assistant-generated essays. Splits are by source group via
+SHA-256. No submitted user document is used for training, gating or tuning.
+
+| Held-out check | v3.1 | v3.2 |
+|---|---:|---:|
+| External humans (242) at >=52 / >=65 | 0 / 0 | 0 / 0 |
+| External generated essays (13) at >=52 / >=65 | 5 / 2 | 10 / 8 |
+| Reserved PEPs + Doyle (70) at >=52 | 0 | 0 |
+| CUAD contracts (40) at >=52 | 0 | 0 |
+| Synthetic controls (24) at >=52 | 18 | 18 |
+
+Limits: one assistant model family on the generated side; no student or
+non-native human essays; the paragraph map is unchanged.
+
 ## v3.1 calculation repair
 
 The earlier v3.0 artifact below remains unchanged. The v3.1 artifacts record

@@ -1,0 +1,4374 @@
+{
+ "params": {
+  "inputs": [
+   "burst_low",
+   "para_uniform",
+   "sent_uniform",
+   "ai_lexicon",
+   "ai_vocab",
+   "contrast",
+   "vague_attr",
+   "signpost",
+   "tricolon",
+   "enumer",
+   "markdown",
+   "emdash",
+   "openers",
+   "evidence_low",
+   "generic_phr",
+   "frame",
+   "punct_flat",
+   "no_voice",
+   "cite_gap",
+   "caption_orphan",
+   "template",
+   "err_density",
+   "ortho",
+   "voice",
+   "unit_mean_x",
+   "unit_max_x",
+   "unit_frac_x_gt1",
+   "local_logit",
+   "global_z"
+  ],
+  "mean": [
+   0.623604,
+   0.571273,
+   0.575332,
+   0.029037,
+   0.04501,
+   0.09921,
+   0.030172,
+   0.041921,
+   0.047178,
+   0.038824,
+   0.232618,
+   0.216072,
+   0.097787,
+   0.423918,
+   0.017678,
+   0.031768,
+   0.168017,
+   0.234807,
+   0.0,
+   0.0,
+   0.0,
+   0.301143,
+   0.0,
+   0.338338,
+   0.349498,
+   1.517901,
+   0.198763,
+   -4.225611,
+   -2.294925
+  ],
+  "scale": [
+   0.309369,
+   0.35613,
+   0.301671,
+   0.062195,
+   0.055673,
+   0.171597,
+   0.148078,
+   0.123431,
+   0.128058,
+   0.124739,
+   0.390924,
+   0.29263,
+   0.127564,
+   0.32234,
+   0.095605,
+   0.142827,
+   0.315724,
+   0.423878,
+   0.0,
+   0.0,
+   0.0,
+   0.317352,
+   0.0,
+   0.353988,
+   0.58873,
+   1.085327,
+   0.22686,
+   1.094047,
+   1.559634
+  ],
+  "coef": [
+   0.222164,
+   0.290278,
+   0.165744,
+   0.0,
+   0.0,
+   0.0,
+   0.262661,
+   0.0,
+   0.050041,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.20156,
+   0.369742,
+   0.474229,
+   0.420835,
+   0.0,
+   0.0,
+   0.0,
+   -0.245602,
+   0.0,
+   -0.151178,
+   0.185359,
+   0.149078,
+   0.202786,
+   0.328909,
+   0.228347
+  ],
+  "intercept": -2.855051,
+  "gate": 1.757876,
+  "l2": 0.1
+ },
+ "training_counts": {
+  "human": 339,
+  "generated": 23
+ },
+ "training": [
+  {
+   "id": "wells-00",
+   "label": "human",
+   "group": "wells-00",
+   "text_sha256": "20793731942484af23e80c6d3ca6dd76b5b2ce234b9ccb17f5b9f7bb5f61db24"
+  },
+  {
+   "id": "wells-01",
+   "label": "human",
+   "group": "wells-01",
+   "text_sha256": "b3daeb18ad7b69c4fb3135fde974b0bb91aa5d0149dfa31c0612ed5344c440dc"
+  },
+  {
+   "id": "wells-04",
+   "label": "human",
+   "group": "wells-04",
+   "text_sha256": "cf5bd0bc8ae5a8d16df8d186d8e9c41eec9d052cbb06959442f626f86eebe2cd"
+  },
+  {
+   "id": "wells-05",
+   "label": "human",
+   "group": "wells-05",
+   "text_sha256": "58023e095a33f6ee0a11db4d72378cc900bd65225ffaac1bc33c45fbd290bb92"
+  },
+  {
+   "id": "wells-06",
+   "label": "human",
+   "group": "wells-06",
+   "text_sha256": "871fe70d63249766bfef20ed5ac26fb50265d25ad5f171b20553129cec7642a7"
+  },
+  {
+   "id": "wells-07",
+   "label": "human",
+   "group": "wells-07",
+   "text_sha256": "fc5a19e33a87b3946dc5afdb04c15d26e52f94eec36d28c94b214b314c007c48"
+  },
+  {
+   "id": "wells-08",
+   "label": "human",
+   "group": "wells-08",
+   "text_sha256": "95655048f209a58fd6ab250782daed4765288ad1b763d1f8a851121c61cd9863"
+  },
+  {
+   "id": "wells-09",
+   "label": "human",
+   "group": "wells-09",
+   "text_sha256": "be4894f361bda3504ed27e0b73975ffc4cda649b4c8bfb7fea1a0bf964005662"
+  },
+  {
+   "id": "wells-10",
+   "label": "human",
+   "group": "wells-10",
+   "text_sha256": "4a2e0352ebe42a42c66262239bd21db59b1253167224e178939c32bbf36f9f29"
+  },
+  {
+   "id": "wells-11",
+   "label": "human",
+   "group": "wells-11",
+   "text_sha256": "5a7ea5e04d6da1ecefcdfce07c88872326674a25ae3d7a074c0e23b122dffc14"
+  },
+  {
+   "id": "wells-13",
+   "label": "human",
+   "group": "wells-13",
+   "text_sha256": "05015e82cabeea6938d4e74cdde6e56f71b86e7488a43840a068f1b7773534d0"
+  },
+  {
+   "id": "wells-14",
+   "label": "human",
+   "group": "wells-14",
+   "text_sha256": "582eae34bf958eb025a10a06f7e3cbfaa79aa18f096190e681aa2dd13446421a"
+  },
+  {
+   "id": "wells-16",
+   "label": "human",
+   "group": "wells-16",
+   "text_sha256": "75c25d4d5d0a3edde38e765ce1599e4bafaba3a36c1fe9a35c199ae13ba7205d"
+  },
+  {
+   "id": "wells-17",
+   "label": "human",
+   "group": "wells-17",
+   "text_sha256": "1b0b542e514e73788698dd81c4af1df373cb15e9aecf77426184251df8bce978"
+  },
+  {
+   "id": "wells-18",
+   "label": "human",
+   "group": "wells-18",
+   "text_sha256": "49b8595b0076d011a3c5928c9c9d8a3cd5f3daf3789893e4dfc68956a2447014"
+  },
+  {
+   "id": "wells-21",
+   "label": "human",
+   "group": "wells-21",
+   "text_sha256": "8fca2e7be60b744522590430d08a078603f4ef1e2bbfee42ab7c2db3baff9fee"
+  },
+  {
+   "id": "wells-24",
+   "label": "human",
+   "group": "wells-24",
+   "text_sha256": "6a3fcccf49d63ac33540e871a9960327612a7c22d52dca6029ef090b94955bec"
+  },
+  {
+   "id": "wells-25",
+   "label": "human",
+   "group": "wells-25",
+   "text_sha256": "89cf9dd1eaf0560d043b2d2d66326382441cd5554bd512d5b0b0343164c474b4"
+  },
+  {
+   "id": "wells-26",
+   "label": "human",
+   "group": "wells-26",
+   "text_sha256": "0faf7426f43ec4e97456111d9c7628153d84c6bcaa2cff35327ff15a49182deb"
+  },
+  {
+   "id": "wells-27",
+   "label": "human",
+   "group": "wells-27",
+   "text_sha256": "a35f891fb54e100ec765e5109bf61094bd123f883a7a64a4a905cc2ecf27cafe"
+  },
+  {
+   "id": "wells-28",
+   "label": "human",
+   "group": "wells-28",
+   "text_sha256": "54242b7cac2c3a6c75a9d5a9c038b47e1cfaf6cd5ad4cab7db7a6b6ff4b623b7"
+  },
+  {
+   "id": "wells-30",
+   "label": "human",
+   "group": "wells-30",
+   "text_sha256": "7490a0888b3ad33bc150ed3a64b38632a0d2dbe42777e43774a1e9f9d2d09e77"
+  },
+  {
+   "id": "wells-31",
+   "label": "human",
+   "group": "wells-31",
+   "text_sha256": "57a7210fe0f4e9be5cec5c71a46b286eb8d2f7ab4df276093f6fae7e2f17a718"
+  },
+  {
+   "id": "wells-32",
+   "label": "human",
+   "group": "wells-32",
+   "text_sha256": "ce56e4da2af41fa071b4e0a29067cab054112cbe6d79795d4fa39654bfaf923e"
+  },
+  {
+   "id": "wells-33",
+   "label": "human",
+   "group": "wells-33",
+   "text_sha256": "dfdd8de986076482dc764a3eab3e94e051cf645499bfe672da53c647928709a7"
+  },
+  {
+   "id": "wells-34",
+   "label": "human",
+   "group": "wells-34",
+   "text_sha256": "ed404fb671294210df2a7f8b39e1f549709b66b5b14a4ae1aa1d70178b798be7"
+  },
+  {
+   "id": "wells-36",
+   "label": "human",
+   "group": "wells-36",
+   "text_sha256": "0004df16ce90e2659b446ba2f1b0e35f209ea59b5823ce707207b383f9e258ef"
+  },
+  {
+   "id": "wells-37",
+   "label": "human",
+   "group": "wells-37",
+   "text_sha256": "6cf3cf73b70fd35901a0dfaabc6122d87fe736e322c5181e36a5a449a1d87850"
+  },
+  {
+   "id": "vanloon-01",
+   "label": "human",
+   "group": "vanloon-01",
+   "text_sha256": "027ac45aea9b8ab56eb945c9982bd09507655db26156f1be58456f8be28417c1"
+  },
+  {
+   "id": "vanloon-05",
+   "label": "human",
+   "group": "vanloon-05",
+   "text_sha256": "3e0f4e27897a0e4e8c2d43b70a86748d753826d1202fce6967f434ce67883fcc"
+  },
+  {
+   "id": "vanloon-07",
+   "label": "human",
+   "group": "vanloon-07",
+   "text_sha256": "e0581f471dae4d53cda559b997408df0218004d91a00276f980de25eeb1f49d5"
+  },
+  {
+   "id": "vanloon-09",
+   "label": "human",
+   "group": "vanloon-09",
+   "text_sha256": "1268acbe926e40d7a01bbe891be513afcd1760918505381f510ab0b2e5921968"
+  },
+  {
+   "id": "vanloon-10",
+   "label": "human",
+   "group": "vanloon-10",
+   "text_sha256": "b13ad1268071c101c7ec4b240f1063637a1ad3bf92b595f04ee77ae820329ab8"
+  },
+  {
+   "id": "vanloon-12",
+   "label": "human",
+   "group": "vanloon-12",
+   "text_sha256": "d5788b269f42f5144cabf1efbbfcd120870d5da1642b2b02617507723ba48c58"
+  },
+  {
+   "id": "vanloon-13",
+   "label": "human",
+   "group": "vanloon-13",
+   "text_sha256": "e569c814f3b0f095668e184a3b968da50b29a8001e58ee8e3916a73d47d5b767"
+  },
+  {
+   "id": "vanloon-18",
+   "label": "human",
+   "group": "vanloon-18",
+   "text_sha256": "6d259d49d5deaf1e146fbe02705468cd59bf9b44199852ce3d840676e05953ae"
+  },
+  {
+   "id": "vanloon-19",
+   "label": "human",
+   "group": "vanloon-19",
+   "text_sha256": "35355478455392ea36659b8d19fec8cbb8f10ac0bf247ce6f82ddc5c4ab98306"
+  },
+  {
+   "id": "vanloon-21",
+   "label": "human",
+   "group": "vanloon-21",
+   "text_sha256": "b068b5232b0685145656bf1130c79fc6e7ce5357d6c8169ea40e0fca2eade73f"
+  },
+  {
+   "id": "vanloon-22",
+   "label": "human",
+   "group": "vanloon-22",
+   "text_sha256": "fac70cdbe7f80806615564c1357e70566e2206a70189a9ea6554a693f30d8dd1"
+  },
+  {
+   "id": "vanloon-23",
+   "label": "human",
+   "group": "vanloon-23",
+   "text_sha256": "cbc1327d25e1ee123a6eb191a620b98ab7eb67d74ff94bc3b0aca02816a60f39"
+  },
+  {
+   "id": "vanloon-27",
+   "label": "human",
+   "group": "vanloon-27",
+   "text_sha256": "7e2b510db0c28e492927ca5e4cbadaf75497c80aee89e40f3391fbea9f201712"
+  },
+  {
+   "id": "vanloon-28",
+   "label": "human",
+   "group": "vanloon-28",
+   "text_sha256": "342f71f0ec5cd5149834bf71ccc0bc50543773fd8d602b3d709e86cfbbcca2b6"
+  },
+  {
+   "id": "vanloon-29",
+   "label": "human",
+   "group": "vanloon-29",
+   "text_sha256": "226fb7d43ac0882b1a769f48dde97a5b22c412e7255cdbaa00638cae32ad5d4e"
+  },
+  {
+   "id": "vanloon-31",
+   "label": "human",
+   "group": "vanloon-31",
+   "text_sha256": "4cee2eb0282e53e8a83e6a066bcb9e8c868b022851e2e4371ed310cffb828e92"
+  },
+  {
+   "id": "vanloon-33",
+   "label": "human",
+   "group": "vanloon-33",
+   "text_sha256": "f4d06cfb13416c6cabd9591c5ebe9ad0a9654464a34a06213d7a95d575d7bcc8"
+  },
+  {
+   "id": "vanloon-35",
+   "label": "human",
+   "group": "vanloon-35",
+   "text_sha256": "3d69e5aaa804d57d6ae251a57525cdd947c1e3a189f48efa9d574dda796fc51b"
+  },
+  {
+   "id": "vanloon-37",
+   "label": "human",
+   "group": "vanloon-37",
+   "text_sha256": "d14bbe188ea864fd5878d62a299c4ce9acca096a05875aeb6fe12dc2435a68cd"
+  },
+  {
+   "id": "brown-cd01",
+   "label": "human",
+   "group": "brown-cd01",
+   "text_sha256": "ecc0b300e268aaa9697032988f5ff99029b4d1f0197c801a01966aefebf7f1a5"
+  },
+  {
+   "id": "brown-cd02",
+   "label": "human",
+   "group": "brown-cd02",
+   "text_sha256": "449cb02b9f65576cda330123dc38bea7934d23be6a0d9d33c6f88d60a00b341f"
+  },
+  {
+   "id": "brown-cd03",
+   "label": "human",
+   "group": "brown-cd03",
+   "text_sha256": "f9c2339069ecc0f53b52d44ef96f6e674a51a2efbb63a5cc7866be00104bd528"
+  },
+  {
+   "id": "brown-cd07",
+   "label": "human",
+   "group": "brown-cd07",
+   "text_sha256": "dd1edaa7f1ca3b06b2019faac7cfd8a538e748fca0eb2dcf91d543cb5aaaa663"
+  },
+  {
+   "id": "brown-cd08",
+   "label": "human",
+   "group": "brown-cd08",
+   "text_sha256": "0e21e9b002146164d37ce0488ddd935eaa26f8af51817a711c78a0a5ff77dbd9"
+  },
+  {
+   "id": "brown-cd09",
+   "label": "human",
+   "group": "brown-cd09",
+   "text_sha256": "f0973bbe2706c92ec89ddfbb4ee79758b48382f39654af0b74637ba9bc223b00"
+  },
+  {
+   "id": "brown-cd10",
+   "label": "human",
+   "group": "brown-cd10",
+   "text_sha256": "2fb2d03f8db791975416981d390df0aeecda51c8741ea6f59d3663282add29f3"
+  },
+  {
+   "id": "brown-cd11",
+   "label": "human",
+   "group": "brown-cd11",
+   "text_sha256": "8eaa987d55a502849e4ce35636518edeb57af26dbb177658e3d7cc3ea22f9ce0"
+  },
+  {
+   "id": "brown-cd12",
+   "label": "human",
+   "group": "brown-cd12",
+   "text_sha256": "cd00c572cd08d7d998fae8139fc68c27f752294eef0a59af3e53a3fa7bf204fd"
+  },
+  {
+   "id": "brown-cd14",
+   "label": "human",
+   "group": "brown-cd14",
+   "text_sha256": "c258087c3d18f1b9e87aca8d02ffdb055b180da41e28be49c098f7928569cfcf"
+  },
+  {
+   "id": "brown-cd15",
+   "label": "human",
+   "group": "brown-cd15",
+   "text_sha256": "cea2e541365dfb4e93c12d0a3db1702ab797bdbe882b36f42db6587b3fb64661"
+  },
+  {
+   "id": "brown-cd17",
+   "label": "human",
+   "group": "brown-cd17",
+   "text_sha256": "e25c0fce64620c7fa355e733a479f33ed9703e2d2ff70e43bd661ffa8d2ac6d5"
+  },
+  {
+   "id": "brown-ce02",
+   "label": "human",
+   "group": "brown-ce02",
+   "text_sha256": "54d48bc7d82e302ca63d9fcf59013bc23d8b8f7200448664068073c8583f97ce"
+  },
+  {
+   "id": "brown-ce04",
+   "label": "human",
+   "group": "brown-ce04",
+   "text_sha256": "b18ab1b4f121fdbf6a70fc64861c990647c11875739ee4a0e4f593de30f8718c"
+  },
+  {
+   "id": "brown-ce05",
+   "label": "human",
+   "group": "brown-ce05",
+   "text_sha256": "81a04078580b5b79439e693dd80755b9722351c953610112d88b76d8211c1e48"
+  },
+  {
+   "id": "brown-ce09",
+   "label": "human",
+   "group": "brown-ce09",
+   "text_sha256": "726052f2872a6ee67233ae6955f61858f24be02eeae18021f0e846e03845ce39"
+  },
+  {
+   "id": "brown-ce10",
+   "label": "human",
+   "group": "brown-ce10",
+   "text_sha256": "70421ecf90a7b9d60335cfd4a83bc2b58b3077382f38c3ec36ad2f45ec9c53c5"
+  },
+  {
+   "id": "brown-ce11",
+   "label": "human",
+   "group": "brown-ce11",
+   "text_sha256": "6b2a8a497b4108fb6ec220c77c6e69971804fca05be3f854bf1cea2e4a3c3ae4"
+  },
+  {
+   "id": "brown-ce12",
+   "label": "human",
+   "group": "brown-ce12",
+   "text_sha256": "ed3b4ebdf7e467805298217e2c2b37665c22f32cce3ec153e13d308cedcd9cbc"
+  },
+  {
+   "id": "brown-ce16",
+   "label": "human",
+   "group": "brown-ce16",
+   "text_sha256": "6ce44f07bfefce8e6d3d5d12dd5532f1a6b674e174facfa9f10bc74b8151ccb2"
+  },
+  {
+   "id": "brown-ce17",
+   "label": "human",
+   "group": "brown-ce17",
+   "text_sha256": "97d65b5ee79f4926beb139af92a836ab9a5540f65f61422fb18a2f5bb05586db"
+  },
+  {
+   "id": "brown-ce18",
+   "label": "human",
+   "group": "brown-ce18",
+   "text_sha256": "e906dadaddf4dbac3ccf1cf924944d883c103345ad54503b0fc5260cf99bf0b4"
+  },
+  {
+   "id": "brown-ce19",
+   "label": "human",
+   "group": "brown-ce19",
+   "text_sha256": "490c2057ee5957a5f2095ba31d0830dfc4f225dad6cfa4254f6a0ebd61f4fe66"
+  },
+  {
+   "id": "brown-ce20",
+   "label": "human",
+   "group": "brown-ce20",
+   "text_sha256": "c51795eb8a5a68f47a9ab3c25f04454130c2d03c6d6df212b572e153397b6605"
+  },
+  {
+   "id": "brown-ce21",
+   "label": "human",
+   "group": "brown-ce21",
+   "text_sha256": "a541112cd7ee66157615fd86fd0c62b492f849ef7fe6001c50b876010eeb04ed"
+  },
+  {
+   "id": "brown-ce22",
+   "label": "human",
+   "group": "brown-ce22",
+   "text_sha256": "4ac5a658d103cef780458a593bf4fad70e8fb67f948258d5a6b3ca6bc7a26ac3"
+  },
+  {
+   "id": "brown-ce24",
+   "label": "human",
+   "group": "brown-ce24",
+   "text_sha256": "5c25c3afcec0d714d250251c7b500d9477432ae9d786773bee650894e688b76b"
+  },
+  {
+   "id": "brown-ce26",
+   "label": "human",
+   "group": "brown-ce26",
+   "text_sha256": "4538edc8726fb3aff53af02760929ccc9c20845ccaf2f57c6c44bf3862b679fd"
+  },
+  {
+   "id": "brown-ce27",
+   "label": "human",
+   "group": "brown-ce27",
+   "text_sha256": "48f8000af162381dd14f6441a0b0ca807d42046efd61dc9bcece600a81b71752"
+  },
+  {
+   "id": "brown-ce28",
+   "label": "human",
+   "group": "brown-ce28",
+   "text_sha256": "bdde88c79116341527914fd9538a6308cec998bc4a98e09a9dfe663e13107fa2"
+  },
+  {
+   "id": "brown-ce29",
+   "label": "human",
+   "group": "brown-ce29",
+   "text_sha256": "c5a1cbf40d5c8fc4a7950aad8b8d1b0afa1f1539330600a46f14ea7767e95737"
+  },
+  {
+   "id": "brown-ce31",
+   "label": "human",
+   "group": "brown-ce31",
+   "text_sha256": "0cc145c3857d778db8c80211826771ab378b212739aab918b5adc0a5d8c9acbf"
+  },
+  {
+   "id": "brown-ce34",
+   "label": "human",
+   "group": "brown-ce34",
+   "text_sha256": "1fdeeea882e6f5369f87f5aae8540a05842e9fa0198491f86b8667a391a384b6"
+  },
+  {
+   "id": "brown-ce36",
+   "label": "human",
+   "group": "brown-ce36",
+   "text_sha256": "1ab2e44a443e1bd2b70b8b6fc16f4a9d76636b152c19fec2601e96e84942aa0d"
+  },
+  {
+   "id": "brown-cf01",
+   "label": "human",
+   "group": "brown-cf01",
+   "text_sha256": "7c9f07b1312e9a5137a48846ae6cd17494524de9910b634ee01076e7a6b00559"
+  },
+  {
+   "id": "brown-cf02",
+   "label": "human",
+   "group": "brown-cf02",
+   "text_sha256": "de891ee6cf533936f3f59b00382339fd6df8cf31786b4470ee3390ce6a723fd2"
+  },
+  {
+   "id": "brown-cf04",
+   "label": "human",
+   "group": "brown-cf04",
+   "text_sha256": "ecc4dcf6e97ff41ae00d6d1bf999f01a1b549cd190da33ae472e92b4c4dc33b5"
+  },
+  {
+   "id": "brown-cf05",
+   "label": "human",
+   "group": "brown-cf05",
+   "text_sha256": "17c7ca249dc01534446cd63dfaec8f8f16645cb789404975d9bc7d3c676482be"
+  },
+  {
+   "id": "brown-cf07",
+   "label": "human",
+   "group": "brown-cf07",
+   "text_sha256": "d91f2dc3f5a14812ab62f98265c9ee51b73e7bc80449666282d354414493a299"
+  },
+  {
+   "id": "brown-cf10",
+   "label": "human",
+   "group": "brown-cf10",
+   "text_sha256": "8f19ac918bc6d98281a7c231d6843b5c8ae73f3c8f5b24c1c4b93800614943c7"
+  },
+  {
+   "id": "brown-cf11",
+   "label": "human",
+   "group": "brown-cf11",
+   "text_sha256": "0feb19c791e89f71100e086be1dfdf9553634207412efe2f2ca61778832440b0"
+  },
+  {
+   "id": "brown-cf12",
+   "label": "human",
+   "group": "brown-cf12",
+   "text_sha256": "e09d4985a9c89949c3a2cc75ebb743d2c67bca60c04d65dd70a588b836ae630e"
+  },
+  {
+   "id": "brown-cf15",
+   "label": "human",
+   "group": "brown-cf15",
+   "text_sha256": "23596cd1e748fa6a2cb297b5bf95d674b56eab342dc89ff199a4420c44d8cb8e"
+  },
+  {
+   "id": "brown-cf17",
+   "label": "human",
+   "group": "brown-cf17",
+   "text_sha256": "1233b1a5b4051c5970d872f73735cd293b2b1d485cc5f1127a7ddcf28406053a"
+  },
+  {
+   "id": "brown-cf19",
+   "label": "human",
+   "group": "brown-cf19",
+   "text_sha256": "a31e3ab327672389a3e120298ef803369b93642edb78693bd4bd108db275eea9"
+  },
+  {
+   "id": "brown-cf20",
+   "label": "human",
+   "group": "brown-cf20",
+   "text_sha256": "79a76470ce2d2b56e955cd72b1948d9263e71cc97a6c3614ae3ad503b7669c2b"
+  },
+  {
+   "id": "brown-cf21",
+   "label": "human",
+   "group": "brown-cf21",
+   "text_sha256": "6bd1d8bd11afbcbc12bc862bd4cc6fb48f2cd0a2393c45f31bee8e3b92e869bd"
+  },
+  {
+   "id": "brown-cf22",
+   "label": "human",
+   "group": "brown-cf22",
+   "text_sha256": "a167a679d47757ba84e24b413ae732e1e1f5616fd6c72a94732923f7827785da"
+  },
+  {
+   "id": "brown-cf23",
+   "label": "human",
+   "group": "brown-cf23",
+   "text_sha256": "aec5ce803bb1c744b2305392262312926861774e3bd0fd259c2d3b4d78f952a3"
+  },
+  {
+   "id": "brown-cf24",
+   "label": "human",
+   "group": "brown-cf24",
+   "text_sha256": "df9623edd6d6b702ee3caf4b27737dac336395e108a638c7b7893c58b0a8daf0"
+  },
+  {
+   "id": "brown-cf26",
+   "label": "human",
+   "group": "brown-cf26",
+   "text_sha256": "9805165d579a514dc2e6ec11174032ec077e68a46f424153ce85bb12015fbedd"
+  },
+  {
+   "id": "brown-cf27",
+   "label": "human",
+   "group": "brown-cf27",
+   "text_sha256": "4fb67c4a33764561457c921d862954b4c2beb6bfb85061c5486ebe4532a91bad"
+  },
+  {
+   "id": "brown-cf28",
+   "label": "human",
+   "group": "brown-cf28",
+   "text_sha256": "55ceb0bdd5a5dd875e9314c794ee3cf1f8558455e8be587395ac579871836f87"
+  },
+  {
+   "id": "brown-cf29",
+   "label": "human",
+   "group": "brown-cf29",
+   "text_sha256": "4829d0c06ed3ba4641eaecc44b317d2137b6a7a0ea8aef31dea7c6981baab776"
+  },
+  {
+   "id": "brown-cf30",
+   "label": "human",
+   "group": "brown-cf30",
+   "text_sha256": "1720645ade59950410c52d1db50c1195a4d1693e2f457e5164b45600e22e42bb"
+  },
+  {
+   "id": "brown-cf31",
+   "label": "human",
+   "group": "brown-cf31",
+   "text_sha256": "7a2d482a0d5cf798ca0838f55089373289fedd61db345563985b9473e008d76e"
+  },
+  {
+   "id": "brown-cf32",
+   "label": "human",
+   "group": "brown-cf32",
+   "text_sha256": "8484a003ca0b893ee898aa8a81f9e868b28427dce18ed29f76c0cec6b8a30f85"
+  },
+  {
+   "id": "brown-cf33",
+   "label": "human",
+   "group": "brown-cf33",
+   "text_sha256": "0932570ef792129122eba7bb651efe317977d2e42895edec77d78caa55dfab00"
+  },
+  {
+   "id": "brown-cf35",
+   "label": "human",
+   "group": "brown-cf35",
+   "text_sha256": "a7c972c680b410d1357849f718ac5eca18feb9014626f006c1f6e5fbac79c601"
+  },
+  {
+   "id": "brown-cf36",
+   "label": "human",
+   "group": "brown-cf36",
+   "text_sha256": "7d4eb27c58d8183dadce13dd374f0aede0d8c36bb47df9de171d7fc99d1784ff"
+  },
+  {
+   "id": "brown-cf38",
+   "label": "human",
+   "group": "brown-cf38",
+   "text_sha256": "b89038f4749a2ca0d3d22332d31d9733d2c4cf96a571c80699a8e223472d83ba"
+  },
+  {
+   "id": "brown-cf39",
+   "label": "human",
+   "group": "brown-cf39",
+   "text_sha256": "11fb6296a850ba6c921db50a64ac0bcfb1d599ae2071a58b681a14dd6f7922a0"
+  },
+  {
+   "id": "brown-cf40",
+   "label": "human",
+   "group": "brown-cf40",
+   "text_sha256": "93336260ccfbe9daca0d989652a9a1a3b3f1f2c62ad5a382169a9c1537d7ed4f"
+  },
+  {
+   "id": "brown-cf42",
+   "label": "human",
+   "group": "brown-cf42",
+   "text_sha256": "67d9e94a2b18c5f8363212da1f7f5f30c5ba73f5ba61746c3f86b7c555c735dd"
+  },
+  {
+   "id": "brown-cf44",
+   "label": "human",
+   "group": "brown-cf44",
+   "text_sha256": "0d70b5fd416843abfa381b530adf1328b19dcb3eb3425bcbd1ea7dee83888d86"
+  },
+  {
+   "id": "brown-cf46",
+   "label": "human",
+   "group": "brown-cf46",
+   "text_sha256": "11d03b3b239263a50bc89c03b754483c66a3eaab6f64cf10f45d43277cf8a7b8"
+  },
+  {
+   "id": "brown-cf47",
+   "label": "human",
+   "group": "brown-cf47",
+   "text_sha256": "b8a581fad852d0385ac478b57526730691e9b2bd5c4f75aa805500a527ce0358"
+  },
+  {
+   "id": "brown-cf48",
+   "label": "human",
+   "group": "brown-cf48",
+   "text_sha256": "f98535c99eff9085e6bc2916f6ae1ccdb0de5a6837ae4d28069776ba6154437e"
+  },
+  {
+   "id": "brown-cg02",
+   "label": "human",
+   "group": "brown-cg02",
+   "text_sha256": "b46287804e61e71b70b4ddf7bd7b854009e7c6c8d2d30ecbc771716c71dfcabf"
+  },
+  {
+   "id": "brown-cg04",
+   "label": "human",
+   "group": "brown-cg04",
+   "text_sha256": "eddb6dfe94fa1f8602f3f6745c62309dc3f601087c33e0dd1defbfc81890fd1e"
+  },
+  {
+   "id": "brown-cg09",
+   "label": "human",
+   "group": "brown-cg09",
+   "text_sha256": "f1ff3009485299cebb93868456e200cb7dff179583f1c288b3d9f158c675233c"
+  },
+  {
+   "id": "brown-cg10",
+   "label": "human",
+   "group": "brown-cg10",
+   "text_sha256": "b2c883cca6df374f7dc222006e921af38a5a725c383998dec3297da01cb189e4"
+  },
+  {
+   "id": "brown-cg12",
+   "label": "human",
+   "group": "brown-cg12",
+   "text_sha256": "334f37063add6efcbb5ba08069e04bc0a9f6d2650933532ccaf3203427a33c05"
+  },
+  {
+   "id": "brown-cg13",
+   "label": "human",
+   "group": "brown-cg13",
+   "text_sha256": "ff346a82edd1853fdfa066d470e7e7f27b2b3a03255a242f5fbf478ab0337ed2"
+  },
+  {
+   "id": "brown-cg15",
+   "label": "human",
+   "group": "brown-cg15",
+   "text_sha256": "512f3c53dc1d2ec1579350123553bb0451095f59233cb2009f5d7bc612a788cd"
+  },
+  {
+   "id": "brown-cg16",
+   "label": "human",
+   "group": "brown-cg16",
+   "text_sha256": "a09d3ec4095c9068a80e2527a99f7893d05956ee27e0661e6eed55846a9fd9c6"
+  },
+  {
+   "id": "brown-cg17",
+   "label": "human",
+   "group": "brown-cg17",
+   "text_sha256": "82e6e20b7e9d91aa9d03d1b95306c71fe048c2305838408cb2a69c42fe09b470"
+  },
+  {
+   "id": "brown-cg18",
+   "label": "human",
+   "group": "brown-cg18",
+   "text_sha256": "d44b51a1dfbee740b1ac8a1ea55705dc4ecb58a1b36f5c4a5e546b6c460a75df"
+  },
+  {
+   "id": "brown-cg24",
+   "label": "human",
+   "group": "brown-cg24",
+   "text_sha256": "ab7d0307a0aaa354cee0963199a59ba5237d7ea903527a3b60ce704e7d49ebfc"
+  },
+  {
+   "id": "brown-cg25",
+   "label": "human",
+   "group": "brown-cg25",
+   "text_sha256": "78b33f437d8c47cb49887ccb17dd3dc3438636c02442afde28e8adfcda8c62fe"
+  },
+  {
+   "id": "brown-cg27",
+   "label": "human",
+   "group": "brown-cg27",
+   "text_sha256": "6aa815190f2f274dcc9d70ad27a83ccb5a4a41b987bb63daeed27be0dd1ea696"
+  },
+  {
+   "id": "brown-cg28",
+   "label": "human",
+   "group": "brown-cg28",
+   "text_sha256": "5463943a5ad48319f3e97828dfd464156a365c847312849e571d1f3526c7aa4a"
+  },
+  {
+   "id": "brown-cg29",
+   "label": "human",
+   "group": "brown-cg29",
+   "text_sha256": "a2fc457122133140374fe96ee91bed2c47490ea4f7fe2c7b489325b49c77abdd"
+  },
+  {
+   "id": "brown-cg31",
+   "label": "human",
+   "group": "brown-cg31",
+   "text_sha256": "0c4cc4345ac5d602a4ea1a5e48f51d7bb80534dfa389898dfce0f199b66ad404"
+  },
+  {
+   "id": "brown-cg32",
+   "label": "human",
+   "group": "brown-cg32",
+   "text_sha256": "13a9ec5eba8db7868b2151de894817e0cc07eab0f3992e1a53adbbb65b805076"
+  },
+  {
+   "id": "brown-cg33",
+   "label": "human",
+   "group": "brown-cg33",
+   "text_sha256": "508627981d9ee31f52343160a3808524b5620ce8dc02ee2cdcb5cd1030f30899"
+  },
+  {
+   "id": "brown-cg34",
+   "label": "human",
+   "group": "brown-cg34",
+   "text_sha256": "751df26fe5174673011fcb1b82226c3b21f421dc39bfff3289a4215efc31307d"
+  },
+  {
+   "id": "brown-cg35",
+   "label": "human",
+   "group": "brown-cg35",
+   "text_sha256": "f01de2716019a2135e2c0ca7a3419e8a19ae4f49a5cf88da1abd6d68cd641734"
+  },
+  {
+   "id": "brown-cg38",
+   "label": "human",
+   "group": "brown-cg38",
+   "text_sha256": "536eee451cc52c9706185ba25d7576c3ec2d0082959b6e7cefa6e5e4efc112b3"
+  },
+  {
+   "id": "brown-cg42",
+   "label": "human",
+   "group": "brown-cg42",
+   "text_sha256": "367855f030576dbf7293499cd31fd6ccb217c7669030a100a19d099e8fb1157e"
+  },
+  {
+   "id": "brown-cg44",
+   "label": "human",
+   "group": "brown-cg44",
+   "text_sha256": "9225e6594302af843f532a8dfe3d16c83da912138d42d0957281a27bcfad9cb0"
+  },
+  {
+   "id": "brown-cg45",
+   "label": "human",
+   "group": "brown-cg45",
+   "text_sha256": "f4d270e4e318b89a7cebe177c85fa42d1ba8831d173461bc059b53d42711eba8"
+  },
+  {
+   "id": "brown-cg46",
+   "label": "human",
+   "group": "brown-cg46",
+   "text_sha256": "d7437984456bcb2c05dd0d27ac6b3cc7e6f03b3ec7cec17303746424e03b6548"
+  },
+  {
+   "id": "brown-cg47",
+   "label": "human",
+   "group": "brown-cg47",
+   "text_sha256": "47840d5e8456060d1cdeef93f17e26bdb843bcdd9ab4b33cbc91cd70602841fb"
+  },
+  {
+   "id": "brown-cg48",
+   "label": "human",
+   "group": "brown-cg48",
+   "text_sha256": "aefc8dbddf360c9f4212d64c91683a46f19fae0f7f7477688e2c07a88155c86f"
+  },
+  {
+   "id": "brown-cg50",
+   "label": "human",
+   "group": "brown-cg50",
+   "text_sha256": "591842c65dbb942eb60d94b7b1a7783cba29b3287b0025a5e3f5e00db6348279"
+  },
+  {
+   "id": "brown-cg52",
+   "label": "human",
+   "group": "brown-cg52",
+   "text_sha256": "4e349656134d2898a4dc8b1e0313c7088096527800c48635b21696fe58f3cad7"
+  },
+  {
+   "id": "brown-cg54",
+   "label": "human",
+   "group": "brown-cg54",
+   "text_sha256": "7793338201a274484fdddc791fbcf329a16ebeceacd727bb9d30e46dc7d258eb"
+  },
+  {
+   "id": "brown-cg55",
+   "label": "human",
+   "group": "brown-cg55",
+   "text_sha256": "d3b9e2ebba612f16d34ef9772120845c761beaab30c80acfaaa887212727f89c"
+  },
+  {
+   "id": "brown-cg56",
+   "label": "human",
+   "group": "brown-cg56",
+   "text_sha256": "d5e3800832fe3df19fc23cf01e242f8b23d7476580c6a3ea4bf318bd67cdbbe0"
+  },
+  {
+   "id": "brown-cg57",
+   "label": "human",
+   "group": "brown-cg57",
+   "text_sha256": "74f1d06284b851953b7e7fb3d115ff1c3c518d7dd71d45263506840359440b61"
+  },
+  {
+   "id": "brown-cg58",
+   "label": "human",
+   "group": "brown-cg58",
+   "text_sha256": "0fc542b613ab8c7c038ecb70c158700b6189448662038f5eeadd4e215f25b2df"
+  },
+  {
+   "id": "brown-cg59",
+   "label": "human",
+   "group": "brown-cg59",
+   "text_sha256": "86b9611306b96be00d66580c2f6d88c61962a0bca7c82979fecea10a877862b6"
+  },
+  {
+   "id": "brown-cg61",
+   "label": "human",
+   "group": "brown-cg61",
+   "text_sha256": "884d7d86c836376b37efe3d63fe49ad2eedd8a5df01bc37fb813ea9ba7117753"
+  },
+  {
+   "id": "brown-cg63",
+   "label": "human",
+   "group": "brown-cg63",
+   "text_sha256": "659dd1fab4c6807a02ece907fca001d1c5d2505112594a017c0dca61b04e05c2"
+  },
+  {
+   "id": "brown-cg64",
+   "label": "human",
+   "group": "brown-cg64",
+   "text_sha256": "bb973afcf9baf73b2067b5597dac44fcc06473e15c737233fab01b89a74cbdde"
+  },
+  {
+   "id": "brown-cg69",
+   "label": "human",
+   "group": "brown-cg69",
+   "text_sha256": "719a0a7503f1b681a6d0ee757d37ef1ac2ec9aef3c8b71f4fe90646da3e07892"
+  },
+  {
+   "id": "brown-cg70",
+   "label": "human",
+   "group": "brown-cg70",
+   "text_sha256": "de5b094e451f027c85db19a938fb9bc6660556a83573bbb00f19415dbd68c8fd"
+  },
+  {
+   "id": "brown-cg71",
+   "label": "human",
+   "group": "brown-cg71",
+   "text_sha256": "c54241a37c6e35bc69a76d60616d288e7eef0e852314fb2ee36ade0e16c23bcf"
+  },
+  {
+   "id": "brown-cg72",
+   "label": "human",
+   "group": "brown-cg72",
+   "text_sha256": "b5e27b0d6f12202fa5f6bf6ac4bab9a0d474625db890bcad54235ed3c61914ab"
+  },
+  {
+   "id": "brown-cg73",
+   "label": "human",
+   "group": "brown-cg73",
+   "text_sha256": "23c67ac82e54df0c48430a8cbb84135294d995684dae5b09a1f2fec2d2916a74"
+  },
+  {
+   "id": "brown-cg74",
+   "label": "human",
+   "group": "brown-cg74",
+   "text_sha256": "e454ea91f3467ded4cae88c9bd46c886ec2b0523a6ad435b0b11ad62cc93672a"
+  },
+  {
+   "id": "brown-cg75",
+   "label": "human",
+   "group": "brown-cg75",
+   "text_sha256": "9d2a58920a1f6ca1c175050e1caade808c522f32744fcabdcc34f7c40f0686fd"
+  },
+  {
+   "id": "brown-ch01",
+   "label": "human",
+   "group": "brown-ch01",
+   "text_sha256": "38d9283c0b8cb26ccedcae90c4be547a326cc85958cf4a4e8556c2f15a766652"
+  },
+  {
+   "id": "brown-ch04",
+   "label": "human",
+   "group": "brown-ch04",
+   "text_sha256": "a30157ded349ecb8818d5a75e1879a0e2915a0b1f87be3404b50aff8dd67c038"
+  },
+  {
+   "id": "brown-ch05",
+   "label": "human",
+   "group": "brown-ch05",
+   "text_sha256": "6e9807b4f9992f8d1c7297d39b3ced68cfd7fca7a928fc1efd0e16a7890826cb"
+  },
+  {
+   "id": "brown-ch06",
+   "label": "human",
+   "group": "brown-ch06",
+   "text_sha256": "71284ec3270e7a2122c9b6a50a0f70d7a719c24e8b4af052a0ee407908e4458b"
+  },
+  {
+   "id": "brown-ch07",
+   "label": "human",
+   "group": "brown-ch07",
+   "text_sha256": "b146919e5f2a66ae0fe0f34d40ded2f72532ea21c4acbb50ebb14267d9eb1e62"
+  },
+  {
+   "id": "brown-ch09",
+   "label": "human",
+   "group": "brown-ch09",
+   "text_sha256": "529e8a9e3e31a04332a3e9fd6eabaa6eef2b583bc82cd8ce494a9b9362067e89"
+  },
+  {
+   "id": "brown-ch10",
+   "label": "human",
+   "group": "brown-ch10",
+   "text_sha256": "2b19cf5f4a35b33d97a0c369bd3eb297ab8ef5c1448de63cd1fbe194c52adc42"
+  },
+  {
+   "id": "brown-ch13",
+   "label": "human",
+   "group": "brown-ch13",
+   "text_sha256": "64797f9749b34942b3a8306323f7e008fabcd21fda6e9c7d91a05bca72d5e49c"
+  },
+  {
+   "id": "brown-ch14",
+   "label": "human",
+   "group": "brown-ch14",
+   "text_sha256": "406c77cd73a106f54564bab681d2a82ac1df95bb64e1af244b3c9eea942fb1ba"
+  },
+  {
+   "id": "brown-ch15",
+   "label": "human",
+   "group": "brown-ch15",
+   "text_sha256": "3751c03ff09e604f2a9202c7f2e9ee2495414a4eb9a70d29096d7ea7d08580dc"
+  },
+  {
+   "id": "brown-ch16",
+   "label": "human",
+   "group": "brown-ch16",
+   "text_sha256": "b9d33b297074c6a8402e220807597153561c6b76e722dd629a5c80fd9c01db15"
+  },
+  {
+   "id": "brown-ch20",
+   "label": "human",
+   "group": "brown-ch20",
+   "text_sha256": "fef33af16e347d9acbdf27e37a3a852f752df0e9a8718b102b8c3da9d93471ac"
+  },
+  {
+   "id": "brown-ch21",
+   "label": "human",
+   "group": "brown-ch21",
+   "text_sha256": "4c35edbcc9d8ace94965f5f3d5db7d8bc8ce488b51f37af65216fde4e8f1b65e"
+  },
+  {
+   "id": "brown-ch24",
+   "label": "human",
+   "group": "brown-ch24",
+   "text_sha256": "a289d6a88f698e513fc1aedac5173d5704e21603f5cd849b711cf77a6081735c"
+  },
+  {
+   "id": "brown-ch25",
+   "label": "human",
+   "group": "brown-ch25",
+   "text_sha256": "602ca50a98ea72a503f23f44af28f5dd1b0937600861e5bd2ee7e8c959cf75e7"
+  },
+  {
+   "id": "brown-ch27",
+   "label": "human",
+   "group": "brown-ch27",
+   "text_sha256": "e94206fdc40c86161cacca16fcc32f2d3700cc81b74fa50e754f3f5d0e167b8c"
+  },
+  {
+   "id": "brown-ch28",
+   "label": "human",
+   "group": "brown-ch28",
+   "text_sha256": "f7b10fb9cfc324d7c82c52835f99e47e22475265c1ac9e5ccf3f7c35497b49ee"
+  },
+  {
+   "id": "brown-ch29",
+   "label": "human",
+   "group": "brown-ch29",
+   "text_sha256": "2562fef288e3349604040b9b3afe096d7c4e9794be260d02b8f78ab307383edd"
+  },
+  {
+   "id": "brown-cj02",
+   "label": "human",
+   "group": "brown-cj02",
+   "text_sha256": "84514ba91bb58780bffa92a28beff8019efe846f82758019b476211508d1273b"
+  },
+  {
+   "id": "brown-cj03",
+   "label": "human",
+   "group": "brown-cj03",
+   "text_sha256": "acccf1f013f125b41a68aea5b20fabbab0dbcfbf43e9ff06a63957de51f2b80f"
+  },
+  {
+   "id": "brown-cj05",
+   "label": "human",
+   "group": "brown-cj05",
+   "text_sha256": "a0f083da217a1ef23f601cf3c92fbb51b7b03c94504bc13125db804f272cd180"
+  },
+  {
+   "id": "brown-cj08",
+   "label": "human",
+   "group": "brown-cj08",
+   "text_sha256": "c6eb5eef90acaaacd213b9116154a8433e04a405491bb8b6e6d11dc0d92512cf"
+  },
+  {
+   "id": "brown-cj09",
+   "label": "human",
+   "group": "brown-cj09",
+   "text_sha256": "a9cbd2a61956f5f41490c048fc0b403dfce845a5e4e442aa055b89a6fb151ba1"
+  },
+  {
+   "id": "brown-cj10",
+   "label": "human",
+   "group": "brown-cj10",
+   "text_sha256": "e254a384f29ab75bd1c35936f3fc76caa8f535a585da865c032d03bc1f6f0c09"
+  },
+  {
+   "id": "brown-cj11",
+   "label": "human",
+   "group": "brown-cj11",
+   "text_sha256": "352ca6229f6ffccb3ab290c4a07550d44b25ecb3a238bbc74a0557be3a145531"
+  },
+  {
+   "id": "brown-cj12",
+   "label": "human",
+   "group": "brown-cj12",
+   "text_sha256": "42da76d021853f1ffdb0985e0343ef6273ef2dd910e9d0ee4933d714150a4171"
+  },
+  {
+   "id": "brown-cj13",
+   "label": "human",
+   "group": "brown-cj13",
+   "text_sha256": "eac0fb2f39758a90ec270b124ebf8f2c18404b9ec46288b33c6492dd2c63854a"
+  },
+  {
+   "id": "brown-cj14",
+   "label": "human",
+   "group": "brown-cj14",
+   "text_sha256": "11c0370e47c702b37c03b8d071085096d490f6b4937d563f64832da50cb9b451"
+  },
+  {
+   "id": "brown-cj17",
+   "label": "human",
+   "group": "brown-cj17",
+   "text_sha256": "7e0a92404d0af5988bf06b29b9062186e94e783b2b8856300c58258219b2d63f"
+  },
+  {
+   "id": "brown-cj18",
+   "label": "human",
+   "group": "brown-cj18",
+   "text_sha256": "7348ed26c7a87adf66d700229d90df8acae32f71fcdba010f92f58dfd066c182"
+  },
+  {
+   "id": "brown-cj20",
+   "label": "human",
+   "group": "brown-cj20",
+   "text_sha256": "039f4d382fa6f1f78dd8bdc11d484d689373ae34aa697d86b9bf3ac3fc7a10e4"
+  },
+  {
+   "id": "brown-cj21",
+   "label": "human",
+   "group": "brown-cj21",
+   "text_sha256": "04371a43e18cd6e8693975ed107b2c79b185046ae5de7e998ed8dd5b04acbb26"
+  },
+  {
+   "id": "brown-cj22",
+   "label": "human",
+   "group": "brown-cj22",
+   "text_sha256": "e96a4e103a29bfa028ccc0a8542f83c41040ac0281d76d60bb734e4bc2315c96"
+  },
+  {
+   "id": "brown-cj23",
+   "label": "human",
+   "group": "brown-cj23",
+   "text_sha256": "4abf00b09593dce6b11a8f69ecef6b5883159afedb1f78ac990363d85648aa44"
+  },
+  {
+   "id": "brown-cj24",
+   "label": "human",
+   "group": "brown-cj24",
+   "text_sha256": "639f7308610cc8283654428799a3bbaae4e35a98b7da3abf638b27d56b75f142"
+  },
+  {
+   "id": "brown-cj25",
+   "label": "human",
+   "group": "brown-cj25",
+   "text_sha256": "f41dd8ca443b66e054c7814e231cfe7c14a1b80c9e5b944e92cb2a6d4552b51d"
+  },
+  {
+   "id": "brown-cj28",
+   "label": "human",
+   "group": "brown-cj28",
+   "text_sha256": "66b5681a16e084514abd12475ca6967f13b6433ffd3c940af8b70e6bb2f7293f"
+  },
+  {
+   "id": "brown-cj30",
+   "label": "human",
+   "group": "brown-cj30",
+   "text_sha256": "6e1662790fe0920df06b37d094a61983807ae0698d5b66ec3dea87e3830953a8"
+  },
+  {
+   "id": "brown-cj31",
+   "label": "human",
+   "group": "brown-cj31",
+   "text_sha256": "43e1f24da543c01bf84562a7cf08f7701642d8b5aca28f1aac490f922a3bc812"
+  },
+  {
+   "id": "brown-cj32",
+   "label": "human",
+   "group": "brown-cj32",
+   "text_sha256": "216fc7d06e029f0a6f0f7b8bd9f4e90ed8509435f485e8da44e6e9329d38cdc7"
+  },
+  {
+   "id": "brown-cj34",
+   "label": "human",
+   "group": "brown-cj34",
+   "text_sha256": "1aa684c8b3107c1bf286b5b301ffa0f6a1a308ca710d3a4cb585ee522b3b1126"
+  },
+  {
+   "id": "brown-cj37",
+   "label": "human",
+   "group": "brown-cj37",
+   "text_sha256": "3fd9dc0d34bbf337fb390b138ded256a29a740edcad2642fb4a121eb5b300915"
+  },
+  {
+   "id": "brown-cj38",
+   "label": "human",
+   "group": "brown-cj38",
+   "text_sha256": "cff964dd7ba9f175c279593223a00866c4c1f1dc5c0f396212c3e4f244502f8c"
+  },
+  {
+   "id": "brown-cj39",
+   "label": "human",
+   "group": "brown-cj39",
+   "text_sha256": "6c39973cdd1980752e629ec183df91e2ae6cf87025433e48af722846e9251ffa"
+  },
+  {
+   "id": "brown-cj40",
+   "label": "human",
+   "group": "brown-cj40",
+   "text_sha256": "25759333d7babf177a8e5a5a2b33c028fc1036de059f13ce65d29efde951879c"
+  },
+  {
+   "id": "brown-cj41",
+   "label": "human",
+   "group": "brown-cj41",
+   "text_sha256": "0c45e57d97a9c9c8085b14dcdc187cf213cc9ab8af7b8b1f33d314f55e1a1fd1"
+  },
+  {
+   "id": "brown-cj42",
+   "label": "human",
+   "group": "brown-cj42",
+   "text_sha256": "d21376c9249e259009a5e25b9d331a90bf59981618014518c1676f4faaac5b9b"
+  },
+  {
+   "id": "brown-cj45",
+   "label": "human",
+   "group": "brown-cj45",
+   "text_sha256": "60919cdb8d577691af5b62a99a274f6ece120877a99fd342c87ff1071b166625"
+  },
+  {
+   "id": "brown-cj48",
+   "label": "human",
+   "group": "brown-cj48",
+   "text_sha256": "031b16e2bba5f3608ee331921e3b96717b9b01b14a5e93562d85a13023f215b2"
+  },
+  {
+   "id": "brown-cj49",
+   "label": "human",
+   "group": "brown-cj49",
+   "text_sha256": "93021ed1affdd028c84dbad61fedbff88a37d2024ffc88ea11a7dcc5f0d6846c"
+  },
+  {
+   "id": "brown-cj50",
+   "label": "human",
+   "group": "brown-cj50",
+   "text_sha256": "e9ccfddf2ddf8a7bc0d9bd387b0b6ca625d032ed9ef4145ad30297d394af9307"
+  },
+  {
+   "id": "brown-cj52",
+   "label": "human",
+   "group": "brown-cj52",
+   "text_sha256": "df282732817412ef47ea2ca27282839b9bede21df1957a876381cd6ff204eacf"
+  },
+  {
+   "id": "brown-cj54",
+   "label": "human",
+   "group": "brown-cj54",
+   "text_sha256": "70be18a639ef98756bb04976af60e245f724df62ce90665e02d76fa2543af74b"
+  },
+  {
+   "id": "brown-cj55",
+   "label": "human",
+   "group": "brown-cj55",
+   "text_sha256": "1c956a3fae8afbcbcdf4134ad81145bad7534bb27de7eeb0b1dc3ee81ab7ec33"
+  },
+  {
+   "id": "brown-cj56",
+   "label": "human",
+   "group": "brown-cj56",
+   "text_sha256": "bd4352c41e2b52f933e3b3cd0fbb9955cd91781be7580f919c6f90fa491d02ac"
+  },
+  {
+   "id": "brown-cj57",
+   "label": "human",
+   "group": "brown-cj57",
+   "text_sha256": "01532d12e1376b761195b34776ef81f09e4c91ae476c2339fc9eb8f5cd045151"
+  },
+  {
+   "id": "brown-cj58",
+   "label": "human",
+   "group": "brown-cj58",
+   "text_sha256": "08dd4d339a51aebd4173b93a050a97926c1dc28e5d5993253ec6de8b3713466e"
+  },
+  {
+   "id": "brown-cj59",
+   "label": "human",
+   "group": "brown-cj59",
+   "text_sha256": "771236eb848ac707429355215cf1a38ccc211719ffe27759d9583d508f52c140"
+  },
+  {
+   "id": "brown-cj61",
+   "label": "human",
+   "group": "brown-cj61",
+   "text_sha256": "316170869e4c683743135a43895ce7ad2f4c74a83eccfc80a3c59dc5eb79e2ce"
+  },
+  {
+   "id": "brown-cj64",
+   "label": "human",
+   "group": "brown-cj64",
+   "text_sha256": "0d5ee50c41f64658eb8cba792d1621646316447b59524e6e49a9dd07b14a756b"
+  },
+  {
+   "id": "brown-cj66",
+   "label": "human",
+   "group": "brown-cj66",
+   "text_sha256": "68ff48fc8b112e5624e611d968b041471cd370b25763b67228d5796b5d7b13d1"
+  },
+  {
+   "id": "brown-cj68",
+   "label": "human",
+   "group": "brown-cj68",
+   "text_sha256": "10a178bf0b796feeb21ac4016ed768ce2d29b14a20d9b95fb7852a97d6557bee"
+  },
+  {
+   "id": "brown-cj69",
+   "label": "human",
+   "group": "brown-cj69",
+   "text_sha256": "bf9699816f4be7fd6d53c798b1dfeda0e9d24770b1b3c76e849857424d3655fe"
+  },
+  {
+   "id": "brown-cj70",
+   "label": "human",
+   "group": "brown-cj70",
+   "text_sha256": "25344351984ee740873893e3c64fe024292bfd52971042cb8783a97d3150d7f6"
+  },
+  {
+   "id": "brown-cj74",
+   "label": "human",
+   "group": "brown-cj74",
+   "text_sha256": "0750662b42b28e86494c2d7bffb689279a532472f9e4c1e1e58e1597f8153f38"
+  },
+  {
+   "id": "brown-cj75",
+   "label": "human",
+   "group": "brown-cj75",
+   "text_sha256": "d07f12b23b33f902366780b60930e961bc209070b4b98027ae0deb3e717bd4cc"
+  },
+  {
+   "id": "brown-cj76",
+   "label": "human",
+   "group": "brown-cj76",
+   "text_sha256": "8c9f6b975c215b8191f4e89a141605a30cd6c9057a8c2919b664ef6ee4e1347b"
+  },
+  {
+   "id": "brown-cj78",
+   "label": "human",
+   "group": "brown-cj78",
+   "text_sha256": "94576eb18b36c6f7319528d18832389b944ab974e348cf7dd05267f771a2193f"
+  },
+  {
+   "id": "brown-cj80",
+   "label": "human",
+   "group": "brown-cj80",
+   "text_sha256": "86d1331f3cec28a456b91aef9d3ef1e50e646af8ae8701d14a9aee011743debc"
+  },
+  {
+   "id": "abc-rural-a7a83077",
+   "label": "human",
+   "group": "abc-rural-a7a83077",
+   "text_sha256": "58331b7dbce1accc9b62694ed06ace22f2b6f224c8a8f613f6e67685e0783e3d"
+  },
+  {
+   "id": "abc-rural-07eb02f8",
+   "label": "human",
+   "group": "abc-rural-07eb02f8",
+   "text_sha256": "0f051a3894f2b14a68a8511fcf906a1a3d89ec28daeec04092654f602e0f36a7"
+  },
+  {
+   "id": "abc-rural-5598df55",
+   "label": "human",
+   "group": "abc-rural-5598df55",
+   "text_sha256": "c2b0b6976f9d697aef8d85b7f53aad8f296a249d006f9830df30d7cfa41d9c1f"
+  },
+  {
+   "id": "abc-rural-d532e484",
+   "label": "human",
+   "group": "abc-rural-d532e484",
+   "text_sha256": "48c0453b6bdce697fda491ed0fdbb2e95bec42eac29cdd60f45c7e89bda3695f"
+  },
+  {
+   "id": "sotu-2005-GWBush-0",
+   "label": "human",
+   "group": "sotu-2005-GWBush",
+   "text_sha256": "a86a1df75d378df5712131a3cb0a778669a01ae5dcdd22e31afc3db4dbe3c878"
+  },
+  {
+   "id": "sotu-2005-GWBush-1",
+   "label": "human",
+   "group": "sotu-2005-GWBush",
+   "text_sha256": "369566b47a5bce77e121a8212a254a766a7de8d81c666788c67505c22c5da84f"
+  },
+  {
+   "id": "sotu-2005-GWBush-2",
+   "label": "human",
+   "group": "sotu-2005-GWBush",
+   "text_sha256": "465526ac34052527cd5b393bc1f3658a084ed79bf1ef01bef48c3a2d074ae2a0"
+  },
+  {
+   "id": "sotu-2006-GWBush-0",
+   "label": "human",
+   "group": "sotu-2006-GWBush",
+   "text_sha256": "f127b7e2871d5cf56558457f2943cc022e5866d3bf0306f23540f6326e5f0eca"
+  },
+  {
+   "id": "sotu-2006-GWBush-1",
+   "label": "human",
+   "group": "sotu-2006-GWBush",
+   "text_sha256": "588ac24f0b476fe2f314530e37faa13f38dc54b2a92283350aa3c8513e199ed2"
+  },
+  {
+   "id": "sotu-2006-GWBush-2",
+   "label": "human",
+   "group": "sotu-2006-GWBush",
+   "text_sha256": "874dd5a76f268c8c4a4239be635cf42ed79e26d244a60d47d475f2cf0a1262ce"
+  },
+  {
+   "id": "ai02",
+   "label": "generated",
+   "group": "maya script",
+   "text_sha256": "a3b9e5d02e0dd8d2c6a461be67653b7ae9ad75c5c3d14bb453c4075d683faa53"
+  },
+  {
+   "id": "ai04",
+   "label": "generated",
+   "group": "silk road",
+   "text_sha256": "4c8d9ea2c4f3fc31319a80d1b110c91c39faa94d33c78fb1133fb30f729ee74f"
+  },
+  {
+   "id": "ai05",
+   "label": "generated",
+   "group": "phoenician alphabet",
+   "text_sha256": "409d2c6be35c44a78752cf694cd4cc773a2a5d7f9cc78962f7313d6bf4650bc6"
+  },
+  {
+   "id": "ai06",
+   "label": "generated",
+   "group": "roman aqueducts",
+   "text_sha256": "a34295bd5f9466d1d7a32fce1172d6d73188c1988a01c124977f4b13fece87e0"
+  },
+  {
+   "id": "ai07",
+   "label": "generated",
+   "group": "photosynthesis",
+   "text_sha256": "3b18f61e4047ec29085a20a697fc50a25c7d2cfd388140ed72dd8e6514278021"
+  },
+  {
+   "id": "ai08",
+   "label": "generated",
+   "group": "latin language",
+   "text_sha256": "894fd5986052fcb7bd1b1a84a6bb0a13d45817d9a64d071828b6f1ff06821df4"
+  },
+  {
+   "id": "ai09",
+   "label": "generated",
+   "group": "great wall",
+   "text_sha256": "2f55b7ecd300cd631d503b8880aafead178e6472eb05032f4ba0d92abbf6789d"
+  },
+  {
+   "id": "ai11",
+   "label": "generated",
+   "group": "sanskrit",
+   "text_sha256": "c7bdf3375e3b1c053b34b8a58bd000d058feef72a0887fa3a666945d6df57cc9"
+  },
+  {
+   "id": "ai12",
+   "label": "generated",
+   "group": "industrial revolution",
+   "text_sha256": "ad16bec1cd52228cac477da35d75a12eb2064444e3d876bb2fa162d55b1ed95b"
+  },
+  {
+   "id": "ai16",
+   "label": "generated",
+   "group": "black death",
+   "text_sha256": "6bbf09e17ee706276e350d48b9082d1f0d3aadcb41cbd42dbd9ef32e373b8a07"
+  },
+  {
+   "id": "ai17",
+   "label": "generated",
+   "group": "runes",
+   "text_sha256": "6fa88062011a4b7f355553c6cd123bc17e09cfeb3958a8ce9c71c72d81ba2f4c"
+  },
+  {
+   "id": "ai18",
+   "label": "generated",
+   "group": "coral reefs",
+   "text_sha256": "66441a89e3b08716656a57779243868ae9db9ecf52444dd82b228502e808bc66"
+  },
+  {
+   "id": "ai19",
+   "label": "generated",
+   "group": "inca khipu",
+   "text_sha256": "de783e5221321db2250b20d3c3d58a935dde8cf98c65e01a56141079e49491b8"
+  },
+  {
+   "id": "ai22",
+   "label": "generated",
+   "group": "olive oil mediterranean",
+   "text_sha256": "1f91027378002af276824f5147c1bf9d039b1d6419d965fb0a0004ff5f146433"
+  },
+  {
+   "id": "ai23",
+   "label": "generated",
+   "group": "braille",
+   "text_sha256": "534987054e52c829f3b4a3cd59bc44c0c12a53e5c54bb62a52b538f8ce100a7e"
+  },
+  {
+   "id": "ai25",
+   "label": "generated",
+   "group": "arabic script",
+   "text_sha256": "f46ea289b2120dda4ad30eaa006c14bccf10094d47167e3ad1043bee961f262a"
+  },
+  {
+   "id": "ai26",
+   "label": "generated",
+   "group": "magna carta",
+   "text_sha256": "9212eef131320a77f2c6a0220611078b5ac892b240c02081e8a87dbf7f52970a"
+  },
+  {
+   "id": "ai27",
+   "label": "generated",
+   "group": "honey bee dance",
+   "text_sha256": "830fcaa7878fe41b865c75a42e564bc338c5880ffa849148dd479aca40fe6bfa"
+  },
+  {
+   "id": "ai28",
+   "label": "generated",
+   "group": "greek theatre",
+   "text_sha256": "8dc2abb7df52256d5a9f6e71c2493642004d79f7cc084f3ac7de13133180dc43"
+  },
+  {
+   "id": "ai30",
+   "label": "generated",
+   "group": "korean hangul",
+   "text_sha256": "15d8dee492595679ee54337a12e7f9ac5f8d1823c8e3a36ee1f41085809befb1"
+  },
+  {
+   "id": "ai31",
+   "label": "generated",
+   "group": "vaccination",
+   "text_sha256": "afc4c833cb7ceb5d3ef01916776034cc1649fb01715f591836189c18a9c2d527"
+  },
+  {
+   "id": "ai34",
+   "label": "generated",
+   "group": "dead sea scrolls",
+   "text_sha256": "95359f96a6ec5434d7ab215c959315b9e2f3120ca3dda7c54cf4b436cf45fd0f"
+  },
+  {
+   "id": "ai36",
+   "label": "generated",
+   "group": "tea",
+   "text_sha256": "eeddf5e9f67ecf1b5cde0642bc9a5343d5b3e66d04233290b2f0e55f1f4f2ab7"
+  },
+  {
+   "id": "pep-0374.txt",
+   "label": "human",
+   "group": "pep-0374",
+   "text_sha256": "77845e372fe89956b184dd7d64b15dea7eaf431dbe8cec9b86c8f6d005467f9b"
+  },
+  {
+   "id": "pep-0516.txt",
+   "label": "human",
+   "group": "pep-0516",
+   "text_sha256": "3ea50884cc68da9d7df4d97ff922fa2a282be8e10a340efd64118d2f2f153014"
+  },
+  {
+   "id": "pep-0432.txt",
+   "label": "human",
+   "group": "pep-0432",
+   "text_sha256": "800faa2f268fd82a8c960c0ff7793497874a62eb8d24db2b9f7ad548779bcbd5"
+  },
+  {
+   "id": "pep-0227.txt",
+   "label": "human",
+   "group": "pep-0227",
+   "text_sha256": "b8170a3ceb858063095b49f44bbb3b6702b1c8edf9d57451fe4239195b07fd79"
+  },
+  {
+   "id": "pep-0219.txt",
+   "label": "human",
+   "group": "pep-0219",
+   "text_sha256": "c89649c75e1021e507e9720a3c6da262c1b978b82ce2bb26b71e770900b22437"
+  },
+  {
+   "id": "pep-0438.txt",
+   "label": "human",
+   "group": "pep-0438",
+   "text_sha256": "57190f90d4a5497ee893ca5373ca472517926b8a7c06cf3df11061389eba8f8e"
+  },
+  {
+   "id": "pep-0204.txt",
+   "label": "human",
+   "group": "pep-0204",
+   "text_sha256": "dc4c4b8620c42989bf141ee57b52260962f1bf3f8ceecc0d35a02a39d64a7136"
+  },
+  {
+   "id": "pep-0334.txt",
+   "label": "human",
+   "group": "pep-0334",
+   "text_sha256": "8719f1520ec00d4367f2310f9577ba12337f8cf7483c848d69e043cc37327be3"
+  },
+  {
+   "id": "pep-0246.txt",
+   "label": "human",
+   "group": "pep-0246",
+   "text_sha256": "1985ce9a0db757fd28bc37a4b346cf4328f77ae1d48cf2fae83c2e197fa41f84"
+  },
+  {
+   "id": "pep-0418.txt",
+   "label": "human",
+   "group": "pep-0418",
+   "text_sha256": "d2eece358bad07a9e1edbe3de9e702300b6811fbe1a4bfb0ba017b10612c6857"
+  },
+  {
+   "id": "pep-3149.txt",
+   "label": "human",
+   "group": "pep-3149",
+   "text_sha256": "af48a3b9c3c5467e0563172301a33d42d960b29fd9d422d3686001179640d629"
+  },
+  {
+   "id": "pep-0395.txt",
+   "label": "human",
+   "group": "pep-0395",
+   "text_sha256": "0ddfb5b2cf1571b32efac92069805570267bcb8d68dc4d65ddda641fe96db7b1"
+  },
+  {
+   "id": "pep-0529.txt",
+   "label": "human",
+   "group": "pep-0529",
+   "text_sha256": "ecef39fb3a3ed4931fbb7fd6cba574249d63585819a46261a99337101b774651"
+  },
+  {
+   "id": "pep-0257.txt",
+   "label": "human",
+   "group": "pep-0257",
+   "text_sha256": "203759fdc40c82b63b92fed0fa6704104acd1c181c23b65a92b6947517bd25c6"
+  },
+  {
+   "id": "pep-0340.txt",
+   "label": "human",
+   "group": "pep-0340",
+   "text_sha256": "d61105531bfadfc7eea2614929c92942f5e94eac6b56c41492fcb82a93f07d17"
+  },
+  {
+   "id": "pep-0440.txt",
+   "label": "human",
+   "group": "pep-0440",
+   "text_sha256": "c08832e732336a67f147f2168a899610e763068feff722599f6d053e32cbe01a"
+  },
+  {
+   "id": "pep-0258.txt",
+   "label": "human",
+   "group": "pep-0258",
+   "text_sha256": "f598274c357a061332bae25e61e7c17f2daf30ac382238f1ee4a5d7cf7812982"
+  },
+  {
+   "id": "pep-0381.txt",
+   "label": "human",
+   "group": "pep-0381",
+   "text_sha256": "b93357d4300d00f69a41432b29872553bfac18aeac3f35db39604e8e035dfd9e"
+  },
+  {
+   "id": "pep-0450.txt",
+   "label": "human",
+   "group": "pep-0450",
+   "text_sha256": "b4dbd4e28a1a7e2de0d5bd62cab72928e70024fa59cbffa33038eb2cd1826ce1"
+  },
+  {
+   "id": "pep-0469.txt",
+   "label": "human",
+   "group": "pep-0469",
+   "text_sha256": "ec464402c7cf4084200a0abd7cc66fb44ae60cd122039bd3c01f23f19588a44e"
+  },
+  {
+   "id": "pep-3101.txt",
+   "label": "human",
+   "group": "pep-3101",
+   "text_sha256": "27d68c49baf4df9c88468a166b5cea73fadcca6189e8f64fe7a80df3a964b6d7"
+  },
+  {
+   "id": "pep-3124.txt",
+   "label": "human",
+   "group": "pep-3124",
+   "text_sha256": "490a3d7c1fe388d348f28e5bc8e69fa2f13ddaa9066848ef03c09c6d8675800d"
+  },
+  {
+   "id": "pep-0238.txt",
+   "label": "human",
+   "group": "pep-0238",
+   "text_sha256": "6d16d80e89782279c726bc2c1a1b7adedee8cfbbdc54682b9d8d527eb2f29cb4"
+  },
+  {
+   "id": "pep-0400.txt",
+   "label": "human",
+   "group": "pep-0400",
+   "text_sha256": "8de7709a921123372f27ffc2c0afd4b4a2db71b338f16ca23895f5703c81985e"
+  },
+  {
+   "id": "pep-0345.txt",
+   "label": "human",
+   "group": "pep-0345",
+   "text_sha256": "316690383ac6df7f5988527a2358dd310be8d7dc1eaf023cb83b11170e4b3b19"
+  },
+  {
+   "id": "pep-0501.txt",
+   "label": "human",
+   "group": "pep-0501",
+   "text_sha256": "4efdf7a2ba6720cc84c01a6edd225f166f5a50cae48b1798d10a56c96c1234d6"
+  },
+  {
+   "id": "pep-0103.txt",
+   "label": "human",
+   "group": "pep-0103",
+   "text_sha256": "e8df45091a330b2e5e5cbc826d3487e962588b9b1e0f0654981b8df05b9f4101"
+  },
+  {
+   "id": "pep-0509.txt",
+   "label": "human",
+   "group": "pep-0509",
+   "text_sha256": "3e5d0c9a073290333c350077cde72eb5fe1f7ec50a5e6438cfcaac66595e8a7d"
+  },
+  {
+   "id": "pep-0422.txt",
+   "label": "human",
+   "group": "pep-0422",
+   "text_sha256": "041ef321c7a3fa72ef2bd48d10e001d039625e2e0e3ef06bffb913c1fd140e26"
+  },
+  {
+   "id": "pep-0237.txt",
+   "label": "human",
+   "group": "pep-0237",
+   "text_sha256": "9b6bf072ccfdab88c68c8f457573cfeaabf74ca54538d1dca37a4723873e5daa"
+  },
+  {
+   "id": "pep-0225.txt",
+   "label": "human",
+   "group": "pep-0225",
+   "text_sha256": "d5b1fcc5e63582acdc9014f453499bee13ce5b0588e0c4bda3f3dfa8df693f0a"
+  },
+  {
+   "id": "pep-0001.txt",
+   "label": "human",
+   "group": "pep-0001",
+   "text_sha256": "447f01e2328bb5fd7db8102c39dade2ae6974ae01f3798db5f4a417ae0ac6112"
+  },
+  {
+   "id": "pep-0426.txt",
+   "label": "human",
+   "group": "pep-0426",
+   "text_sha256": "66d012c30b3b4ec4f0fd8ba70885d83357b4247b4b33f80170b4a591c1dca6bd"
+  },
+  {
+   "id": "pep-0472.txt",
+   "label": "human",
+   "group": "pep-0472",
+   "text_sha256": "5177cccecdd954bedfcc610a483d412851f4f8e375580ffcc609cccb9d86dc45"
+  },
+  {
+   "id": "pep-0489.txt",
+   "label": "human",
+   "group": "pep-0489",
+   "text_sha256": "128269dc5474939ba827a318345ae7b4e4f29a5b7444adf288eb5e1c91a35a30"
+  },
+  {
+   "id": "pep-0301.txt",
+   "label": "human",
+   "group": "pep-0301",
+   "text_sha256": "17b61d6694901abebbe51783aeff68bd02d323b8ec21c628ed6929c780c3eb66"
+  },
+  {
+   "id": "pep-0485.txt",
+   "label": "human",
+   "group": "pep-0485",
+   "text_sha256": "46e39d6e144059190c31dc38804516af10048e4f7b288a49f03e818cadf5c27e"
+  },
+  {
+   "id": "pep-0333.txt",
+   "label": "human",
+   "group": "pep-0333",
+   "text_sha256": "ece7beeca6a2e11aed4e7e4ca67f540aacf42d4c00aaacac36d6340fb5c28e68"
+  },
+  {
+   "id": "pep-0502.txt",
+   "label": "human",
+   "group": "pep-0502",
+   "text_sha256": "8f6457ad377cdba691ac159b65ea10c8d0e7a8630f1467aa0ee188576b3b2238"
+  },
+  {
+   "id": "pep-0006.txt",
+   "label": "human",
+   "group": "pep-0006",
+   "text_sha256": "2dc1c793c62e14c0980f808e8b8021ec2ca2843d10dbacd99590121a9d5f5400"
+  },
+  {
+   "id": "pep-3108.txt",
+   "label": "human",
+   "group": "pep-3108",
+   "text_sha256": "820fa2cf1c809ef0d1a789a243b0e29da2bfebf936892c340d682c46241a6fef"
+  },
+  {
+   "id": "pep-0451.txt",
+   "label": "human",
+   "group": "pep-0451",
+   "text_sha256": "475382e6e9590e914e95b4b61a9c21d3285ded17a68e0310eb7fc42f1e5825a0"
+  },
+  {
+   "id": "pep-0384.txt",
+   "label": "human",
+   "group": "pep-0384",
+   "text_sha256": "39bf8bfb1576a78890459b1a0f9629501c05f36318488289549ac14cbfa6e9cf"
+  },
+  {
+   "id": "pep-0414.txt",
+   "label": "human",
+   "group": "pep-0414",
+   "text_sha256": "151e37edf9435e092072a9a8c6d0630775a58f71ce6f167c62e075d1da88c329"
+  },
+  {
+   "id": "pep-0282.txt",
+   "label": "human",
+   "group": "pep-0282",
+   "text_sha256": "358313a5f8996f316e3fbb16aadc3ccc724844987e7f4c58c5d89bc22c7ced12"
+  },
+  {
+   "id": "pep-0335.txt",
+   "label": "human",
+   "group": "pep-0335",
+   "text_sha256": "a0605ea32f652b0e35b1f2706a7f58d7ef2676029a838039edab83399cd552bc"
+  },
+  {
+   "id": "pep-0526.txt",
+   "label": "human",
+   "group": "pep-0526",
+   "text_sha256": "c6fae22f0b44ac0260fbfad9f4f5df4e7e635b77b5f718480c9fcbb2452d9173"
+  },
+  {
+   "id": "pep-0383.txt",
+   "label": "human",
+   "group": "pep-0383",
+   "text_sha256": "014b3d255e6368c99ca882a66827735cba910eda45142249e618e229fb5a481c"
+  },
+  {
+   "id": "pep-0523.txt",
+   "label": "human",
+   "group": "pep-0523",
+   "text_sha256": "1f9493df04f2c63e2b3899e31afd0dfcf3cda3b6c88f9050e1eafc80d9ae333e"
+  },
+  {
+   "id": "pep-3150.txt",
+   "label": "human",
+   "group": "pep-3150",
+   "text_sha256": "0d480524129628cb569712cfd6012eea9904b4257b0d4f34ff597634bca7fafa"
+  },
+  {
+   "id": "pep-0421.txt",
+   "label": "human",
+   "group": "pep-0421",
+   "text_sha256": "467540efb2719fd07b2c8149d691fd209dc55622b7615c34de5335edd50bfeee"
+  },
+  {
+   "id": "pep-3151.txt",
+   "label": "human",
+   "group": "pep-3151",
+   "text_sha256": "2c46641191a0c731ebce40fdafb61b165336b7b7868fa0baa7080574113bab49"
+  },
+  {
+   "id": "pep-0255.txt",
+   "label": "human",
+   "group": "pep-0255",
+   "text_sha256": "7137ef896bd4edf414225645b298b6d98fa57b25ebc37c26edf02292a1e31d4f"
+  },
+  {
+   "id": "pep-3104.txt",
+   "label": "human",
+   "group": "pep-3104",
+   "text_sha256": "7fb20590149afd52ec021048b70dde2ed81f5a2f779beb7765ad7651bf45e0df"
+  },
+  {
+   "id": "pep-0408.txt",
+   "label": "human",
+   "group": "pep-0408",
+   "text_sha256": "8debc9f3a33d674c1aa964c1008e8c762ca2fc67d96eedec272e4a8064d98d03"
+  },
+  {
+   "id": "pep-0343.txt",
+   "label": "human",
+   "group": "pep-0343",
+   "text_sha256": "d5dac881c2d3ef35cf26d9aedbcf8b1cd733b40bced9ed2ba80815e4520bf975"
+  },
+  {
+   "id": "pep-0514.txt",
+   "label": "human",
+   "group": "pep-0514",
+   "text_sha256": "9682b1d7423ee99e2a32b10e90d392916c337da48561300390f0a2f88bf0bac9"
+  },
+  {
+   "id": "pep-0512.txt",
+   "label": "human",
+   "group": "pep-0512",
+   "text_sha256": "1b3172ee6ba3092e32e4e7f8829f4af8d2839508dd52bdc121adb04bca969563"
+  },
+  {
+   "id": "pep-3119.txt",
+   "label": "human",
+   "group": "pep-3119",
+   "text_sha256": "7e23440600144a14d74002e93d5cb480c5b79b2ffca2a54493be0f4fc3ff9951"
+  },
+  {
+   "id": "pep-0463.txt",
+   "label": "human",
+   "group": "pep-0463",
+   "text_sha256": "8242b1dfb511e9a64dd373d677944c86ea8a634d5aaaeb1b1c095b2ca56cb891"
+  },
+  {
+   "id": "pep-0307.txt",
+   "label": "human",
+   "group": "pep-0307",
+   "text_sha256": "035a12fee34990845a32574dc6c4b4b19c459c05624c20d17d72fb792fc111eb"
+  },
+  {
+   "id": "pep-0285.txt",
+   "label": "human",
+   "group": "pep-0285",
+   "text_sha256": "203200d49908b48a259cc610db58d7a3bb85391c1751c71a3234f9ef877ea52f"
+  },
+  {
+   "id": "pep-0346.txt",
+   "label": "human",
+   "group": "pep-0346",
+   "text_sha256": "795bb0847e467426cf42005e3ae545e95e7a948fc976e3893dea828baa4cbbbf"
+  },
+  {
+   "id": "pep-0544.txt",
+   "label": "human",
+   "group": "pep-0544",
+   "text_sha256": "4df0715b6ce55ec4acff6cf1c487391026c7c0514616a3a9b80b80f94113850b"
+  },
+  {
+   "id": "pep-0348.txt",
+   "label": "human",
+   "group": "pep-0348",
+   "text_sha256": "bd3235eaa5b14932c305c3cea2df098fde3f908ad9392d8937c4bbf711163556"
+  },
+  {
+   "id": "pep-0436.txt",
+   "label": "human",
+   "group": "pep-0436",
+   "text_sha256": "91bf714b1be002c28ea3a2c96bb370f04b5087c744ccfe80c7642b44be53a727"
+  },
+  {
+   "id": "pep-0491.txt",
+   "label": "human",
+   "group": "pep-0491",
+   "text_sha256": "44f3c947de362a54ab82e022c4a1b9beaabd1718828573da94af25c569d09803"
+  },
+  {
+   "id": "pep-0339.txt",
+   "label": "human",
+   "group": "pep-0339",
+   "text_sha256": "1c46141f2365f3296986ed7f29ff1ab937c355f97183c262b8dc630d6eaa4e30"
+  },
+  {
+   "id": "pep-0466.txt",
+   "label": "human",
+   "group": "pep-0466",
+   "text_sha256": "a7b8b49b4f610b545339bd65762d9d3f75fa8314aeb08e8709aec25101dc7815"
+  },
+  {
+   "id": "pep-0402.txt",
+   "label": "human",
+   "group": "pep-0402",
+   "text_sha256": "30e820c5ebdad6cc08d381f49a9f8561403ecf3ef35514f02440f8986ea9a8f7"
+  },
+  {
+   "id": "pep-0522.txt",
+   "label": "human",
+   "group": "pep-0522",
+   "text_sha256": "d11691ecdd8839a46a43dd5e19531c8a48df4f0d739ce6c8194aaa9308d6043a"
+  },
+  {
+   "id": "pep-0304.txt",
+   "label": "human",
+   "group": "pep-0304",
+   "text_sha256": "1435a23574b1a1f2065c0ea3103d0ec30922dad07657e4e523000d00bb0b84cd"
+  },
+  {
+   "id": "pep-0011.txt",
+   "label": "human",
+   "group": "pep-0011",
+   "text_sha256": "b4d952527c45db5f98134901c3f14ddc54f7ff773d1543afe17a85cddf3557f1"
+  },
+  {
+   "id": "pep-0305.txt",
+   "label": "human",
+   "group": "pep-0305",
+   "text_sha256": "0b4cd4827a06aafac039452c30e77ff13010cc76831d33de41959ab216ed574b"
+  },
+  {
+   "id": "pep-3127.txt",
+   "label": "human",
+   "group": "pep-3127",
+   "text_sha256": "8c867f4c00808275992789b896262b9ae1c920f7cacf5b3b7edb233f8533cb19"
+  },
+  {
+   "id": "pep-0518.txt",
+   "label": "human",
+   "group": "pep-0518",
+   "text_sha256": "11929a9befa340ce011ccd956dd0ce55b266eae242bde29ef4a44fab670a27e1"
+  },
+  {
+   "id": "pep-0368.txt",
+   "label": "human",
+   "group": "pep-0368",
+   "text_sha256": "b396098b3a060c117b3bc8243cf77b2c4047414a021265fbfbb58b5b300f32f4"
+  },
+  {
+   "id": "pep-0497.txt",
+   "label": "human",
+   "group": "pep-0497",
+   "text_sha256": "e1ef0654755e534b841394e1d0e2764fcaea777f514d7e8c6c2e6772c95c4722"
+  },
+  {
+   "id": "pep-0342.txt",
+   "label": "human",
+   "group": "pep-0342",
+   "text_sha256": "8e46ce0f4431538ec830ec056ffd6af0cd0dddf147543cb1a8b7afbb49e14a25"
+  },
+  {
+   "id": "pep-0385.txt",
+   "label": "human",
+   "group": "pep-0385",
+   "text_sha256": "7c026cea94bc08baf8476badfb116ea72e6b2bb66fc5264c626995f591870ca4"
+  },
+  {
+   "id": "pep-3147.txt",
+   "label": "human",
+   "group": "pep-3147",
+   "text_sha256": "264a498a0fab4a8a7e0ecc1288ec3c1b8acd907fdeba4dc663578adaa9e1e334"
+  },
+  {
+   "id": "pep-0380.txt",
+   "label": "human",
+   "group": "pep-0380",
+   "text_sha256": "753acbf18a44de906d226c759c4d0b67966e425f60c644a043483a589a84c679"
+  },
+  {
+   "id": "pep-0481.txt",
+   "label": "human",
+   "group": "pep-0481",
+   "text_sha256": "dacd931ae738f754c1252052ab22d93a6a74d6e213324f8129143e1b54cb72d3"
+  },
+  {
+   "id": "pep-0318.txt",
+   "label": "human",
+   "group": "pep-0318",
+   "text_sha256": "ce1d3a1b17338dd85c9d83069812465915fed38e1267408a8d29d49d374935e3"
+  },
+  {
+   "id": "pep-0468.txt",
+   "label": "human",
+   "group": "pep-0468",
+   "text_sha256": "aef585104e82b1079bb2be8598375fd499ec99943f5ab7a906f4f84c676f773a"
+  },
+  {
+   "id": "pep-0002.txt",
+   "label": "human",
+   "group": "pep-0002",
+   "text_sha256": "9594f03b1fa8cfd9b1e6dbb5518e0e9c7fa0bb980f8c58cd45937e9137a742ff"
+  },
+  {
+   "id": "pep-0508.txt",
+   "label": "human",
+   "group": "pep-0508",
+   "text_sha256": "0a304f708784b35a549d06a4c68e18cb1847894531b495ac1d261bcdfab592bd"
+  },
+  {
+   "id": "pep-0458.txt",
+   "label": "human",
+   "group": "pep-0458",
+   "text_sha256": "9ebb166791047c5c17ab82c80a2c0e3b0ba9dbcf9f34854f97ec13aecb3ac8a7"
+  },
+  {
+   "id": "pep-0410.txt",
+   "label": "human",
+   "group": "pep-0410",
+   "text_sha256": "10d85677493dbc4c385d9909744950f8aa139b33014a634cd5a421cf2e33c488"
+  },
+  {
+   "id": "pep-0465.txt",
+   "label": "human",
+   "group": "pep-0465",
+   "text_sha256": "b6f85bbfefa345c9860c70fee7be209f27b85de6507e840223d4cfbcfb455027"
+  },
+  {
+   "id": "pep-0207.txt",
+   "label": "human",
+   "group": "pep-0207",
+   "text_sha256": "1f62f417798c4b2c5fd0159ee323299202a743bff62e8173580658dffa1ca15b"
+  },
+  {
+   "id": "pep-0517.txt",
+   "label": "human",
+   "group": "pep-0517",
+   "text_sha256": "9967cce1d7a8520ead4a6492166ae934c2924ec7bb061779f8b2f1ef3546d516"
+  },
+  {
+   "id": "pep-0471.txt",
+   "label": "human",
+   "group": "pep-0471",
+   "text_sha256": "f145e1b98a4c2c1d522352f4772e9b8a8d54dcd83934c7aacc036cff64259964"
+  },
+  {
+   "id": "pep-0397.txt",
+   "label": "human",
+   "group": "pep-0397",
+   "text_sha256": "c2157548bce68db1db28e0fa3585baefcbb847ceb95bf8bd70ced15534f98435"
+  },
+  {
+   "id": "pep-0205.txt",
+   "label": "human",
+   "group": "pep-0205",
+   "text_sha256": "22de43d4041e2e87d3678020635846299cd8ef85feeb73712b0b8ca6b2ae20be"
+  },
+  {
+   "id": "pep-0427.txt",
+   "label": "human",
+   "group": "pep-0427",
+   "text_sha256": "af24592238be919226b8ee20c76a11b095fb515b56c6a80002bdf3166d94dd4b"
+  },
+  {
+   "id": "pep-3115.txt",
+   "label": "human",
+   "group": "pep-3115",
+   "text_sha256": "4f1b09ad79ee4a63a8609a35d776f6407a1c3d5956316d7674bbe5ebe9904af4"
+  },
+  {
+   "id": "pep-0474.txt",
+   "label": "human",
+   "group": "pep-0474",
+   "text_sha256": "309a89c913d0ef0ddc5b66de3e16271cdb2fe6ebac2ecfe854dd939b1509347f"
+  },
+  {
+   "id": "pep-0504.txt",
+   "label": "human",
+   "group": "pep-0504",
+   "text_sha256": "ed609e298e4f5059f895341fe7a0f123ff6b1113d5cbc5155bbb1da293814661"
+  },
+  {
+   "id": "pep-0545.txt",
+   "label": "human",
+   "group": "pep-0545",
+   "text_sha256": "3620de8f995c3250af2789d885e5fa418eb3024855e9a20e7a2a7976acc8def8"
+  }
+ ],
+ "heldout_test": {
+  "human": {
+   "samples": 242,
+   "at_52": 0,
+   "at_65": 0
+  },
+  "generated": {
+   "samples": 13,
+   "at_52": 10,
+   "at_65": 8
+  },
+  "v3.1_generated": {
+   "at_52": 5,
+   "at_65": 2
+  },
+  "rows": [
+   {
+    "id": "wells-02",
+    "label": "human",
+    "group": "wells-02",
+    "source": "H. G. Wells, A Short History of the World (1922), Gutenberg 35461",
+    "text_sha256": "f550c4265874f51dbeaba9020d7e22850acb614bb62b29daf04fb3ecc935439b",
+    "v3.2": 10.5
+   },
+   {
+    "id": "wells-03",
+    "label": "human",
+    "group": "wells-03",
+    "source": "H. G. Wells, A Short History of the World (1922), Gutenberg 35461",
+    "text_sha256": "5abd176135692e37a612c75fb3a16d13fce785e05bf4801e8949f5cad1b0be70",
+    "v3.2": 3.2
+   },
+   {
+    "id": "wells-12",
+    "label": "human",
+    "group": "wells-12",
+    "source": "H. G. Wells, A Short History of the World (1922), Gutenberg 35461",
+    "text_sha256": "e12bed5ce2618a0f64a22fd7dd6aeeaefc9d5d91deb446d338e3506570d0571a",
+    "v3.2": 3.9
+   },
+   {
+    "id": "wells-15",
+    "label": "human",
+    "group": "wells-15",
+    "source": "H. G. Wells, A Short History of the World (1922), Gutenberg 35461",
+    "text_sha256": "63b39145fef24139f9e13345013e129eabe6c7bf47b4ee41b4b95a2148faa571",
+    "v3.2": 5.6
+   },
+   {
+    "id": "wells-19",
+    "label": "human",
+    "group": "wells-19",
+    "source": "H. G. Wells, A Short History of the World (1922), Gutenberg 35461",
+    "text_sha256": "9e19b7273319ea8808258528d5b0d1f4cd08b5136c900bfe5eedd7e3b3a4ec59",
+    "v3.2": 9.3
+   },
+   {
+    "id": "wells-20",
+    "label": "human",
+    "group": "wells-20",
+    "source": "H. G. Wells, A Short History of the World (1922), Gutenberg 35461",
+    "text_sha256": "825c6764d338b219f0ee142905098765b6eb80fb92ca185d58ed8afe446e73af",
+    "v3.2": 9.1
+   },
+   {
+    "id": "wells-22",
+    "label": "human",
+    "group": "wells-22",
+    "source": "H. G. Wells, A Short History of the World (1922), Gutenberg 35461",
+    "text_sha256": "734181347ef530fa750f9dcf0f962060a7f6e834bff4a986ddf0a2d32cac9874",
+    "v3.2": 6.2
+   },
+   {
+    "id": "wells-23",
+    "label": "human",
+    "group": "wells-23",
+    "source": "H. G. Wells, A Short History of the World (1922), Gutenberg 35461",
+    "text_sha256": "b51fa75133786107182f8444f4a6160feec538305367f7838f0e0657471a3157",
+    "v3.2": 4.4
+   },
+   {
+    "id": "wells-29",
+    "label": "human",
+    "group": "wells-29",
+    "source": "H. G. Wells, A Short History of the World (1922), Gutenberg 35461",
+    "text_sha256": "3638be020cce95afcc2d8970fe61b67ffcfc394abe33c3969e421fe5a1f019f2",
+    "v3.2": 5.4
+   },
+   {
+    "id": "wells-35",
+    "label": "human",
+    "group": "wells-35",
+    "source": "H. G. Wells, A Short History of the World (1922), Gutenberg 35461",
+    "text_sha256": "0cf6dd230fb4ddf7af6d9db51398a3ab4804425b931c11149822b9da8ee404fe",
+    "v3.2": 9.6
+   },
+   {
+    "id": "wells-38",
+    "label": "human",
+    "group": "wells-38",
+    "source": "H. G. Wells, A Short History of the World (1922), Gutenberg 35461",
+    "text_sha256": "404471108c17b995350a9b5349ac42ab19725e12e2c8fcdadce2fa0bdfb6063d",
+    "v3.2": 15.7
+   },
+   {
+    "id": "wells-39",
+    "label": "human",
+    "group": "wells-39",
+    "source": "H. G. Wells, A Short History of the World (1922), Gutenberg 35461",
+    "text_sha256": "56c9a4f6c834462155bde9af205debd9a86dc8df290363c6f7c4bcd64aba6122",
+    "v3.2": 4.5
+   },
+   {
+    "id": "vanloon-00",
+    "label": "human",
+    "group": "vanloon-00",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "7ac8cc0cb0c95afc62e1178fe1db52adedd37482a88400e843309970aa00566d",
+    "v3.2": 4.6
+   },
+   {
+    "id": "vanloon-02",
+    "label": "human",
+    "group": "vanloon-02",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "a5712b2fb7801d2107f0b4b979c290ac4aed94be96ba60721f23dae895cb701d",
+    "v3.2": 3.2
+   },
+   {
+    "id": "vanloon-03",
+    "label": "human",
+    "group": "vanloon-03",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "1b573d44b5fa73452608aa78c38ac4a310328092b9c5f2e6e93f4cad115eb239",
+    "v3.2": 8.9
+   },
+   {
+    "id": "vanloon-04",
+    "label": "human",
+    "group": "vanloon-04",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "d9345f59bd1cf844d1ce39aecbdf80258f8f2c6fff63625a0c07aca49653e79a",
+    "v3.2": 6.1
+   },
+   {
+    "id": "vanloon-06",
+    "label": "human",
+    "group": "vanloon-06",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "3ae78b2c7d2223772ecde1660ffb830c3faaa69cb0a1ba9a1d2d984e5691e03e",
+    "v3.2": 3.2
+   },
+   {
+    "id": "vanloon-08",
+    "label": "human",
+    "group": "vanloon-08",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "1a8c570ce0a0015e0bc4b458279747944f32049214eef91752e57828324ff1ab",
+    "v3.2": 8.7
+   },
+   {
+    "id": "vanloon-11",
+    "label": "human",
+    "group": "vanloon-11",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "8a345e863a3c3907686fd34215bd06cb4653336921d14471aa8ecf16228ba1ed",
+    "v3.2": 6.2
+   },
+   {
+    "id": "vanloon-14",
+    "label": "human",
+    "group": "vanloon-14",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "597c0a3d67c14da4577ab36271d5331e9189397f6f73a39c2458913d53a3be7c",
+    "v3.2": 5.8
+   },
+   {
+    "id": "vanloon-15",
+    "label": "human",
+    "group": "vanloon-15",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "f20b27e09e5318a053a29836954abb22411160983d1783e4b9d9f7dda718a6ff",
+    "v3.2": 1.6
+   },
+   {
+    "id": "vanloon-16",
+    "label": "human",
+    "group": "vanloon-16",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "b6ff3ec59acaea57aa00f70308bee15370985507ff03399b6384a008b686b9e7",
+    "v3.2": 3.2
+   },
+   {
+    "id": "vanloon-17",
+    "label": "human",
+    "group": "vanloon-17",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "c9874bcf678852e94cad556cfdb94c3a404f4eedb8c557e440559420defe2717",
+    "v3.2": 3.6
+   },
+   {
+    "id": "vanloon-20",
+    "label": "human",
+    "group": "vanloon-20",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "3499ead70d1db81f631739f44a5533e68a57e887d35b47b0f022b0925905242a",
+    "v3.2": 13.3
+   },
+   {
+    "id": "vanloon-24",
+    "label": "human",
+    "group": "vanloon-24",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "180e3fa90318d44dfbbcb80dafb94a5c32bd02b5418345fd74e596017ee9af67",
+    "v3.2": 4.2
+   },
+   {
+    "id": "vanloon-25",
+    "label": "human",
+    "group": "vanloon-25",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "668efa6b200a9a4106e154f9e739e2750adccfb90f7b22665d5562553b86644f",
+    "v3.2": 2.4
+   },
+   {
+    "id": "vanloon-26",
+    "label": "human",
+    "group": "vanloon-26",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "63fbc7a063dea15fa4f8ce5a13516caabfbba15f6c64985c603fb33f5684700a",
+    "v3.2": 5.9
+   },
+   {
+    "id": "vanloon-30",
+    "label": "human",
+    "group": "vanloon-30",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "24d63defb8160782b9125c7c3769bc8ecf9acb4d44befb857928ba511276dd7e",
+    "v3.2": 7.6
+   },
+   {
+    "id": "vanloon-32",
+    "label": "human",
+    "group": "vanloon-32",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "fcc78f84da8748853f27f3b21a1a8a8ca83552622901294a47aa1c90a69b1678",
+    "v3.2": 3.4
+   },
+   {
+    "id": "vanloon-34",
+    "label": "human",
+    "group": "vanloon-34",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "d556c196b18441cb37c62f0598c435a263e9c7d4392fc54129412a25f355a544",
+    "v3.2": 1.5
+   },
+   {
+    "id": "vanloon-36",
+    "label": "human",
+    "group": "vanloon-36",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "b5f7bdbb447d9decb0aa72c3dfa3b64ce9438e327f5091b7482d3e7eb00a5b78",
+    "v3.2": 6.3
+   },
+   {
+    "id": "vanloon-38",
+    "label": "human",
+    "group": "vanloon-38",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "4e88718bf27c8cdc49550a1208941d35c294daba9fbffaeddd4eaec95bd235ba",
+    "v3.2": 2.4
+   },
+   {
+    "id": "vanloon-39",
+    "label": "human",
+    "group": "vanloon-39",
+    "source": "H. W. van Loon, The Story of Mankind (1921), Gutenberg 754",
+    "text_sha256": "3e4fb316292d7f3dfdeba0f911097d714825d9aeac80cf1cbe837d4be3417328",
+    "v3.2": 3.1
+   },
+   {
+    "id": "brown-cd04",
+    "label": "human",
+    "group": "brown-cd04",
+    "source": "Brown corpus (1961), religion",
+    "text_sha256": "3ecd5e692bf924f7699da5e8cbcb00a6b91e7632706a9e08b8b641d0fd0a2b0a",
+    "v3.2": 1.0
+   },
+   {
+    "id": "brown-cd05",
+    "label": "human",
+    "group": "brown-cd05",
+    "source": "Brown corpus (1961), religion",
+    "text_sha256": "f3c3dbf1aae972c7a82dcbbfd6589bde0be3e48beaaf9078a57cc90a92787017",
+    "v3.2": 2.6
+   },
+   {
+    "id": "brown-cd06",
+    "label": "human",
+    "group": "brown-cd06",
+    "source": "Brown corpus (1961), religion",
+    "text_sha256": "17fd60cebab2c1979b8f95bffdcf19f6cbee76a6fc0758502124f045bacd853b",
+    "v3.2": 1.0
+   },
+   {
+    "id": "brown-cd13",
+    "label": "human",
+    "group": "brown-cd13",
+    "source": "Brown corpus (1961), religion",
+    "text_sha256": "62b8c91709561fb71d71f974d9ed6b3613a6ffd7067fbaba78fb5c8c613447bf",
+    "v3.2": 0.7
+   },
+   {
+    "id": "brown-cd16",
+    "label": "human",
+    "group": "brown-cd16",
+    "source": "Brown corpus (1961), religion",
+    "text_sha256": "90f4959a75ecc8e5a6b1219c82373656f4647be25af4140c088125d30ae61ab4",
+    "v3.2": 0.3
+   },
+   {
+    "id": "brown-ce01",
+    "label": "human",
+    "group": "brown-ce01",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "e6874978c45a39e937c73e561bdc1a5ae62ce783ede407abf957ee977c5ea4c0",
+    "v3.2": 0.4
+   },
+   {
+    "id": "brown-ce03",
+    "label": "human",
+    "group": "brown-ce03",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "7c6239b673d107989a5314b237200587411e99322b1558e126f2f5d7aee0c8bd",
+    "v3.2": 1.5
+   },
+   {
+    "id": "brown-ce06",
+    "label": "human",
+    "group": "brown-ce06",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "17a408656d6f556b95c2f4e6bbabf73400a3de94ffd8626e83a548af4e03020c",
+    "v3.2": 9.9
+   },
+   {
+    "id": "brown-ce07",
+    "label": "human",
+    "group": "brown-ce07",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "5644ff3928df5f3c69f1aaf962009532f5d014ad703bbfc3889cfdb3dbcb1815",
+    "v3.2": 8.8
+   },
+   {
+    "id": "brown-ce08",
+    "label": "human",
+    "group": "brown-ce08",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "a3ea555bd4f97045340173d5420767ad6c8900ee19798bf7ad7d321455b5b44f",
+    "v3.2": 7.5
+   },
+   {
+    "id": "brown-ce13",
+    "label": "human",
+    "group": "brown-ce13",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "090dc7b362b9fe73f977646858e7c4675749324a44d49f11264ed305dbebca10",
+    "v3.2": 3.4
+   },
+   {
+    "id": "brown-ce14",
+    "label": "human",
+    "group": "brown-ce14",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "c56e619828d3059180d162ccd0ecff36ec82aa106b83d67fb7d1565e7c1317ee",
+    "v3.2": 0.9
+   },
+   {
+    "id": "brown-ce15",
+    "label": "human",
+    "group": "brown-ce15",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "37c13a2265bf3fa1c61f265453bf0477e18af2dc627184e419e1624737b1e655",
+    "v3.2": 0.7
+   },
+   {
+    "id": "brown-ce23",
+    "label": "human",
+    "group": "brown-ce23",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "df926e041519427047afa6541dc0aca90340fc2f76cd46a52cf4b0212801e05f",
+    "v3.2": 8.0
+   },
+   {
+    "id": "brown-ce25",
+    "label": "human",
+    "group": "brown-ce25",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "25e93d6a45d41ee2b9d8d73f0652c1daba84ee5fc8efc0bb0cf4230447cc84c2",
+    "v3.2": 9.4
+   },
+   {
+    "id": "brown-ce30",
+    "label": "human",
+    "group": "brown-ce30",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "cd6ed81849294b06f7396cd2fe4a8a21d5ec7b0c63ebf783dbe141bae1d81a05",
+    "v3.2": 13.9
+   },
+   {
+    "id": "brown-ce32",
+    "label": "human",
+    "group": "brown-ce32",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "2930b60144d3f16f88204aa25965613320375ac21c3e2fcceac2a318bf1b73d8",
+    "v3.2": 1.3
+   },
+   {
+    "id": "brown-ce33",
+    "label": "human",
+    "group": "brown-ce33",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "9a5bf0407dc18453c1fa14a3ac921def9ddc08190b306515951343e46d683f5d",
+    "v3.2": 4.1
+   },
+   {
+    "id": "brown-ce35",
+    "label": "human",
+    "group": "brown-ce35",
+    "source": "Brown corpus (1961), hobbies",
+    "text_sha256": "3427a072ecae1b30578b64ab058721c6eb81e44e580ac56fc26ca8d63ef32977",
+    "v3.2": 1.8
+   },
+   {
+    "id": "brown-cf03",
+    "label": "human",
+    "group": "brown-cf03",
+    "source": "Brown corpus (1961), lore",
+    "text_sha256": "c8e3cd04ed03ef715e27891919c65a9f5f089e0ab541071505f7dd769cabca9c",
+    "v3.2": 0.8
+   },
+   {
+    "id": "brown-cf06",
+    "label": "human",
+    "group": "brown-cf06",
+    "source": "Brown corpus (1961), lore",
+    "text_sha256": "1b6455093177de715c52b88b1d695442d3172071c83446239228532c1df00689",
+    "v3.2": 0.4
+   },
+   {
+    "id": "brown-cf08",
+    "label": "human",
+    "group": "brown-cf08",
+    "source": "Brown corpus (1961), lore",
+    "text_sha256": "563cb95bd057192cc38b624a7f3217f6f187e98ff1a98642524dfff4e904b5a7",
+    "v3.2": 21.3
+   },
+   {
+    "id": "brown-cf13",
+    "label": "human",
+    "group": "brown-cf13",
+    "source": "Brown corpus (1961), lore",
+    "text_sha256": "b884abbf6e87e9c3a7544367db201a378126ceddfe0ba4548b9691bb1ba637a5",
+    "v3.2": 3.1
+   },
+   {
+    "id": "brown-cf14",
+    "label": "human",
+    "group": "brown-cf14",
+    "source": "Brown corpus (1961), lore",
+    "text_sha256": "da0b41c811a611201c05660ac655e3fbb7d1505bc5f3e38afa9fc63256283693",
+    "v3.2": 0.6
+   },
+   {
+    "id": "brown-cf16",
+    "label": "human",
+    "group": "brown-cf16",
+    "source": "Brown corpus (1961), lore",
+    "text_sha256": "9b8ea4185f44a4517a324cd6b26c5b605f496a478b9528df54c2ef4c97070828",
+    "v3.2": 9.0
+   },
+   {
+    "id": "brown-cf18",
+    "label": "human",
+    "group": "brown-cf18",
+    "source": "Brown corpus (1961), lore",
+    "text_sha256": "891e8ab05e512a3edeb1ef0f428dcf44119ff7662950f3bc7f533d2ed600d66d",
+    "v3.2": 2.0
+   },
+   {
+    "id": "brown-cf25",
+    "label": "human",
+    "group": "brown-cf25",
+    "source": "Brown corpus (1961), lore",
+    "text_sha256": "0873250e7cf59476669e3f7be6c0274e354812b33bf46fcde28064a3cc8a8401",
+    "v3.2": 0.8
+   },
+   {
+    "id": "brown-cf34",
+    "label": "human",
+    "group": "brown-cf34",
+    "source": "Brown corpus (1961), lore",
+    "text_sha256": "93099cb9eeffdc228a138673dc317c0ae367f20ce682503ac89863d37baed771",
+    "v3.2": 11.2
+   },
+   {
+    "id": "brown-cf37",
+    "label": "human",
+    "group": "brown-cf37",
+    "source": "Brown corpus (1961), lore",
+    "text_sha256": "e4a2486cb138780c69ead1aefceb2d71e25ec6174aa110efde8eb73cbccbe08e",
+    "v3.2": 8.6
+   },
+   {
+    "id": "brown-cf41",
+    "label": "human",
+    "group": "brown-cf41",
+    "source": "Brown corpus (1961), lore",
+    "text_sha256": "70a336df96b587f82cf9b16c8923bd10eab448692b16946bb8771990a5892930",
+    "v3.2": 4.6
+   },
+   {
+    "id": "brown-cf43",
+    "label": "human",
+    "group": "brown-cf43",
+    "source": "Brown corpus (1961), lore",
+    "text_sha256": "6ba99f80689f1142a297fef7c81765d7b6512f6fe186535846732df05ca434e0",
+    "v3.2": 14.7
+   },
+   {
+    "id": "brown-cf45",
+    "label": "human",
+    "group": "brown-cf45",
+    "source": "Brown corpus (1961), lore",
+    "text_sha256": "66716a49dc9e41a92960b48ad73d01a226a730e246ed8f483cde17c9722ac2e2",
+    "v3.2": 12.1
+   },
+   {
+    "id": "brown-cg01",
+    "label": "human",
+    "group": "brown-cg01",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "0a4e421133af939f8c3c8ba28ee42ea81b5fcf1f89892efd1d087c4047f3b765",
+    "v3.2": 0.5
+   },
+   {
+    "id": "brown-cg03",
+    "label": "human",
+    "group": "brown-cg03",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "d9933233a040b578041d9be30a11aad0ee81ad36628942101d9a62491a3474e1",
+    "v3.2": 0.6
+   },
+   {
+    "id": "brown-cg05",
+    "label": "human",
+    "group": "brown-cg05",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "1041de99945b184a8e728502c8a4c915184a393bab9a531f69f93ef335f81bfa",
+    "v3.2": 2.0
+   },
+   {
+    "id": "brown-cg06",
+    "label": "human",
+    "group": "brown-cg06",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "b4e25a86d3926cd8f71fabda45fde633958a2a094a200067a5d95c7f77d41022",
+    "v3.2": 1.0
+   },
+   {
+    "id": "brown-cg07",
+    "label": "human",
+    "group": "brown-cg07",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "23b7301d5da99b57210008df0fac78e0f99829f94ee6afbcaae5454970751f1f",
+    "v3.2": 7.0
+   },
+   {
+    "id": "brown-cg08",
+    "label": "human",
+    "group": "brown-cg08",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "1936fc510043f925e88d9d996bda79cf1f94b640cf6ea016f1bd62c21fd8ca8d",
+    "v3.2": 2.3
+   },
+   {
+    "id": "brown-cg11",
+    "label": "human",
+    "group": "brown-cg11",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "845c72fc6f36f47fb43c1280d5b7e202e18b18abcc4343882be72d05495ef641",
+    "v3.2": 19.3
+   },
+   {
+    "id": "brown-cg14",
+    "label": "human",
+    "group": "brown-cg14",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "ea7f41814934f45537ca9a15dadfc25cdf28b6a47ef0a43a9b421e40ec144023",
+    "v3.2": 1.4
+   },
+   {
+    "id": "brown-cg19",
+    "label": "human",
+    "group": "brown-cg19",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "4026e0063d4fef199e30bd9863eeddb319e271d85594d045fafa607d3a7d886e",
+    "v3.2": 8.9
+   },
+   {
+    "id": "brown-cg20",
+    "label": "human",
+    "group": "brown-cg20",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "730cc8a2c1f3559a5601f5063f987322243df5a780e1293243640fc4d1acafb3",
+    "v3.2": 6.5
+   },
+   {
+    "id": "brown-cg22",
+    "label": "human",
+    "group": "brown-cg22",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "6f29292e4cc9020777cd03e40dd42560107148149ab51f42be96f2417fb35108",
+    "v3.2": 0.7
+   },
+   {
+    "id": "brown-cg23",
+    "label": "human",
+    "group": "brown-cg23",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "2d72d4484dea9351fa0343e0f99252c89c10127c679a7ec4e450ffb535e636c5",
+    "v3.2": 2.3
+   },
+   {
+    "id": "brown-cg26",
+    "label": "human",
+    "group": "brown-cg26",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "0faa78f9187aca2d6097a2c46c67b5993368605558faebd3b453b480fd2db2ff",
+    "v3.2": 0.8
+   },
+   {
+    "id": "brown-cg30",
+    "label": "human",
+    "group": "brown-cg30",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "273882c731f7e0bd940973d91bbfd6009244c04e105c797a7bdb922560b1da81",
+    "v3.2": 0.9
+   },
+   {
+    "id": "brown-cg36",
+    "label": "human",
+    "group": "brown-cg36",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "9e21e73d1e6bed556caaf4429b946c6f52edb8c3d5580d28e3eeaca8af35f3fa",
+    "v3.2": 4.9
+   },
+   {
+    "id": "brown-cg37",
+    "label": "human",
+    "group": "brown-cg37",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "b847cb49372b03d00db71496bf5d1820d58d2ca9a64c346b2efe473f96b1471b",
+    "v3.2": 4.4
+   },
+   {
+    "id": "brown-cg39",
+    "label": "human",
+    "group": "brown-cg39",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "b53fbba705388153f9670aa65f8d17d9a9177f6ffc290430c426f8833d92c82b",
+    "v3.2": 1.4
+   },
+   {
+    "id": "brown-cg40",
+    "label": "human",
+    "group": "brown-cg40",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "0695db5bbabf701775ae8a36da35c4e8a74cf0dcdd8047cc040f59b946c2b4a7",
+    "v3.2": 0.9
+   },
+   {
+    "id": "brown-cg41",
+    "label": "human",
+    "group": "brown-cg41",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "45d057cbc8a36addce58a33d5f0b4300497a2e2283b41611827fda1fcee1ccb1",
+    "v3.2": 6.6
+   },
+   {
+    "id": "brown-cg43",
+    "label": "human",
+    "group": "brown-cg43",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "094a6bc0c62c8596257faab2ad6af6ab03553529d97e8d41691612e72b3d51f1",
+    "v3.2": 3.2
+   },
+   {
+    "id": "brown-cg49",
+    "label": "human",
+    "group": "brown-cg49",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "88f5d93f228387faa5e595671d70ec5ab025cda7ea63e93096e2e7a101cc57bd",
+    "v3.2": 2.3
+   },
+   {
+    "id": "brown-cg51",
+    "label": "human",
+    "group": "brown-cg51",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "f251bb2ff0ba3eabc37c8e42c667e58719e947f17df98ca152236e2daf879cb7",
+    "v3.2": 2.7
+   },
+   {
+    "id": "brown-cg53",
+    "label": "human",
+    "group": "brown-cg53",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "e90c1481a19ea1c64883a78bdf7a35224fae1d804bad940dfab78b6a0b948ffb",
+    "v3.2": 4.2
+   },
+   {
+    "id": "brown-cg60",
+    "label": "human",
+    "group": "brown-cg60",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "dfb54b28f391ab33c47a4402924d6cf38b1b524266e89d95eed3431506400b47",
+    "v3.2": 1.8
+   },
+   {
+    "id": "brown-cg62",
+    "label": "human",
+    "group": "brown-cg62",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "155c8c1d8f570c2f5940a44b4fd95998301d0acc3a33807aa1aecc42657bf0d4",
+    "v3.2": 0.4
+   },
+   {
+    "id": "brown-cg65",
+    "label": "human",
+    "group": "brown-cg65",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "ffbed1a73290428cff5a2bd7d94ec79af923c49aafed7a7da4661b939f933929",
+    "v3.2": 28.1
+   },
+   {
+    "id": "brown-cg66",
+    "label": "human",
+    "group": "brown-cg66",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "be6de075ba05fd94889fda3c65767a8651585ece72042f4a48a09a5e1b22ee35",
+    "v3.2": 2.5
+   },
+   {
+    "id": "brown-cg67",
+    "label": "human",
+    "group": "brown-cg67",
+    "source": "Brown corpus (1961), belles_lettres",
+    "text_sha256": "0deb6ddd20a4716f0bd4fef550bf2251dab4f880cca402d1818a28d1a7b5b05d",
+    "v3.2": 4.2
+   },
+   {
+    "id": "brown-ch02",
+    "label": "human",
+    "group": "brown-ch02",
+    "source": "Brown corpus (1961), government",
+    "text_sha256": "7af982c2d8ab5e86ff38118d43f0c2d90c9e31130870f851d7ca0967f984c1e5",
+    "v3.2": 2.3
+   },
+   {
+    "id": "brown-ch03",
+    "label": "human",
+    "group": "brown-ch03",
+    "source": "Brown corpus (1961), government",
+    "text_sha256": "e8fe04c3b051581c351fc0f0f70d31a432594f11f3ed8c323415bc242f2f2a42",
+    "v3.2": 2.2
+   },
+   {
+    "id": "brown-ch11",
+    "label": "human",
+    "group": "brown-ch11",
+    "source": "Brown corpus (1961), government",
+    "text_sha256": "db4746d8a266278d717f469a4ada278c4e1501a42d61c48df7a6552456c1aeae",
+    "v3.2": 3.5
+   },
+   {
+    "id": "brown-ch17",
+    "label": "human",
+    "group": "brown-ch17",
+    "source": "Brown corpus (1961), government",
+    "text_sha256": "d193ea4de7c4f252dc3ec7012a75bbb5e812572e9b3714f8318a065d5a42a114",
+    "v3.2": 9.8
+   },
+   {
+    "id": "brown-ch18",
+    "label": "human",
+    "group": "brown-ch18",
+    "source": "Brown corpus (1961), government",
+    "text_sha256": "4d4f5b7902ace3996362446973683ede7acea0392a18f47839fc3f76dbdc31e8",
+    "v3.2": 9.5
+   },
+   {
+    "id": "brown-ch19",
+    "label": "human",
+    "group": "brown-ch19",
+    "source": "Brown corpus (1961), government",
+    "text_sha256": "37658be3db0a81661be5c5c5a88a2a5a2a4eec4ad2f715b65a1a76828fae4048",
+    "v3.2": 13.7
+   },
+   {
+    "id": "brown-ch22",
+    "label": "human",
+    "group": "brown-ch22",
+    "source": "Brown corpus (1961), government",
+    "text_sha256": "b0c841fec076d0f6d71de94cf7bd20e40a72533dd2edbb3d835c40d91b5bd43f",
+    "v3.2": 2.3
+   },
+   {
+    "id": "brown-ch23",
+    "label": "human",
+    "group": "brown-ch23",
+    "source": "Brown corpus (1961), government",
+    "text_sha256": "90607f5084a60dcb01c3390f7265240a9074770255ddb228dd05276638ccd586",
+    "v3.2": 1.3
+   },
+   {
+    "id": "brown-ch26",
+    "label": "human",
+    "group": "brown-ch26",
+    "source": "Brown corpus (1961), government",
+    "text_sha256": "1272e823f31a4151e7ec826044d56fd30321c2401e347a594bcb327c96e08be6",
+    "v3.2": 4.8
+   },
+   {
+    "id": "brown-ch30",
+    "label": "human",
+    "group": "brown-ch30",
+    "source": "Brown corpus (1961), government",
+    "text_sha256": "f1165b6b5c3027a29a77253f5d6043cd0ca6189507f342507e1b1709b4718a8c",
+    "v3.2": 2.1
+   },
+   {
+    "id": "brown-cj01",
+    "label": "human",
+    "group": "brown-cj01",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "9d90efc27664643cefc5d54d22e0848dc43b221b1d450f983184cd77a0443e03",
+    "v3.2": 10.8
+   },
+   {
+    "id": "brown-cj04",
+    "label": "human",
+    "group": "brown-cj04",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "a9400cb02cab78f9ea4b369182889326feab5b93794ab84385733758876a8b21",
+    "v3.2": 17.9
+   },
+   {
+    "id": "brown-cj06",
+    "label": "human",
+    "group": "brown-cj06",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "861daee0aeb97cb80d4c6ee5f55df04efdb08ffea4c62b1729d5399e7659daa3",
+    "v3.2": 8.8
+   },
+   {
+    "id": "brown-cj07",
+    "label": "human",
+    "group": "brown-cj07",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "448b4c7cd2eb0111beb4e7abcd5cdaf646bfae6b9a64e2b08c2d94c69b0487a8",
+    "v3.2": 8.1
+   },
+   {
+    "id": "brown-cj15",
+    "label": "human",
+    "group": "brown-cj15",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "7d1686fdfc3c76ded22f49cb336ce94fe675e273cd2fd11f6378689f154aad04",
+    "v3.2": 0.6
+   },
+   {
+    "id": "brown-cj16",
+    "label": "human",
+    "group": "brown-cj16",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "bfb6cd3a204051617d006a04d90d5feaf9aa09dfc579c0bc8b61ba7d6057fae5",
+    "v3.2": 5.8
+   },
+   {
+    "id": "brown-cj19",
+    "label": "human",
+    "group": "brown-cj19",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "432271d39ecf2b396a893a10e16ea6b665d1d0421c890cd91f97aa39ad70bba2",
+    "v3.2": 0.2
+   },
+   {
+    "id": "brown-cj26",
+    "label": "human",
+    "group": "brown-cj26",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "c8ed3a24ea6cfec803f5a84f603bcd2d016b28087af51498ab056fc9aa112544",
+    "v3.2": 13.3
+   },
+   {
+    "id": "brown-cj27",
+    "label": "human",
+    "group": "brown-cj27",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "ee208193cc8bdcedf55c330a346c0bf610af2e358a8e203de32a5abb25b5597c",
+    "v3.2": 2.9
+   },
+   {
+    "id": "brown-cj29",
+    "label": "human",
+    "group": "brown-cj29",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "4096d50701fcddf60113a734e621f69bba6466a531e977c961e6bccb4f6eae71",
+    "v3.2": 10.1
+   },
+   {
+    "id": "brown-cj35",
+    "label": "human",
+    "group": "brown-cj35",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "fddbe981fa4bd402154e23583466eaffc72c8c7dc591958ada4e6b8b8361f63c",
+    "v3.2": 0.2
+   },
+   {
+    "id": "brown-cj36",
+    "label": "human",
+    "group": "brown-cj36",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "f7d3519d65b2a51fbf86099a1ae6e37e34a25fbf53ac19e8a3c227d3d0bf5670",
+    "v3.2": 8.0
+   },
+   {
+    "id": "brown-cj43",
+    "label": "human",
+    "group": "brown-cj43",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "427cb166cf6e6faa0ce9363cf663843886b6de94b62af742b8afd2d79db21b9a",
+    "v3.2": 11.5
+   },
+   {
+    "id": "brown-cj44",
+    "label": "human",
+    "group": "brown-cj44",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "5c12821fb3c918f8542cefe56027a60959ce761a4370f3e0c6d228701d309dae",
+    "v3.2": 0.7
+   },
+   {
+    "id": "brown-cj46",
+    "label": "human",
+    "group": "brown-cj46",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "ad44a52c2ef141d3c200085c618f14060cf187d6d54699b8ae691cd22ee03d65",
+    "v3.2": 10.6
+   },
+   {
+    "id": "brown-cj47",
+    "label": "human",
+    "group": "brown-cj47",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "ab8e517379e0f71a2063c842e138fb58f139f6d670814d8246caa2b744082347",
+    "v3.2": 1.0
+   },
+   {
+    "id": "brown-cj51",
+    "label": "human",
+    "group": "brown-cj51",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "c8af3717cfa75ca97bec3c35b29310b4e545278617a83ba9f80e3bd6f635440f",
+    "v3.2": 0.6
+   },
+   {
+    "id": "brown-cj53",
+    "label": "human",
+    "group": "brown-cj53",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "f490c710245cb53f20248d126bb402cfa61a949d3a3f3c1174a30a899c556d07",
+    "v3.2": 0.6
+   },
+   {
+    "id": "brown-cj60",
+    "label": "human",
+    "group": "brown-cj60",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "b6188974f81be74568e073bcf4276c397444ea3505d630445802705051adae54",
+    "v3.2": 3.6
+   },
+   {
+    "id": "brown-cj62",
+    "label": "human",
+    "group": "brown-cj62",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "347c09037f18c2d0a6c878fe846465a235cd64a4f925ad2c55426df446866ffd",
+    "v3.2": 5.6
+   },
+   {
+    "id": "brown-cj63",
+    "label": "human",
+    "group": "brown-cj63",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "fae5d3544f5c8eaf8a49c6f11279242d2304f947aab6c3c4fdb29232ebf9dffa",
+    "v3.2": 0.8
+   },
+   {
+    "id": "brown-cj65",
+    "label": "human",
+    "group": "brown-cj65",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "fe2c2e2367f4d7faeb074f8e7957306eb0a55fba2d4f476a63a929de877f922c",
+    "v3.2": 1.0
+   },
+   {
+    "id": "brown-cj67",
+    "label": "human",
+    "group": "brown-cj67",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "2556b727f95a7fbc4854cbea33f5e410b07af02afb3db75725ac603b678ff8f3",
+    "v3.2": 3.2
+   },
+   {
+    "id": "brown-cj71",
+    "label": "human",
+    "group": "brown-cj71",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "69676ba923dfd918abb493cf6c650bca86efafdfbb675f58a35cb48aa17e6cd7",
+    "v3.2": 7.1
+   },
+   {
+    "id": "brown-cj72",
+    "label": "human",
+    "group": "brown-cj72",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "7d2608c53efc722c3295b1c44993d7f6d3790661faa6e0d61d4d7cbfc0a066ef",
+    "v3.2": 1.8
+   },
+   {
+    "id": "brown-cj77",
+    "label": "human",
+    "group": "brown-cj77",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "5407820075ea11ef85dc0193e4d1284c0101ab340ca2dc13bc3ff22a751c3b71",
+    "v3.2": 1.4
+   },
+   {
+    "id": "brown-cj79",
+    "label": "human",
+    "group": "brown-cj79",
+    "source": "Brown corpus (1961), learned",
+    "text_sha256": "3f9836d9fc6232d9453a0a18dcab05c0a604c19d576eacfdf5a1a784d39a7fc6",
+    "v3.2": 4.2
+   },
+   {
+    "id": "abc-science-5d693e32",
+    "label": "human",
+    "group": "abc-science-5d693e32",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "6d878d0edcbfd9a2841e01e356cace8d8806b27eed97f8b94ad00b490627a3c0",
+    "v3.2": 10.8
+   },
+   {
+    "id": "abc-science-072f4602",
+    "label": "human",
+    "group": "abc-science-072f4602",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "ff11b356b1e6b55c90df726f46098e31fa565f361a053a8112448289a6288fc3",
+    "v3.2": 6.4
+   },
+   {
+    "id": "abc-science-e2147b45",
+    "label": "human",
+    "group": "abc-science-e2147b45",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "f13d35c737188aefd01c510d8752f758b5ff6d1361f542d3d4d9725b69090eb5",
+    "v3.2": 6.8
+   },
+   {
+    "id": "abc-science-395991f2",
+    "label": "human",
+    "group": "abc-science-395991f2",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "79e560d28476a7014b6ae4c9c3eca756ae63a15c62739d4fb0b72862ccc64c9a",
+    "v3.2": 5.4
+   },
+   {
+    "id": "abc-science-8eaa1985",
+    "label": "human",
+    "group": "abc-science-8eaa1985",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "71eef332623fd9e8bed89919348fc472c1aa4fdd03bfb25df608ab4b90c10b50",
+    "v3.2": 2.2
+   },
+   {
+    "id": "abc-science-7f18bf9f",
+    "label": "human",
+    "group": "abc-science-7f18bf9f",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "d674e7f94686332df635f98f81151ad072a3164c05f1da4ea58fc0704d7d2c3f",
+    "v3.2": 6.7
+   },
+   {
+    "id": "abc-science-f6468e8a",
+    "label": "human",
+    "group": "abc-science-f6468e8a",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "6a782b5f19898739996755d3b8a465aedb6d4858cd04cac0855075c2a60d449d",
+    "v3.2": 19.5
+   },
+   {
+    "id": "abc-science-01c49e4e",
+    "label": "human",
+    "group": "abc-science-01c49e4e",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "76ea76783a53289778163c8ef3a2fe127950cd31975d41d767a3cf1ad66336e8",
+    "v3.2": 7.8
+   },
+   {
+    "id": "abc-science-5f0c9cda",
+    "label": "human",
+    "group": "abc-science-5f0c9cda",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "8e19ccc72021990976424dfb340e903cb28e122830a89b6c158a7e19e753d238",
+    "v3.2": 23.5
+   },
+   {
+    "id": "abc-science-bc7c2701",
+    "label": "human",
+    "group": "abc-science-bc7c2701",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "09e13df22e816ae6f1a17158081cc031c434d818b836e1e5e55010bbe195cc7e",
+    "v3.2": 11.5
+   },
+   {
+    "id": "abc-science-d092353d",
+    "label": "human",
+    "group": "abc-science-d092353d",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "449b38efb92bd41667ad2c0a4773103e54dee3ca0bc02c2ed6063d161f55769e",
+    "v3.2": 4.6
+   },
+   {
+    "id": "abc-science-e76abd6f",
+    "label": "human",
+    "group": "abc-science-e76abd6f",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "476528fae11250a33b9c92d7c8a6d5b4279ababe28ae615adc1083b6d6cb0c45",
+    "v3.2": 19.4
+   },
+   {
+    "id": "abc-science-0444dec2",
+    "label": "human",
+    "group": "abc-science-0444dec2",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "736d2fb82d9c8beaa7874cc3c817c6bd7ffc87830eda2891804e4cb1c7f2b5b3",
+    "v3.2": 3.9
+   },
+   {
+    "id": "abc-science-05e7c94f",
+    "label": "human",
+    "group": "abc-science-05e7c94f",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "15f1a07a8129aa74617fc7198288ea21d738cdcd497bfb2bb841e551db9bf14e",
+    "v3.2": 6.0
+   },
+   {
+    "id": "abc-science-0218a5ff",
+    "label": "human",
+    "group": "abc-science-0218a5ff",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "0c6f342c8133ae7d80a4a2d5e4437b316e0ca8e44017ee0f078cf4bbc1748173",
+    "v3.2": 6.8
+   },
+   {
+    "id": "abc-science-1bbd6a9b",
+    "label": "human",
+    "group": "abc-science-1bbd6a9b",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "26da9f8f7a1cbf213751df4b450b16ffca436d1dfd9d436548b355d9d53760a6",
+    "v3.2": 4.4
+   },
+   {
+    "id": "abc-science-6fa45985",
+    "label": "human",
+    "group": "abc-science-6fa45985",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "4a204e58685ff67f29f6509e7777a55adf851d6279c923ef98ca95346afe515f",
+    "v3.2": 5.4
+   },
+   {
+    "id": "abc-science-77bf3600",
+    "label": "human",
+    "group": "abc-science-77bf3600",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "6e73ca41ccd214e33494eb883989a177acf46f847489cdbe912b5c1d6cfa6973",
+    "v3.2": 7.6
+   },
+   {
+    "id": "abc-science-67ee32b7",
+    "label": "human",
+    "group": "abc-science-67ee32b7",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "5ac3e64a6d2e17481396ef4a898e60e578ed68450e729098dbce8f39bae1c9d6",
+    "v3.2": 14.1
+   },
+   {
+    "id": "abc-science-bbb3b72b",
+    "label": "human",
+    "group": "abc-science-bbb3b72b",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "f551dba7df7c722c370021d1e119e44faf60ea630d751c0468f794a6b9e99202",
+    "v3.2": 21.0
+   },
+   {
+    "id": "abc-science-747c9f10",
+    "label": "human",
+    "group": "abc-science-747c9f10",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "23a7ac9d06bc0030566c50d9fc163ba4f18fd995b740b116ed84026f3b2259e4",
+    "v3.2": 2.5
+   },
+   {
+    "id": "abc-science-b2c6bc63",
+    "label": "human",
+    "group": "abc-science-b2c6bc63",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "6f66cff67f48b2bccd65a13a817e9c6526bf8d13968d8a8628acc7a67371eb59",
+    "v3.2": 3.2
+   },
+   {
+    "id": "abc-science-a78af6b8",
+    "label": "human",
+    "group": "abc-science-a78af6b8",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "29b0e624dd048c1d01943da2cf2feebb7a89082b5d4c0760e508879f61be22f4",
+    "v3.2": 13.2
+   },
+   {
+    "id": "abc-science-fcdac4c6",
+    "label": "human",
+    "group": "abc-science-fcdac4c6",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "b7dd9a1fd37e1948fe6634aed81b296a211b7598acf884e8fbc7e2dd703ad347",
+    "v3.2": 13.328634615837762
+   },
+   {
+    "id": "abc-science-0eebb54c",
+    "label": "human",
+    "group": "abc-science-0eebb54c",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "3edca4b300b0e9c7508343f5f765a02af64da654970257a68f1de522d042d777",
+    "v3.2": 2.7
+   },
+   {
+    "id": "abc-science-6e191e60",
+    "label": "human",
+    "group": "abc-science-6e191e60",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "3447ed4378b005bc5d08296ebce347d540c36f69e7d5e26301d5e62b544eedfa",
+    "v3.2": 6.7
+   },
+   {
+    "id": "abc-science-1a577e4f",
+    "label": "human",
+    "group": "abc-science-1a577e4f",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "0b1652cf09b6eae9bc29854a9ecfc9e0b758f1e816bd2213d8da0e7a3f2495da",
+    "v3.2": 2.8
+   },
+   {
+    "id": "abc-science-e3ae2e61",
+    "label": "human",
+    "group": "abc-science-e3ae2e61",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "8e9a0088e0128514669cb1c6debc30846bda6b834b7d4b24f26be7101b33cc06",
+    "v3.2": 6.9
+   },
+   {
+    "id": "abc-science-8b73dec5",
+    "label": "human",
+    "group": "abc-science-8b73dec5",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "1514f9a75116b09045eaa14e25ec50a67b7365faba9f9fdb5395f7a734bc7362",
+    "v3.2": 12.493236111795609
+   },
+   {
+    "id": "abc-science-e21017d8",
+    "label": "human",
+    "group": "abc-science-e21017d8",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "6bb0d0dddb7e605074552029863a9c6edd40675f81c8264263d60240387f4949",
+    "v3.2": 4.1
+   },
+   {
+    "id": "abc-science-8f8fbbcf",
+    "label": "human",
+    "group": "abc-science-8f8fbbcf",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "163008bb95709dd7114ca2e0aa164e809e98ebc94c32f0c2c8a546d29a7e737e",
+    "v3.2": 7.7
+   },
+   {
+    "id": "abc-science-b06a47a8",
+    "label": "human",
+    "group": "abc-science-b06a47a8",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "fb405d41830d56554e369a839c949f2d516502047e215a95d189ceccbbc08758",
+    "v3.2": 7.8
+   },
+   {
+    "id": "abc-science-90e78972",
+    "label": "human",
+    "group": "abc-science-90e78972",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "d1f920aa9f791f9615037fe4683161e75cb6deca216ec4a2401addd436172b07",
+    "v3.2": 8.7
+   },
+   {
+    "id": "abc-science-ade7089f",
+    "label": "human",
+    "group": "abc-science-ade7089f",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "2e3892c1c132a7e92c42a9860e2026d1c91aa76f1fe9ff01bf8a04ee49bba74e",
+    "v3.2": 5.928319366439123
+   },
+   {
+    "id": "abc-science-a83cee54",
+    "label": "human",
+    "group": "abc-science-a83cee54",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "e9c12020b91f3647c00d3afe7a1f64b95c612eaef59a9f9f5ba4de1eaf550a24",
+    "v3.2": 1.8
+   },
+   {
+    "id": "abc-science-f5d5dc05",
+    "label": "human",
+    "group": "abc-science-f5d5dc05",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "8cbc393c938ccd9e4fc52d746610a1552aac90dfb59aa89e865191d8c6826d3d",
+    "v3.2": 4.4
+   },
+   {
+    "id": "abc-science-bbcf7bef",
+    "label": "human",
+    "group": "abc-science-bbcf7bef",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "035ad1563f701a27f8ddd29bd92225ab9ee2824a9ff4e55cafbdaeba92d58ae0",
+    "v3.2": 4.3
+   },
+   {
+    "id": "abc-science-80baf372",
+    "label": "human",
+    "group": "abc-science-80baf372",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "6053aefff30fea1076d7290d6fdbfc508e3d89886538ecbe84ca8bfceb801766",
+    "v3.2": 4.4
+   },
+   {
+    "id": "abc-science-8940be12",
+    "label": "human",
+    "group": "abc-science-8940be12",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "83ddd332b728fff6c107aea7d091eb4988b90f4cfe1af3dc7838c6b483ce3094",
+    "v3.2": 12.968546865620779
+   },
+   {
+    "id": "abc-science-74014f66",
+    "label": "human",
+    "group": "abc-science-74014f66",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "b87b4442d38ac3216e434665b302373461f1cbda8bbad4b640a9af8d98bdac30",
+    "v3.2": 24.8
+   },
+   {
+    "id": "abc-science-661c99c6",
+    "label": "human",
+    "group": "abc-science-661c99c6",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "c1475af34c840da5b12ef471c5a73dc4cb2ada2493eec627cef8d508fb38c17d",
+    "v3.2": 6.0
+   },
+   {
+    "id": "abc-science-ddb222e9",
+    "label": "human",
+    "group": "abc-science-ddb222e9",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "c06e9911fb2d0c40f51110cf764addfa1bbd2d07f159e774eddb81ae5d2af45c",
+    "v3.2": 8.1
+   },
+   {
+    "id": "abc-science-7f0d54b0",
+    "label": "human",
+    "group": "abc-science-7f0d54b0",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "051c7675024a64cc75895f6fc025193d007ca6cb9f4bf386895326263175d388",
+    "v3.2": 10.3
+   },
+   {
+    "id": "abc-science-b42ad9fd",
+    "label": "human",
+    "group": "abc-science-b42ad9fd",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "1b38935437ca5613d5838dd45ea9c81d28fdbb083bdaa422d1ef754157afb371",
+    "v3.2": 14.267805348087817
+   },
+   {
+    "id": "abc-science-ff89ff5e",
+    "label": "human",
+    "group": "abc-science-ff89ff5e",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "0607564ce4dcc4fedb4e0fd25aadbdcc6832b3a2ed901483f8fa8884fb5059a4",
+    "v3.2": 11.698850095189131
+   },
+   {
+    "id": "abc-science-fab17bfc",
+    "label": "human",
+    "group": "abc-science-fab17bfc",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "d2c3cb12ffef8378e305ca5ccbc31d213942f3a4031909afdda43f824c10db8d",
+    "v3.2": 5.9
+   },
+   {
+    "id": "abc-science-2cbe970f",
+    "label": "human",
+    "group": "abc-science-2cbe970f",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "a3dbb84d4c8dbecaa062dbf0f7100f646af3acc4c59f675232d7ac233cfc190a",
+    "v3.2": 5.5
+   },
+   {
+    "id": "abc-science-1b25ba42",
+    "label": "human",
+    "group": "abc-science-1b25ba42",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "47846936589291414ad1091a08bdc9ebca9cdbaa91977f625ef106c4084845a4",
+    "v3.2": 6.095946668393103
+   },
+   {
+    "id": "abc-science-e9ee6619",
+    "label": "human",
+    "group": "abc-science-e9ee6619",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "5535bd939735af049e0bed272ce7deb7397a1ae38d2eec3a174a3da09fe3e2e2",
+    "v3.2": 6.718486817341544
+   },
+   {
+    "id": "abc-science-af633da9",
+    "label": "human",
+    "group": "abc-science-af633da9",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "a4f6ad3741dce766cb625b79056001ba221c84a8332a2176a1fc3f6fa3be34c8",
+    "v3.2": 16.8
+   },
+   {
+    "id": "abc-science-a59b92b4",
+    "label": "human",
+    "group": "abc-science-a59b92b4",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "18be509370fce21227a45c6bcf18d2c9abfc94ec1c74f06e1c82a49862b0f2ba",
+    "v3.2": 2.1
+   },
+   {
+    "id": "abc-science-c15934c3",
+    "label": "human",
+    "group": "abc-science-c15934c3",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "b80a379645e19c3b200dafa5a6229d37d5d26fa7dfdc010bb705d1b0f1c48fc4",
+    "v3.2": 11.7
+   },
+   {
+    "id": "abc-science-4224ae03",
+    "label": "human",
+    "group": "abc-science-4224ae03",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "bcdac6d5d66896449d02c4bb5ad2afbcaa608655b85ccedab47d913f3f1ecd24",
+    "v3.2": 3.7
+   },
+   {
+    "id": "abc-science-683fb111",
+    "label": "human",
+    "group": "abc-science-683fb111",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "3d7fbd671c2a61f4fc83b263d785c40c41600333a3c28fcb59fe3dcd7da24c24",
+    "v3.2": 1.278515093017167
+   },
+   {
+    "id": "abc-science-a3233143",
+    "label": "human",
+    "group": "abc-science-a3233143",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "cbe9679b48e9838ebd404f04d8a2206718da2260675b843e608638343dea642f",
+    "v3.2": 3.1
+   },
+   {
+    "id": "abc-science-6e6058ec",
+    "label": "human",
+    "group": "abc-science-6e6058ec",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "08d00077adfc29c98f9a636661aff64693c85395bb09cfb9779acd55088e576e",
+    "v3.2": 4.1
+   },
+   {
+    "id": "abc-science-9c870aa6",
+    "label": "human",
+    "group": "abc-science-9c870aa6",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "23c749496db429dde1a6c31bf9d44e0feaee9795d2cd4a08f26598f2f7129650",
+    "v3.2": 1.6
+   },
+   {
+    "id": "abc-science-ff2be32f",
+    "label": "human",
+    "group": "abc-science-ff2be32f",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "3c96f4e86efb5012c72e84d3e03a87d1e8bdaee782970216bbf634a8d669da5c",
+    "v3.2": 10.97467949180184
+   },
+   {
+    "id": "abc-science-2eaf7132",
+    "label": "human",
+    "group": "abc-science-2eaf7132",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "b035f5b1ff70a7947fa81677f6b0af19e70bb2cbfbe9babfc682f4163483ecc3",
+    "v3.2": 11.129993387999722
+   },
+   {
+    "id": "abc-science-f0a98c54",
+    "label": "human",
+    "group": "abc-science-f0a98c54",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "753c3195ec03b2610c62b08f94bc797384f948d299b34cc52a16400b2fee56f6",
+    "v3.2": 8.2
+   },
+   {
+    "id": "abc-science-83db68aa",
+    "label": "human",
+    "group": "abc-science-83db68aa",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "7cd21812d81a0030acccaecdfe8832fa8f12b09a37a89386f5e41dcf04204d64",
+    "v3.2": 7.1
+   },
+   {
+    "id": "abc-science-21ac74e4",
+    "label": "human",
+    "group": "abc-science-21ac74e4",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "0130ce7519b9fd189b8ef5bf9e14b56d784337859a19afaa6d2a5bd4e73b9fa0",
+    "v3.2": 3.1
+   },
+   {
+    "id": "abc-science-53c99b7f",
+    "label": "human",
+    "group": "abc-science-53c99b7f",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "a89d94711f8b0cef1f26e506e17bfc7d0ad3dc83d1d6061a7d55b728c10d1295",
+    "v3.2": 4.6
+   },
+   {
+    "id": "abc-science-4d157a7a",
+    "label": "human",
+    "group": "abc-science-4d157a7a",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "8bfcd06ef684c4c6fe078cdb26caeff35f5176afceb772f728380d84f0d224c6",
+    "v3.2": 2.5
+   },
+   {
+    "id": "abc-science-2e366e6a",
+    "label": "human",
+    "group": "abc-science-2e366e6a",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "895bdf777ba0f7fa2f03a7366d190bb0fbda8d1a4e5b73e8849d06a59a752b67",
+    "v3.2": 3.9
+   },
+   {
+    "id": "abc-science-0fe8f06a",
+    "label": "human",
+    "group": "abc-science-0fe8f06a",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "22dfc52e6d26c99534d614faa65a549288faa69367f4e93b779b7d92252eb187",
+    "v3.2": 2.4
+   },
+   {
+    "id": "abc-science-6697cc12",
+    "label": "human",
+    "group": "abc-science-6697cc12",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "35f6e1d148b713c57d37bf55141abc154ebf91302be1ab0f71fd3afdb4e8ee0e",
+    "v3.2": 16.2
+   },
+   {
+    "id": "abc-science-b1cb431c",
+    "label": "human",
+    "group": "abc-science-b1cb431c",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "a7fea33be2b8f40760bc8b5d8257a013f956522cbe810590b0b61b95c48223e4",
+    "v3.2": 4.1
+   },
+   {
+    "id": "abc-science-96ef6f9d",
+    "label": "human",
+    "group": "abc-science-96ef6f9d",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "d93cc3abfd1dbe493efd61c7911f124eebcd5a31368924c4745ac922b549f8ab",
+    "v3.2": 5.4
+   },
+   {
+    "id": "abc-science-10625cdd",
+    "label": "human",
+    "group": "abc-science-10625cdd",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "ac1752deeec707101aa4ffa8836e08ada1ffced76b294af5ecf5da497fe129b1",
+    "v3.2": 4.4
+   },
+   {
+    "id": "abc-science-78d3483a",
+    "label": "human",
+    "group": "abc-science-78d3483a",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "9575011f5351f7d9a10014632304496b4c6b501ee45703056e8caae6b734fb8e",
+    "v3.2": 4.1
+   },
+   {
+    "id": "abc-science-5d36a81a",
+    "label": "human",
+    "group": "abc-science-5d36a81a",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "4fc47f4746aa9c2e88b02e88c7364e36fe20433622e6dd52aee691259e4048cd",
+    "v3.2": 12.4
+   },
+   {
+    "id": "abc-science-95d29bd1",
+    "label": "human",
+    "group": "abc-science-95d29bd1",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "8d21d78e3c54e18f4fa89bd65e9d0c32284ef90b9422487676fa8a0408407b44",
+    "v3.2": 3.1
+   },
+   {
+    "id": "abc-science-ede4c91c",
+    "label": "human",
+    "group": "abc-science-ede4c91c",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "e35bd9e3ed89e263000477cb61bcb0d6c80a151819fe470b0469897cdb9d4a57",
+    "v3.2": 17.0
+   },
+   {
+    "id": "abc-science-1ec80b47",
+    "label": "human",
+    "group": "abc-science-1ec80b47",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "a816d7cc5b04d3acfb85ad9b54cca5f6b56fc60dc3874d4893b661948733ca17",
+    "v3.2": 23.6
+   },
+   {
+    "id": "abc-science-e3606740",
+    "label": "human",
+    "group": "abc-science-e3606740",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "4a86cb934354761b5b251589b55ef5c5c5cfe1bcb6be7e87c2e6631530baaa29",
+    "v3.2": 21.4
+   },
+   {
+    "id": "abc-science-9815f739",
+    "label": "human",
+    "group": "abc-science-9815f739",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "8e9e5b7c08a7307fbce47f5b97f1ce45c26293c3dbe9ac90b43814ecec2bb15b",
+    "v3.2": 18.7
+   },
+   {
+    "id": "abc-science-2636edb3",
+    "label": "human",
+    "group": "abc-science-2636edb3",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "7c3a69d7b019606ded73f405a045d78c0e0c5982c205abc22d7247adc98c44aa",
+    "v3.2": 8.9
+   },
+   {
+    "id": "abc-science-b743f293",
+    "label": "human",
+    "group": "abc-science-b743f293",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "2c23e33aa8f1ce6b1c53512933be18a6778aa29534c701c9f85ed37a47efa5d0",
+    "v3.2": 13.7
+   },
+   {
+    "id": "abc-science-87ebed23",
+    "label": "human",
+    "group": "abc-science-87ebed23",
+    "source": "ABC (Australian Broadcasting Corp.) science news, NLTK abc corpus",
+    "text_sha256": "dedbc5ab5332f1edf80bf4e13aaa0395c0f064cfad05c1ef5052071b360c2d8b",
+    "v3.2": 12.4
+   },
+   {
+    "id": "abc-rural-a471e09b",
+    "label": "human",
+    "group": "abc-rural-a471e09b",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "e7b1ed6db04c585608fa97ffb9fc6a0a54196be61cd1765cccd6747f32518ea2",
+    "v3.2": 1.0
+   },
+   {
+    "id": "abc-rural-ebd4d328",
+    "label": "human",
+    "group": "abc-rural-ebd4d328",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "2f521b6a3e0448e91a83e5d62af3cdb3a1b188a14536dd0b806795150a93f8f9",
+    "v3.2": 1.9
+   },
+   {
+    "id": "abc-rural-7efe15ef",
+    "label": "human",
+    "group": "abc-rural-7efe15ef",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "0cde011144da97c9c2c3e3f1bb0963593b8620ef3ce0a5734ff562b4208579a6",
+    "v3.2": 3.2
+   },
+   {
+    "id": "abc-rural-eb6f55ea",
+    "label": "human",
+    "group": "abc-rural-eb6f55ea",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "ec64b5bceb8d115ecc5712baf455b6cc0899963efe987e79ffe7d9c65ea17900",
+    "v3.2": 3.170773456953224
+   },
+   {
+    "id": "abc-rural-d380fa64",
+    "label": "human",
+    "group": "abc-rural-d380fa64",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "0180bc2063f7927400e4356ca63ffd8aa09fb4173ae7e340c7018a2d5fa8b353",
+    "v3.2": 2.2
+   },
+   {
+    "id": "abc-rural-bd9f6a3e",
+    "label": "human",
+    "group": "abc-rural-bd9f6a3e",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "fbb3968f2f8f2f319cfd828244f44ded7a989894e28946bef64c827361e85067",
+    "v3.2": 3.8
+   },
+   {
+    "id": "abc-rural-ea281bef",
+    "label": "human",
+    "group": "abc-rural-ea281bef",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "720753ba836ff0c7b67aaa5b7a280672630dfdf99f1909ccab1a54b13e516971",
+    "v3.2": 2.6
+   },
+   {
+    "id": "abc-rural-fc1f1f42",
+    "label": "human",
+    "group": "abc-rural-fc1f1f42",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "d65bde2cb9d3dc3a1894c16568c9b8ff053f99fb77e06276e730d4acabed162b",
+    "v3.2": 3.0
+   },
+   {
+    "id": "abc-rural-6f028178",
+    "label": "human",
+    "group": "abc-rural-6f028178",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "3adbcb61a5757aa47a60f556af3683b0ad3a82436e6ce32468a5e63c9af5e9f6",
+    "v3.2": 2.3
+   },
+   {
+    "id": "abc-rural-f3e02c24",
+    "label": "human",
+    "group": "abc-rural-f3e02c24",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "b7a7da44118b2a4d57311fbcd36f2ffc162ba41828d36b420a7d301f532eb595",
+    "v3.2": 1.2
+   },
+   {
+    "id": "abc-rural-7f76a913",
+    "label": "human",
+    "group": "abc-rural-7f76a913",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "cb96d94d1abc961b9045419d33a966bb28c1c33a8b8d1b4f03fffd4ea04fde94",
+    "v3.2": 7.2
+   },
+   {
+    "id": "abc-rural-a0e07713",
+    "label": "human",
+    "group": "abc-rural-a0e07713",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "68d3cea453d77560ffb49758e4ba9e412bcf6f1b844d0f9625f8ee34040291c1",
+    "v3.2": 2.5
+   },
+   {
+    "id": "abc-rural-f8dd5829",
+    "label": "human",
+    "group": "abc-rural-f8dd5829",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "66275f423b90fa8ebf5efc34accc8a3de1d217848d2b9976945aa573df4bfcff",
+    "v3.2": 1.7947172059522314
+   },
+   {
+    "id": "abc-rural-bf0ee1f0",
+    "label": "human",
+    "group": "abc-rural-bf0ee1f0",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "2574920ca9adebbc66c594704746e32a019384df655cc72fbe84c36dda18b2a8",
+    "v3.2": 1.5
+   },
+   {
+    "id": "abc-rural-39272c68",
+    "label": "human",
+    "group": "abc-rural-39272c68",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "5f285ed0c9d2f5b74c4f14c460cd4facba024a8b98372ae82c627561c2e269b6",
+    "v3.2": 1.3
+   },
+   {
+    "id": "abc-rural-d2e6cffb",
+    "label": "human",
+    "group": "abc-rural-d2e6cffb",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "3e5336385472bd1b9147530567d8efdc49bbd820cfa0920db6098040e89c6379",
+    "v3.2": 2.5
+   },
+   {
+    "id": "abc-rural-ad746af7",
+    "label": "human",
+    "group": "abc-rural-ad746af7",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "e6d2e1d9c467ee7da04795d93e868cacb22c9c7a0328ca7b638b46eaede335b7",
+    "v3.2": 7.6
+   },
+   {
+    "id": "abc-rural-b0496052",
+    "label": "human",
+    "group": "abc-rural-b0496052",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "80f588aae3141f9d8fcae9db559101fc2cc92929177fafb1804da93e31aca959",
+    "v3.2": 2.207347595776112
+   },
+   {
+    "id": "abc-rural-5e25d209",
+    "label": "human",
+    "group": "abc-rural-5e25d209",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "998b0d007a98ec7acd2f03a3e55355ed07adbce6a90790e77859252b49f8098d",
+    "v3.2": 5.5
+   },
+   {
+    "id": "abc-rural-07c526ef",
+    "label": "human",
+    "group": "abc-rural-07c526ef",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "4ab434daa2555f091988bc9e6f9215cce2e7641e5ec1d0aa554bd54accf474f0",
+    "v3.2": 2.4
+   },
+   {
+    "id": "abc-rural-e077c069",
+    "label": "human",
+    "group": "abc-rural-e077c069",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "bab38fc693c5855bfef72349cce7fae2be9d3e92649d8242f0de44f808851006",
+    "v3.2": 1.3
+   },
+   {
+    "id": "abc-rural-e4ac86dd",
+    "label": "human",
+    "group": "abc-rural-e4ac86dd",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "303a4bc3d12b99cf66b9588e7076c95abf85d27160e49f30b412f33259833aa4",
+    "v3.2": 10.5
+   },
+   {
+    "id": "abc-rural-95573e16",
+    "label": "human",
+    "group": "abc-rural-95573e16",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "b65438857523e880a462b8719920a16c88c903974c2d35cb6c292cd9a8af3a28",
+    "v3.2": 2.7
+   },
+   {
+    "id": "abc-rural-2bfd2e89",
+    "label": "human",
+    "group": "abc-rural-2bfd2e89",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "ecc9b86a66488a172fcb2881c2d12d6e6d8b49c3dcc8313caacd8a6e72036f74",
+    "v3.2": 9.466179482922117
+   },
+   {
+    "id": "abc-rural-b385542c",
+    "label": "human",
+    "group": "abc-rural-b385542c",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "847f0f42d2e4256ab455f66ac2c020fc8315d7b6b5074779fa4ff1221ae784b3",
+    "v3.2": 1.876474792124642
+   },
+   {
+    "id": "abc-rural-a917997e",
+    "label": "human",
+    "group": "abc-rural-a917997e",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "0f77975633e22427cdcc8f37a42761c8cd8dba25b426a7c7ce71d5aed0f34b91",
+    "v3.2": 14.267805348087817
+   },
+   {
+    "id": "abc-rural-f909b8a2",
+    "label": "human",
+    "group": "abc-rural-f909b8a2",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "dfd54041fb6b75a08f082fd6172be2b9d648e69d5f34d37c9fe0ed3dd292c83f",
+    "v3.2": 6.20791600087285
+   },
+   {
+    "id": "abc-rural-e4223904",
+    "label": "human",
+    "group": "abc-rural-e4223904",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "ced2f73e136e1a2688ecc110e61e8a48384eb96f5daca2fd9ba8c32866d4c715",
+    "v3.2": 2.5
+   },
+   {
+    "id": "abc-rural-a4f0a633",
+    "label": "human",
+    "group": "abc-rural-a4f0a633",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "f120b3bad4bfd04dc478c92dcbb6641b63e92acdd32534723d1bcaed02386101",
+    "v3.2": 1.4409070997564608
+   },
+   {
+    "id": "abc-rural-a2b32d91",
+    "label": "human",
+    "group": "abc-rural-a2b32d91",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "d85bd2062c446fad1b000eb6839fe207bcb680b7db1c035c3d01cf7ae666606e",
+    "v3.2": 18.439322197759058
+   },
+   {
+    "id": "abc-rural-3c4e104d",
+    "label": "human",
+    "group": "abc-rural-3c4e104d",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "4005d2bbd66f6f299b07679629d5d80e7608d189c7232af5d2fcfd9854829553",
+    "v3.2": 3.9
+   },
+   {
+    "id": "abc-rural-de2254b7",
+    "label": "human",
+    "group": "abc-rural-de2254b7",
+    "source": "ABC (Australian Broadcasting Corp.) rural news, NLTK abc corpus",
+    "text_sha256": "5761debedb5e16c4b4d2ab606834705057472188cb462dfb861907abfd86dfe5",
+    "v3.2": 6.539221138387197
+   },
+   {
+    "id": "ai01",
+    "label": "generated",
+    "group": "cuneiform",
+    "source": "assistant-generated expository essay",
+    "text_sha256": "6c3debe074e7cb1be8b6efc63d9ee040e97f26f2dded29c89da62543ec77487e",
+    "v3.2": 92.2
+   },
+   {
+    "id": "ai03",
+    "label": "generated",
+    "group": "printing press",
+    "source": "assistant-generated expository essay",
+    "text_sha256": "c69356a6e6a0c772c739de964776f47469caac2008b59f0fa37730a6630024a4",
+    "v3.2": 93.1
+   },
+   {
+    "id": "ai10",
+    "label": "generated",
+    "group": "volcanoes",
+    "source": "assistant-generated expository essay",
+    "text_sha256": "ec4217a65bc960b4f1ce200c9f26ec94b0e7854fb62c40af412766f4140f3d5f",
+    "v3.2": 85.4
+   },
+   {
+    "id": "ai13",
+    "label": "generated",
+    "group": "linear b",
+    "source": "assistant-generated expository essay",
+    "text_sha256": "11ab192fff845db652e9fdad8c96781650d804b551eaab792dd36dd2c0be1d41",
+    "v3.2": 88.8
+   },
+   {
+    "id": "ai14",
+    "label": "generated",
+    "group": "bees",
+    "source": "assistant-generated expository essay",
+    "text_sha256": "6697c3cfee3987ef72dd04f86c1dcd2b30a63ecb275539717befce3479cc13af",
+    "v3.2": 96.7
+   },
+   {
+    "id": "ai15",
+    "label": "generated",
+    "group": "chinese characters",
+    "source": "assistant-generated expository essay",
+    "text_sha256": "6561764f0dad34b81b2d55e43cb081528b475e5f41fbb0eff77051cc3a815b07",
+    "v3.2": 91.3
+   },
+   {
+    "id": "ai20",
+    "label": "generated",
+    "group": "ottoman turkish",
+    "source": "assistant-generated expository essay",
+    "text_sha256": "09e49a5d7f13c35b20738e2951e7cc5a5620a74486f96d03a04d2846a6ede357",
+    "v3.2": 22.5
+   },
+   {
+    "id": "ai21",
+    "label": "generated",
+    "group": "telegraph",
+    "source": "assistant-generated expository essay",
+    "text_sha256": "ebc8d39752804f50c2479aedd96dbe9ae89ae71b1a03a5e737c004eee5213b03",
+    "v3.2": 11.2
+   },
+   {
+    "id": "ai24",
+    "label": "generated",
+    "group": "rice cultivation asia",
+    "source": "assistant-generated expository essay",
+    "text_sha256": "d1bf57e601f0d4a0cd89b328a6988565ab1d21c56515f913ba18be71dfdee46a",
+    "v3.2": 90.5
+   },
+   {
+    "id": "ai29",
+    "label": "generated",
+    "group": "glaciers",
+    "source": "assistant-generated expository essay",
+    "text_sha256": "8afd6d97af2466b0e120f82ebdb779e13312c66a11dd348d47687dc239294f8b",
+    "v3.2": 78.7
+   },
+   {
+    "id": "ai32",
+    "label": "generated",
+    "group": "venice",
+    "source": "assistant-generated expository essay",
+    "text_sha256": "af632e98dc04bca4aef4c627d17bdf26ce5ab53bd46cec9d479031c6bc8c036d",
+    "v3.2": 54.2
+   },
+   {
+    "id": "ai33",
+    "label": "generated",
+    "group": "deserts",
+    "source": "assistant-generated expository essay",
+    "text_sha256": "0f8ffa5f9bc971e4b9a012e4f70c388cceb605899ccb37d8a48873b360e51587",
+    "v3.2": 21.7
+   },
+   {
+    "id": "ai35",
+    "label": "generated",
+    "group": "mapmaking",
+    "source": "assistant-generated expository essay",
+    "text_sha256": "f10f6d4147763fed31e0180f0c61ea343ebe98689cec72fc03ebe8304cb56d3e",
+    "v3.2": 54.8
+   }
+  ]
+ },
+ "method": "class-balanced L2 logistic regression on the v3.1 evidence vector; coefficients must keep the sign of the engine's prior weight (positive for derived inputs); gate = maximum training-human decision value.",
+ "limitations": [
+  "Generated essays come from one assistant model family; not population recall for other models.",
+  "Human side is pre-2020 published prose (1921-2006); no student essays or non-native English.",
+  "The gate is the maximum of 339 training humans; one outlier sets it.",
+  "Document-level only: the paragraph map and highlights are unchanged."
+ ]
+}

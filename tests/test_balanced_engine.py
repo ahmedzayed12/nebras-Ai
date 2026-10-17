@@ -66,7 +66,7 @@ def test_arabic_uses_explicit_fallback_instead_of_english_validation_claim():
 
 def test_published_score_has_one_reproducible_equation_and_localisation():
     r = b.analyze_uploaded_bytes("equation.docx", docx(CONTROLS[0]["text"]))
-    assert r.final_score == round((r.balanced.global_score + r.balanced.local_score) / 2, 1)
+    assert r.final_score == round((r.balanced.global_score + r.balanced.local_score) / 2 + r.balanced.head_lift, 1)
     assert b.primary_paragraph_scores(r) == r.balanced.paragraphs
     assert b.primary_segmentation(r) is r.balanced.segmentation
     assert r.score_engine == r.score_stages[0]["score"]
