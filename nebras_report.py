@@ -3,9 +3,10 @@
 
 This module NEVER calculates or alters an engine score. It only
   1. keeps the original engine's document-wide score as the headline result;
-     shades the passages the evidence LOCATED - whole sentences / whole paragraphs, using the wording
-     verdicts plus the paragraph provenance read from the Word XML (provenance.py) - and a paler tint
-     for probable ones. Nothing is shaded merely to reach the document score;
+     shades whole sentences so that the shaded share of the eligible words equals that score: the
+     passages the evidence LOCATED come first (wording verdicts plus the paragraph provenance read
+     from the Word XML, provenance.py), and any remaining share is filled, in a paler tint, with the
+     complete sentences of the paragraphs the engine rated most suspicious;
   2. applies the shading to a COPY of the uploaded DOCX (run-level background only: text, fonts,
      spacing and layout are untouched, and any highlight that already existed is removed first);
   3. renders that copy to PDF with Microsoft Word or LibreOffice, so the pages look exactly like the
@@ -100,7 +101,7 @@ SOFT = STRONG / 2    # retained, partial wording evidence; never formatting or n
 MIN_SENT_WORDS = 4   # a 1-3 word fragment is never shaded by paragraph membership alone
 MIN_WORDS = 40       # engine: below 40 words it refuses to judge
 HIGHLIGHT_HEX = "8EE3F5"     # strong: directly flagged by sentence / paragraph heuristic
-SOFT_HIGHLIGHT_HEX = "DDF5FA"  # supplementary, visibly paler cyan (partial wording evidence)
+SOFT_HIGHLIGHT_HEX = "C4EDF7"  # supplementary, visibly paler cyan (probable, or filled to reach the index)
 HUMAN_TRACE = {"repeated_word", "typo_en", "repeat_punct", "lower_start", "mixed_punct_script", "ar_orth"}
 
 
@@ -241,9 +242,9 @@ def _source_shading(rep, paras, plan: "Plan", mm):
 
 
 # ---------------------------------------------------------------- what to shade
-# The shading answers ONE question: "which passages of this file did the evidence locate?". It is never padded to
-# reach the document index (the old allocation step painted human paragraphs pale cyan just to make the shaded
-# share equal the index). Units are whole paragraphs or whole sentences - never a cut inside a sentence.
+# The shaded share of the eligible words matches the document index. Located passages are chosen first; when they
+# cover less than the index, the remaining share is filled with the complete sentences of the paragraphs the engine
+# scored highest (paler tint). Units are whole paragraphs or whole sentences - never a cut inside a sentence.
 P_STRONG = 0.55        # combined probability that makes a paragraph a located (strong) passage
 P_SOFT = 0.30          # probable passage: partial evidence, shown in the paler tint
 MIN_WORDING = 12       # a paragraph the wording scores below this is never shaded because of its file traces
@@ -414,15 +415,34 @@ def _merge_ranges(ranges):
     return out
 
 
-def balance_to_engine_index(rep, paras, plan: Plan) -> Plan:
-    """Select whole, evidenced units and reconcile probable coverage with the index.
+def _fit_to_target(target, candidates, words_in, taken=()):
+    """Pick ranked whole units while each one moves the covered word count closer to `target`.
 
-    Strong passages have priority. Remaining coverage comes only from the
-    probable sentences located by plan_highlights, strongest first. Stop when
-    another complete sentence would move coverage farther from the target.
-    Insufficient local evidence leaves a gap rather than inventing locations.
-    The headline remains the heuristic index, not a calibrated authorship
-    probability. Whole-unit overshoot remains bounded by INDEX_SLACK.
+    Units overlapping an already taken range (or each other) are skipped, so nothing is counted twice.
+    Returns (kept units, words covered).
+    """
+    used, kept, taken = 0, [], list(taken)
+    for u in candidates:
+        _lv, _c, i, a, b = u
+        if any(j == i and a < y and x < b for j, x, y in taken):
+            continue
+        w = words_in(i, a, b)
+        if w and abs(target - used - w) < abs(target - used):
+            kept.append(u)
+            taken.append((i, a, b))
+            used += w
+    return kept, used
+
+
+def balance_to_engine_index(rep, paras, plan: Plan) -> Plan:
+    """Select whole units so that the shaded share equals the engine index.
+
+    Located passages have priority: strong ones first, then the probable
+    sentences located by plan_highlights, strongest first. When they cover less
+    than the index, the gap is filled (paler tint) with the complete sentences
+    of the body paragraphs the engine scored highest. A unit is taken only when
+    it moves coverage closer to the target, so the shaded share differs from the
+    index by at most half a sentence; overshoot stays bounded by INDEX_SLACK.
     """
     plan.engine_index = ba.primary_score(rep) if plan.sufficient else None
     if not plan.sufficient:
@@ -436,10 +456,13 @@ def balance_to_engine_index(rep, paras, plan: Plan) -> Plan:
     def words_in(i, a, b):
         return len(eng.WORD_RE.findall(texts[i][a:b]))
 
-    def sents_in(i, a, b):
+    def sentences(i):
         if i not in spans:
             spans[i] = eng.split_sentences(texts[i])
-        return sum(1 for x, y in spans[i] if a <= x and y <= b)
+        return spans[i]
+
+    def sents_in(i, a, b):
+        return sum(1 for x, y in sentences(i) if a <= x and y <= b)
 
     budget = plan.target_words + int(plan.qualifying_words * INDEX_SLACK / 100.0)
     units = sorted(plan.units, key=lambda u: (u[0] != "strong", -u[1], u[2], u[3]))
@@ -451,6 +474,17 @@ def balance_to_engine_index(rep, paras, plan: Plan) -> Plan:
         if within_budget and closer:
             kept.append(u)
             used += w
+    if used < plan.target_words:
+        # Located evidence covers less than the index: complete the share with whole sentences of the
+        # paragraphs the engine scored highest (document order breaks ties).
+        pscore = {i: sc for i, sc, _n in getattr(rep, "para_scores", ())}
+        fill = [("soft", pscore.get(i, 0.0), i, a, b)
+                for i, p in enumerate(paras) if getattr(p, "role", "body") in ("body", "list")
+                for a, b in sentences(i)]
+        fill.sort(key=lambda u: (-u[1], u[2], u[3]))
+        extra, _w = _fit_to_target(plan.target_words - used, fill, words_in,
+                                   [(u[2], u[3], u[4]) for u in kept])
+        kept += extra
     plan.units = kept
     _materialise(plan, kept, words_in, sents_in)
     return plan
@@ -981,7 +1015,7 @@ def _cover(doc, rep, plan, meta, page_total, *, page=None):
          '<div class="lbl">Overall AI style index (engine)</div>'
          % (int(col[0] * 255), int(col[1] * 255), int(col[2] * 255), _esc(percent_label(plan))))
     if plan.sufficient and getattr(rep, "segmentation", None) is not None:
-        ar = "التظليل يعرض المقاطع التي أمكن تحديدها فعليًا؛ قد تقل تغطيته عن مؤشر الاشتباه عند تعذر مطابقة النص."
+        ar = "نسبة الكلمات المظللة تساوي النتيجة النهائية؛ الأقل يقينًا مظلل بلون أفتح."
         stat = ("<b>%d</b> of <b>%d</b> eligible words highlighted"
                 % (plan.total_words, plan.qualifying_words))
     elif plan.sufficient:
@@ -1001,7 +1035,7 @@ def _cover(doc, rep, plan, meta, page_total, *, page=None):
                    fill=(0.88, 0.9, 0.93), radius=0.5)
     if plan.sufficient and plan.total_words:
         page.draw_rect(pymupdf.Rect(bx0, by, bx0 + length * plan.total_percent / 100, by + 12),
-                       color=None, fill=(0.83, 0.95, 0.975), radius=0.5)
+                       color=None, fill=(0.77, 0.93, 0.97), radius=0.5)
     if plan.sufficient and plan.flagged_words:
         page.draw_rect(pymupdf.Rect(bx0, by, bx0 + length * strong_pct / 100, by + 12),
                        color=None, fill=CYAN, radius=0.5)
@@ -1260,18 +1294,21 @@ def plan_from_segmentation(rep, paras) -> Plan | None:
         return plan
     plan.engine_index = ba.primary_score(rep)
     import segment_signals as sg
-    chosen = []                                            # ("strong", probability, para, start, end): whole sentences
-    for post, _k, idx, _w in units:
-        if post < sg.SUSPECT:
-            continue
+    # Whole sentences, most probable units first; units above the evidence threshold are strong, the
+    # rest (used only when needed to reach the index) are shown in the paler tint.
+    ranked = []                                            # (level, probability, para, start, end)
+    for post, _k, idx, _w in sorted(units, key=lambda x: (-x[0], x[1])):
+        lv = "strong" if post >= sg.SUSPECT else "soft"
         for i in idx:
             text = paras[i].text
-            chosen += [("strong", post, i, a, b) for a, b in eng.split_sentences(text)
+            ranked += [(lv, post, i, a, b) for a, b in eng.split_sentences(text)
                        if eng.WORD_RE.search(text[a:b])]
-    plan.target_words = sum(len(eng.WORD_RE.findall(paras[i].text[a:b])) for _l, _p, i, a, b in chosen)
+    words_in = lambda i, a, b: len(eng.WORD_RE.findall(paras[i].text[a:b]))
+    plan.target_words = max(0, min(plan.qualifying_words,
+                                   int(plan.qualifying_words * plan.engine_index / 100.0 + 0.5)))
+    chosen, _used = _fit_to_target(plan.target_words, ranked, words_in)
     plan.units = chosen
-    _materialise(plan, chosen,
-                 lambda i, a, b: len(eng.WORD_RE.findall(paras[i].text[a:b])),
+    _materialise(plan, chosen, words_in,
                  lambda i, a, b: sum(a <= x and y <= b for x, y in eng.split_sentences(paras[i].text)))
     return plan
 

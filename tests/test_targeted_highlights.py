@@ -167,4 +167,5 @@ def test_proofread_impersonal_measurements_with_tables_are_not_flagged():
     r = ba.analyze_uploaded_bytes("measurements.docx", data.getvalue())
     assert r.score < 30
     p = nr.compute_plan(r, filename="measurements.docx", data=data.getvalue())
-    assert not p.flags and not p.soft_flags
+    assert not p.flags  # nothing located; only the pale tint, sized to the low final result
+    assert abs(p.total_percent - p.engine_index) <= 5.0

@@ -16,6 +16,7 @@ import zipfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import backend_adapter as ba   # noqa: E402
 import nebras_report as nr     # noqa: E402
+from tests.test_highlight_coverage import assert_coverage_matches_index  # noqa: E402
 import provenance as pv        # noqa: E402
 
 HUMAN = [
@@ -88,12 +89,13 @@ def test_pasted_block_is_located_as_supported_whole_sentences():
             assert a in {x for x, _ in spans}
             assert b in {y for _, y in spans}
     for i in (0, 1, 2, 6):
-        assert _cover(plan, paras, i) == (0.0, 0.0)        # human paragraphs untouched, not even the pale tint
+        assert _cover(plan, paras, i)[0] == 0.0            # human paragraphs never get the strong tint
 
 
-def test_clean_document_gets_no_shading():
+def test_clean_document_gets_no_strong_shading_and_matches_its_index():
     _rep, paras, plan = _plan(_docx([_p(t) for t in HUMAN * 3]))
-    assert not plan.flags and not plan.soft_flags
+    assert not plan.flags
+    assert_coverage_matches_index(plan, paras)
 
 
 def test_human_web_paste_with_chat_formatting_is_not_shaded():
@@ -103,15 +105,14 @@ def test_human_web_paste_with_chat_formatting_is_not_shaded():
     assert not plan.flags and not plan.soft_flags
 
 
-def test_shading_is_not_stretched_to_the_document_index():
-    """Index ~100 used to paint every human paragraph pale cyan so the shaded share equalled the index."""
+def test_shading_equals_the_document_index_and_strong_tint_stays_located():
     data = _docx([_p(t) for t in HUMAN[:3]] + [_p(t, CHAT, UI, "00BB0002") for t in AI] + [_p(HUMAN[3], rsid="00AA0003")])
     rep, paras, plan = _plan(data)
     assert rep.score_pooled > 90
     assert rep.score < rep.score_pooled   # mixed local evidence now limits the pooled saturation
-    assert set(plan.soft_flags) <= {3, 4, 5}  # only AI sentences with their own partial wording evidence
-    assert not ({0, 1, 2, 6} & (set(plan.flags) | set(plan.soft_flags)))
+    assert not ({0, 1, 2, 6} & set(plan.flags))
     assert plan.flagged_words < plan.qualifying_words
+    assert_coverage_matches_index(plan, paras)
 
 
 def test_no_unit_is_cut_inside_a_sentence():
@@ -131,7 +132,8 @@ def test_document_wide_trace_does_not_localise():
     prov = pv.read(data)
     assert all(p.sig is None and p.direct == 0.0 for p in prov.values())
     _rep, paras, plan = _plan(data)
-    assert not plan.flags and not plan.soft_flags
+    assert not plan.flags
+    assert_coverage_matches_index(plan, paras)
 
 
 def test_structural_slips_do_not_count_toward_ai():

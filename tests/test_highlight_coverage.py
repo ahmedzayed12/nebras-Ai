@@ -30,6 +30,14 @@ def test_partial_wording_does_not_override_local_human_traces(trace):
     assert not plan.flags and not plan.soft_flags
 
 
+def assert_coverage_matches_index(plan, paras):
+    """Whole-sentence granularity: coverage is within half of the longest sentence of the index."""
+    eng = ba.get_engine()
+    longest = max(len(eng.WORD_RE.findall(p.text[a:b])) for p in paras for a, b in eng.split_sentences(p.text))
+    assert abs(plan.total_words - plan.qualifying_words * plan.engine_index / 100.0) <= longest / 2 + 0.5, (
+        plan.total_words, plan.qualifying_words, plan.engine_index)
+
+
 def _coverage_plan(score):
     # 100 words, distinct 10-word complete sentences. Evidence locates the
     # first four only; the remaining six are deliberately unsupported.
@@ -53,11 +61,13 @@ def test_strong_and_probable_coverage_reaches_target_without_word_padding():
                for a, b in ranges[0])
 
 
-def test_insufficient_evidence_does_not_paint_to_an_unsupported_target():
+def test_insufficient_evidence_is_completed_to_the_index_with_whole_sentences():
     plan, _text, spans = _coverage_plan(80)
     assert plan.engine_index == 80
-    assert plan.total_percent == 40  # a visible gap is preferable to fabricated evidence
-    assert plan.soft_flags == {0: spans[1:4]}
+    assert plan.total_percent == 80  # shading always equals the final result
+    assert plan.flags == {0: [spans[0]]}  # strong tint stays on located evidence only
+    assert plan.soft_flags == {0: spans[1:8]}
+    assert all(u in plan.units for u in [("soft", 80 - i, 0, *spans[i]) for i in range(1, 4)])
 
 
 def test_strong_passages_also_stop_when_coverage_would_move_farther_from_target():
