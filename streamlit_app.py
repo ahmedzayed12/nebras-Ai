@@ -510,7 +510,6 @@ def input_desk():
                     st.error(str(ex))
     elif selection == MODE_FILE:
         uploaded = st.file_uploader("ملف Word أو نص (DOCX / TXT / MD)", type=_picker_types(), key=f"one_file_{n}")
-        st.caption("DOCX / TXT / MD / TEXT — حتى 25 MB. انتظر اكتمال الرفع. لملفات Drive أو iCloud أو WhatsApp، احفظ نسخة على الجهاز إذا تعذّر رفعها.")
         upload_error = None
         if uploaded is not None:
             try:
