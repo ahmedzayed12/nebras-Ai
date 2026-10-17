@@ -10,6 +10,7 @@ indices rather than calibrated probabilities of authorship.
 from __future__ import annotations
 
 import csv
+import codecs
 import hashlib
 import importlib.machinery
 import importlib.util
@@ -1557,7 +1558,9 @@ def sniff_extension(data: bytes) -> str:
         return ".doc"
     for enc in ("utf-8-sig", "utf-16"):
         try:
-            sample = head.decode(enc)
+            # A phone filename may be missing its extension. Do not reject valid
+            # text because the sample ends halfway through a multibyte character.
+            sample = codecs.getincrementaldecoder(enc)().decode(head, final=False)
         except Exception:
             continue
         if sample and sum(c.isprintable() or c in "\r\n\t" for c in sample) / len(sample) > 0.95:
@@ -1583,6 +1586,33 @@ def normalize_upload_name(name: str, mime: str = "", data: bytes | None = None) 
     return name + ext if ext else name
 
 
+def prepare_ui_upload(name: str, mime: str, data: bytes, *, allow_zip: bool = False) -> str:
+    """Validate the received file independently of the mobile picker's metadata."""
+    if not data:
+        raise ValueError("الملف فارغ أو لم يكتمل تنزيله من الهاتف. احفظ نسخة محلية ثم أعد رفعها.")
+    if len(data) > MAX_FILE_BYTES:
+        raise ValueError("حجم الملف يتجاوز 25 MB. ارفع ملفًا أصغر أو قسّمه إلى ملفات.")
+    normalized = normalize_upload_name(name, mime, data)
+    suffix = Path(normalized).suffix.lower()
+    detected = sniff_extension(data)
+    if suffix == ".doc":
+        raise ValueError("هذا ملف Word قديم (DOC). افتحه في Word واحفظ نسخة بصيغة DOCX ثم ارفعها.")
+    allowed = {".docx", ".txt", ".md", ".text"} | ({".zip"} if allow_zip else set())
+    if suffix not in allowed:
+        raise ValueError("ارفع ملف DOCX أو TXT أو MD أو TEXT" + (" أو ZIP" if allow_zip else "")
+                         + ". لملف PDF، ارفع نسخة Word. للملفات السحابية، نزّل الملف أولًا على الهاتف.")
+    if suffix in {".docx", ".zip"} and detected != suffix:
+        raise ValueError("محتوى الملف لا يطابق صيغته أو أن الملف تالف. افتحه واحفظ نسخة جديدة ثم أعد الرفع.")
+    if suffix in {".txt", ".md", ".text"} and detected != ".txt":
+        # Preserve legacy Arabic text support, but do not feed images or binary
+        # attachments renamed .txt to the text decoder.
+        sample = data[:8192].decode("cp1256", errors="replace")
+        if ("\x00" in sample or "\ufffd" in sample
+                or sum(c.isprintable() or c in "\r\n\t" for c in sample) / len(sample) < 0.95):
+            raise ValueError("الملف ليس نصًا مقروءًا. صدّره بصيغة TXT بترميز UTF-8 أو بصيغة DOCX ثم أعد الرفع.")
+    return normalized
+
+
 def analyze_pasted(text: str):
     """Analyze prose after math guarding and document/paragraph evidence aggregation."""
     return analyze_text_guarded(text)
@@ -1601,10 +1631,14 @@ def analyze_uploaded_bytes(filename: str, content: bytes):
         from pdf_input import extract_pdf_text
         return analyze_text_guarded(extract_pdf_text(content), source=name, deck=_read_deck(content), from_pdf=True)
     with tempfile.TemporaryDirectory(prefix="ai_inspector_") as tmp:
-        path = Path(tmp) / name
+        # Long Arabic/share-provider filenames can exceed the filesystem's byte
+        # limit even when the browser accepted them. Keep the display name only.
+        path = Path(tmp) / ("input" + Path(name).suffix.lower())
         path.write_bytes(content)
         if path.suffix.lower() == ".docx":
-            return analyze_docx_guarded(str(path), content)
+            report = analyze_docx_guarded(str(path), content)
+            report.source = name
+            return report
         if path.suffix.lower() in (".txt", ".md", ".text"):
             return analyze_text_guarded(get_engine()._read_txt(str(path)), source=name)
         report = get_engine().analyze_file(str(path))
